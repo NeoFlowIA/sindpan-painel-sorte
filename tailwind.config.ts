@@ -52,6 +52,13 @@ export default {
 					DEFAULT: 'hsl(var(--card))',
 					foreground: 'hsl(var(--card-foreground))'
 				},
+				// Custom dashboard colors
+				'dashboard-bg': 'hsl(var(--dashboard-bg))',
+				'chart-primary': 'hsl(var(--chart-primary))',
+				'chart-secondary': 'hsl(var(--chart-secondary))',
+				'chart-accent': 'hsl(var(--chart-accent))',
+				success: 'hsl(var(--success))',
+				warning: 'hsl(var(--warning))',
 				sidebar: {
 					DEFAULT: 'hsl(var(--sidebar-background))',
 					foreground: 'hsl(var(--sidebar-foreground))',
