@@ -7,6 +7,7 @@ import {
   Settings,
   Home
 } from "lucide-react";
+import sindpanLogo from "@/assets/sindpan-logo.png";
 import { NavLink } from "react-router-dom";
 import {
   Sidebar,
@@ -23,11 +24,11 @@ import {
 
 const navigation = [
   { title: "Dashboard", url: "/", icon: Home },
-  { title: "Participants", url: "/participants", icon: Users },
-  { title: "Bakeries", url: "/bakeries", icon: Store },
-  { title: "Raffles", url: "/raffles", icon: Trophy },
-  { title: "Reports", url: "/reports", icon: FileText },
-  { title: "Settings", url: "/settings", icon: Settings },
+  { title: "Participantes", url: "/participantes", icon: Users },
+  { title: "Padarias", url: "/padarias", icon: Store },
+  { title: "Sorteios", url: "/sorteios", icon: Trophy },
+  { title: "Relatórios", url: "/relatorios", icon: FileText },
+  { title: "Configurações", url: "/configuracoes", icon: Settings },
 ];
 
 export function AppSidebar() {
@@ -38,13 +39,15 @@ export function AppSidebar() {
     <Sidebar className={collapsed ? "w-14" : "w-64"}>
       <SidebarHeader className="border-b border-border p-4">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-gradient-to-br from-primary to-secondary rounded-lg flex items-center justify-center">
-            <BarChart3 className="w-5 h-5 text-primary-foreground" />
-          </div>
+          <img 
+            src={sindpanLogo} 
+            alt="SINDPAN Logo" 
+            className="w-8 h-8 object-contain"
+          />
           {!collapsed && (
             <div>
               <h2 className="text-sm font-semibold text-primary">SINDPAN</h2>
-              <p className="text-xs text-muted-foreground">Dashboard</p>
+              <p className="text-xs text-muted-foreground">Ceará</p>
             </div>
           )}
         </div>
