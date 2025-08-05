@@ -36,8 +36,8 @@ const dailyTrends = [
 ];
 
 const participationData = [
-  { name: "Top 5 Bakeries", value: 65, color: "hsl(var(--chart-primary))" },
-  { name: "Others", value: 35, color: "hsl(var(--chart-secondary))" },
+  { name: "Top 5 Padarias", value: 65, color: "hsl(var(--chart-primary))" },
+  { name: "Outras", value: 35, color: "hsl(var(--chart-secondary))" },
 ];
 
 export function DashboardCharts() {
