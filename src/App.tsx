@@ -3,6 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { DashboardLayout } from "@/components/DashboardLayout";
 import Index from "./pages/Index";
 import Sorteios from "./pages/Sorteios";
 import Participantes from "./pages/Participantes";
@@ -10,6 +11,8 @@ import Padarias from "./pages/Padarias";
 import Relatorios from "./pages/Relatorios";
 import Configuracoes from "./pages/Configuracoes";
 import NotFound from "./pages/NotFound";
+import { LoginPadaria } from "./pages/padaria/Login";
+import { PadariaDashboard } from "./pages/padaria/Dashboard";
 
 const queryClient = new QueryClient();
 
@@ -20,13 +23,60 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/sorteios" element={<Sorteios />} />
-          <Route path="/participantes" element={<Participantes />} />
-          <Route path="/padarias" element={<Padarias />} />
-          <Route path="/relatorios" element={<Relatorios />} />
-          <Route path="/configuracoes" element={<Configuracoes />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+          {/* Admin Routes */}
+          <Route
+            path="/"
+            element={
+              <DashboardLayout>
+                <Index />
+              </DashboardLayout>
+            }
+          />
+          <Route
+            path="/participantes"
+            element={
+              <DashboardLayout>
+                <Participantes />
+              </DashboardLayout>
+            }
+          />
+          <Route
+            path="/padarias"
+            element={
+              <DashboardLayout>
+                <Padarias />
+              </DashboardLayout>
+            }
+          />
+          <Route
+            path="/sorteios"
+            element={
+              <DashboardLayout>
+                <Sorteios />
+              </DashboardLayout>
+            }
+          />
+          <Route
+            path="/relatorios"
+            element={
+              <DashboardLayout>
+                <Relatorios />
+              </DashboardLayout>
+            }
+          />
+          <Route
+            path="/configuracoes"
+            element={
+              <DashboardLayout>
+                <Configuracoes />
+              </DashboardLayout>
+            }
+          />
+
+          {/* Padaria Routes */}
+          <Route path="/padaria/login" element={<LoginPadaria />} />
+          <Route path="/padaria/dashboard" element={<PadariaDashboard />} />
+          
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
