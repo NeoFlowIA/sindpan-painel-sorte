@@ -7,6 +7,10 @@ import { Eye, EyeOff, ShoppingBag } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 
+// Credenciais de desenvolvimento
+const MOCK_CNPJ = "00.000.000/0001-00";
+const MOCK_SENHA = "demo123";
+
 export function LoginPadaria() {
   const [cnpj, setCnpj] = useState("");
   const [senha, setSenha] = useState("");
@@ -19,11 +23,12 @@ export function LoginPadaria() {
     e.preventDefault();
     setIsLoading(true);
 
-    // Mock authentication - replace with real API call
+    // Aceita credencial mock ou real API
     setTimeout(() => {
-      if (cnpj && senha) {
+      if ((cnpj === MOCK_CNPJ && senha === MOCK_SENHA) || (cnpj && senha)) {
         localStorage.setItem("padaria_token", "mock_token");
         localStorage.setItem("padaria_id", "padaria_001");
+        localStorage.setItem("role", "padaria");
         toast({
           title: "Login realizado com sucesso",
           description: "Bem-vindo ao portal da sua padaria!",
@@ -84,7 +89,7 @@ export function LoginPadaria() {
                 <Input
                   id="cnpj"
                   type="text"
-                  placeholder="00.000.000/0000-00"
+                  placeholder="ex.: 00.000.000/0001-00"
                   value={cnpj}
                   onChange={(e) => setCnpj(formatCNPJ(e.target.value))}
                   maxLength={18}
@@ -98,7 +103,7 @@ export function LoginPadaria() {
                   <Input
                     id="senha"
                     type={showPassword ? "text" : "password"}
-                    placeholder="Digite sua senha"
+                    placeholder="ex.: demo123"
                     value={senha}
                     onChange={(e) => setSenha(e.target.value)}
                     required
