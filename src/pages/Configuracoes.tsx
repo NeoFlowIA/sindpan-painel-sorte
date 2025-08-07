@@ -1,4 +1,3 @@
-import { DashboardLayout } from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -9,7 +8,6 @@ import { Settings, Save, Calendar, Bot, Shield, DollarSign } from "lucide-react"
 
 export default function Configuracoes() {
   return (
-    <DashboardLayout>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
@@ -191,6 +189,5 @@ export default function Configuracoes() {
           </CardContent>
         </Card>
       </div>
-    </DashboardLayout>
   );
 }

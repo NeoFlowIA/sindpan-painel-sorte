@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { PadariaLayout } from "@/components/padaria/PadariaLayout";
 import { KPICard } from "@/components/KPICard";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -78,7 +77,6 @@ export function PadariaDashboard() {
   }, []);
 
   return (
-    <PadariaLayout>
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
