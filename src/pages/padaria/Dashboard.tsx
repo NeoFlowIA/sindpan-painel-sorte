@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { KPICard } from "@/components/KPICard";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { PadariaLayout } from "@/components/padaria/PadariaLayout";
 import { 
   Users, 
   Receipt, 
@@ -78,8 +77,7 @@ export function PadariaDashboard() {
   }, []);
 
   return (
-    <PadariaLayout>
-      <div className="space-y-4 lg:space-y-5">
+    <div className="space-y-4 lg:space-y-5">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
@@ -245,6 +243,5 @@ export function PadariaDashboard() {
           </CardContent>
         </Card>
       </div>
-    </PadariaLayout>
   );
 }
