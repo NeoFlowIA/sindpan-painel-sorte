@@ -1,6 +1,7 @@
 import { KPICard } from "@/components/KPICard";
 import { DashboardCharts } from "@/components/DashboardCharts";
 import { LeaderboardTable } from "@/components/LeaderboardTable";
+import { Store, Target, Users, Calendar } from "lucide-react";
 
 const Index = () => {
   return (
