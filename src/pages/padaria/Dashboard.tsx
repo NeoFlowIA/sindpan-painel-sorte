@@ -79,9 +79,9 @@ export function PadariaDashboard() {
 
   return (
     <PadariaLayout>
-      <div className="space-y-3 lg:space-y-4">
+      <div className="space-y-4 lg:space-y-5">
         {/* Header */}
-        <div className="flex items-center justify-between mb-1">
+        <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl lg:text-3xl font-bold text-primary">Dashboard</h1>
             <p className="text-muted-foreground">

@@ -74,7 +74,7 @@ export function PadariaLayout({ children }: PadariaLayoutProps) {
 
         <div className="flex w-full">
           <PadariaSidebar />
-          <main className="flex-1 p-3 lg:p-4 xl:p-6">
+          <main className="flex-1 pl-4 pr-3 py-3 lg:pl-6 lg:pr-4 lg:py-4">
             {children}
           </main>
         </div>
