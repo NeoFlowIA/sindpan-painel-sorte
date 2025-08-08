@@ -23,9 +23,6 @@ import {
 const navigation = [
   { title: "Dashboard", url: "/padaria/dashboard", icon: Home },
   { title: "Clientes", url: "/padaria/clientes", icon: Users },
-  { title: "Cupons", url: "/padaria/cupons", icon: Receipt },
-  { title: "Sorteios", url: "/padaria/sorteios", icon: Trophy },
-  { title: "Configurações", url: "/padaria/configuracoes", icon: Settings },
 ];
 
 export function PadariaSidebar() {

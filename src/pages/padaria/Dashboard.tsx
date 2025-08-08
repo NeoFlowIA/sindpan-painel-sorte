@@ -79,23 +79,28 @@ export function PadariaDashboard() {
 
   return (
     <PadariaLayout>
-      <div className="space-y-6">
+      <div className="space-y-4 lg:space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
+            <h1 className="text-2xl lg:text-3xl font-bold text-primary">Dashboard</h1>
             <p className="text-muted-foreground">
               Última atualização: {lastUpdate.toLocaleTimeString()}
             </p>
           </div>
-          <Button onClick={refreshData} disabled={isLoading} variant="outline">
+          <Button 
+            onClick={refreshData} 
+            disabled={isLoading} 
+            variant="outline"
+            className="transition-all duration-200 hover:scale-105 hover:shadow-sm"
+          >
             <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
             Atualizar
           </Button>
         </div>
 
         {/* KPI Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
           <KPICard
             title="Clientes Cadastrados"
             value={mockMetrics.clientesTotal}
@@ -127,11 +132,11 @@ export function PadariaDashboard() {
         </div>
 
         {/* Charts */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
           {/* Weekly Bar Chart */}
-          <Card>
+          <Card className="transition-all duration-200 hover:shadow-md">
             <CardHeader>
-              <CardTitle>Cupons por Dia da Semana</CardTitle>
+              <CardTitle className="text-foreground">Cupons por Dia da Semana</CardTitle>
               <CardDescription>Últimos 30 dias</CardDescription>
             </CardHeader>
             <CardContent>
@@ -165,9 +170,9 @@ export function PadariaDashboard() {
           </Card>
 
           {/* Daily Evolution Line Chart */}
-          <Card>
+          <Card className="transition-all duration-200 hover:shadow-md">
             <CardHeader>
-              <CardTitle>Evolução Diária de Cupons</CardTitle>
+              <CardTitle className="text-foreground">Evolução Diária de Cupons</CardTitle>
               <CardDescription>Última semana</CardDescription>
             </CardHeader>
             <CardContent>
@@ -205,9 +210,9 @@ export function PadariaDashboard() {
         </div>
 
         {/* Top Clients Table */}
-        <Card>
+        <Card className="transition-all duration-200 hover:shadow-md">
           <CardHeader>
-            <CardTitle>TOP 5 Clientes</CardTitle>
+            <CardTitle className="text-foreground">TOP 5 Clientes</CardTitle>
             <CardDescription>Clientes com mais cupons cadastrados</CardDescription>
           </CardHeader>
           <CardContent>
@@ -223,7 +228,7 @@ export function PadariaDashboard() {
                 </thead>
                 <tbody>
                   {topClientes.map((cliente, index) => (
-                    <tr key={index} className="border-b border-border/50 hover:bg-muted/50">
+                    <tr key={index} className="border-b border-border/50 hover:bg-muted/50 transition-colors duration-200">
                       <td className="p-2 font-medium">{cliente.nome}</td>
                       <td className="p-2 text-muted-foreground font-mono text-sm">{cliente.cpf}</td>
                       <td className="p-2 text-center">

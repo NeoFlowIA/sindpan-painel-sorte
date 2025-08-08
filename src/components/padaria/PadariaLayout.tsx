@@ -63,11 +63,6 @@ export function PadariaLayout({ children }: PadariaLayoutProps) {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => navigate("/padaria/configuracoes")}>
-                  <User className="w-4 h-4 mr-2" />
-                  Meu Perfil
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleLogout}>
                   <LogOut className="w-4 h-4 mr-2" />
                   Sair
@@ -79,7 +74,7 @@ export function PadariaLayout({ children }: PadariaLayoutProps) {
 
         <div className="flex w-full">
           <PadariaSidebar />
-          <main className="flex-1 p-6">
+          <main className="flex-1 p-4 lg:p-6">
             {children}
           </main>
         </div>
