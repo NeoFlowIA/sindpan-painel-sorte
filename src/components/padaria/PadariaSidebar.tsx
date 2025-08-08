@@ -32,7 +32,7 @@ export function PadariaSidebar() {
 
   return (
     <Sidebar 
-      className={`border-r border-border ${collapsed ? "w-14" : "w-64"}`}
+      className="border-r border-border"
       collapsible="icon"
     >
       <SidebarHeader className="border-b border-border p-4">
