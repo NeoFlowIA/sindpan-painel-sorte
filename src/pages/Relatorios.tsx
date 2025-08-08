@@ -5,27 +5,144 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { FileText, Download, Calendar, Filter } from "lucide-react";
 
+// Mock data for participation report
+const mockParticipants = [
+  {
+    id: "001",
+    nome: "Maria Silva Santos",
+    cpf: "123.456.789-01",
+    telefone: "(11) 98765-4321",
+    email: "maria@email.com",
+    padaria: "Padaria Central",
+    dataRegistro: "2024-01-15",
+    totalCupons: 12,
+    cuponsValidados: 8,
+    ultimaSubmissao: "2024-01-22",
+    status: "Ativo"
+  },
+  {
+    id: "002", 
+    nome: "João Pereira Lima",
+    cpf: "234.567.890-12",
+    telefone: "(11) 99876-5432",
+    email: "joao@email.com",
+    padaria: "Pão Dourado",
+    dataRegistro: "2024-01-16",
+    totalCupons: 18,
+    cuponsValidados: 15,
+    ultimaSubmissao: "2024-01-23",
+    status: "Ativo"
+  },
+  {
+    id: "003",
+    nome: "Ana Costa Oliveira", 
+    cpf: "345.678.901-23",
+    telefone: "(11) 97654-3210",
+    email: "ana@email.com",
+    padaria: "Delícias do Forno",
+    dataRegistro: "2024-01-14",
+    totalCupons: 25,
+    cuponsValidados: 22,
+    ultimaSubmissao: "2024-01-24",
+    status: "Ativo"
+  },
+  {
+    id: "004",
+    nome: "Carlos Eduardo Santos",
+    cpf: "456.789.012-34", 
+    telefone: "(11) 96543-2109",
+    email: "carlos@email.com",
+    padaria: "Padaria Central",
+    dataRegistro: "2024-01-17",
+    totalCupons: 6,
+    cuponsValidados: 4,
+    ultimaSubmissao: "2024-01-20",
+    status: "Inativo"
+  },
+  {
+    id: "005",
+    nome: "Fernanda Lima Costa",
+    cpf: "567.890.123-45",
+    telefone: "(11) 95432-1098", 
+    email: "fernanda@email.com",
+    padaria: "Pão Dourado",
+    dataRegistro: "2024-01-18",
+    totalCupons: 14,
+    cuponsValidados: 11,
+    ultimaSubmissao: "2024-01-21",
+    status: "Ativo"
+  }
+];
+
+const generateParticipationCSV = () => {
+  const headers = [
+    "ID",
+    "Nome Completo",
+    "CPF", 
+    "Telefone",
+    "Email",
+    "Padaria",
+    "Data Registro",
+    "Total Cupons",
+    "Cupons Validados", 
+    "Última Submissão",
+    "Status"
+  ];
+  
+  const csvContent = [
+    headers.join(","),
+    ...mockParticipants.map(p => [
+      p.id,
+      `"${p.nome}"`,
+      p.cpf,
+      p.telefone,
+      p.email,
+      `"${p.padaria}"`,
+      p.dataRegistro,
+      p.totalCupons,
+      p.cuponsValidados,
+      p.ultimaSubmissao,
+      p.status
+    ].join(","))
+  ].join("\n");
+  
+  // Add BOM for proper UTF-8 encoding in Excel
+  const BOM = "\uFEFF";
+  const blob = new Blob([BOM + csvContent], { type: "text/csv;charset=utf-8;" });
+  const link = document.createElement("a");
+  const url = URL.createObjectURL(blob);
+  link.setAttribute("href", url);
+  link.setAttribute("download", `relatorio_participacao_${new Date().toISOString().split('T')[0]}.csv`);
+  link.style.visibility = "hidden";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};
+
 const reportTypes = [
   {
     title: "Relatório de Participação",
     description: "Lista completa de participantes e suas submissões",
     format: ".CSV",
     icon: FileText,
-    color: "text-secondary"
+    color: "text-secondary",
+    action: generateParticipationCSV
   },
   {
     title: "Números Sorteados",
-    description: "Histórico completo de todos os sorteios realizados",
-    format: ".PDF", 
+    description: "Histórico completo de todos os sorteios realizados", 
+    format: ".PDF",
     icon: FileText,
-    color: "text-primary"
+    color: "text-primary",
+    action: () => alert("Funcionalidade em desenvolvimento")
   },
   {
     title: "Lista de Padarias",
     description: "Informações detalhadas das padarias participantes",
-    format: ".XLSX",
+    format: ".XLSX", 
     icon: FileText,
-    color: "text-accent"
+    color: "text-accent",
+    action: () => alert("Funcionalidade em desenvolvimento")
   }
 ];
 
@@ -121,7 +238,11 @@ export default function Relatorios() {
                 <p className="text-sm text-muted-foreground">
                   {report.description}
                 </p>
-                <Button className="w-full" variant="outline">
+                <Button 
+                  className="w-full" 
+                  variant="outline"
+                  onClick={report.action}
+                >
                   <Download className="w-4 h-4 mr-2" />
                   Exportar {report.format}
                 </Button>
