@@ -2,6 +2,10 @@ import { useState, useEffect } from "react";
 import { KPICard } from "@/components/KPICard";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ClientesTable } from "@/components/padaria/ClientesTable";
+import { CadastrarCupomButton } from "@/components/padaria/CadastrarCupomButton";
+import { CuponsRecentesTable } from "@/components/padaria/CuponsRecentesTable";
 import { 
   Users, 
   Receipt, 
@@ -60,6 +64,7 @@ const topClientes = [
 export function PadariaDashboard() {
   const [isLoading, setIsLoading] = useState(false);
   const [lastUpdate, setLastUpdate] = useState(new Date());
+  const [activeTab, setActiveTab] = useState("dashboard");
 
   const refreshData = () => {
     setIsLoading(true);
@@ -68,6 +73,11 @@ export function PadariaDashboard() {
       setLastUpdate(new Date());
       setIsLoading(false);
     }, 1000);
+  };
+
+  const handleCupomCadastrado = () => {
+    refreshData();
+    // In real implementation, update metrics and recent coupons
   };
 
   useEffect(() => {
@@ -86,16 +96,27 @@ export function PadariaDashboard() {
               Última atualização: {lastUpdate.toLocaleTimeString()}
             </p>
           </div>
-          <Button 
-            onClick={refreshData} 
-            disabled={isLoading} 
-            variant="outline"
-            className="transition-all duration-200 hover:scale-105 hover:shadow-sm"
-          >
-            <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
-            Atualizar
-          </Button>
+          <div className="flex gap-3">
+            <CadastrarCupomButton onCupomCadastrado={handleCupomCadastrado} />
+            <Button 
+              onClick={refreshData} 
+              disabled={isLoading} 
+              variant="outline"
+              className="transition-all duration-200 hover:scale-105 hover:shadow-sm"
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
+              Atualizar
+            </Button>
+          </div>
         </div>
+
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
+            <TabsTrigger value="clientes">Clientes</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="dashboard" className="space-y-4 lg:space-y-5 mt-6">
 
         {/* KPI Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
@@ -242,6 +263,15 @@ export function PadariaDashboard() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Cupons Recentes Section */}
+        <CuponsRecentesTable />
+          </TabsContent>
+
+          <TabsContent value="clientes" className="mt-6">
+            <ClientesTable />
+          </TabsContent>
+        </Tabs>
       </div>
   );
 }
