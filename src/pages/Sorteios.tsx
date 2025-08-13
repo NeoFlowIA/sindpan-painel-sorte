@@ -5,8 +5,10 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogOverlay } from "@/components/ui/dialog";
-import { Trophy, Download, Plus, Calendar, Monitor, X, Save, RotateCcw, Sparkles } from "lucide-react";
+import { Trophy, Download, Plus, Calendar, Monitor, X, Save, RotateCcw, Sparkles, Eye, User } from "lucide-react";
 import { useState, useEffect } from "react";
+import { CinematicPresentation } from "@/components/CinematicPresentation";
+import { PreviewModal } from "@/components/PreviewModal";
 
 const raffles = [
   {
@@ -45,6 +47,9 @@ const participants = [
 export default function Sorteios() {
   const [showRaffleModal, setShowRaffleModal] = useState(false);
   const [presentationMode, setPresentationMode] = useState(false);
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [showWinnerDetails, setShowWinnerDetails] = useState(false);
+  const [selectedWinner, setSelectedWinner] = useState<typeof participants[0] | null>(null);
   const [isAnimating, setIsAnimating] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const [currentNumber, setCurrentNumber] = useState("00000");
@@ -126,6 +131,17 @@ export default function Sorteios() {
     resetRaffle();
   };
 
+  const handleRaffleComplete = (result: { number: string; winner: typeof participants[0] }) => {
+    console.log("Raffle completed:", result);
+    setPresentationMode(false);
+    // Here you would save to database/state
+  };
+
+  const showWinnerInfo = (winner: typeof participants[0]) => {
+    setSelectedWinner(winner);
+    setShowWinnerDetails(true);
+  };
+
   return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
@@ -148,6 +164,14 @@ export default function Sorteios() {
             >
               <Monitor className="w-4 h-4 mr-2" />
               Modo apresentação
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={() => setShowPreviewModal(true)}
+              className="border-secondary text-secondary hover:bg-secondary/10"
+            >
+              <Eye className="w-4 h-4 mr-2" />
+              Pré-visualizar
             </Button>
           </div>
         </div>
@@ -229,7 +253,12 @@ export default function Sorteios() {
                     <TableCell>{raffle.cpf}</TableCell>
                     <TableCell>{raffle.bakery}</TableCell>
                     <TableCell>
-                      <Button variant="ghost" size="sm">
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => showWinnerInfo({ name: raffle.winner, cpf: raffle.cpf + "789", bakery: raffle.bakery })}
+                      >
+                        <User className="w-4 h-4 mr-1" />
                         Ver detalhes
                       </Button>
                     </TableCell>
@@ -346,103 +375,55 @@ export default function Sorteios() {
           </DialogContent>
         </Dialog>
 
-        {/* Presentation Mode */}
-        <Dialog open={presentationMode} onOpenChange={setPresentationMode}>
-          <DialogOverlay className="bg-black" />
-          <DialogContent className="w-screen h-screen max-w-none p-0 m-0 border-0 rounded-none">
-            <div className="relative h-full bg-gradient-to-br from-primary via-secondary to-primary flex flex-col items-center justify-center text-white">
-              {/* Close Presentation Mode */}
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setPresentationMode(false)}
-                className="absolute top-4 right-4 z-10 text-white hover:bg-white/20"
-              >
-                <X className="w-6 h-6" />
-              </Button>
+        {/* Cinematic Presentation Mode */}
+        <CinematicPresentation
+          isOpen={presentationMode}
+          onClose={() => setPresentationMode(false)}
+          participants={participants}
+          onRaffleComplete={handleRaffleComplete}
+        />
 
-              {/* Confetti Effect */}
-              {showConfetti && (
-                <div className="absolute inset-0 pointer-events-none overflow-hidden">
-                  {Array.from({ length: 100 }).map((_, i) => (
-                    <div
-                      key={i}
-                      className="absolute animate-bounce"
-                      style={{
-                        left: `${Math.random() * 100}%`,
-                        top: `${Math.random() * 100}%`,
-                        animationDelay: `${Math.random() * 3}s`,
-                        animationDuration: `${1 + Math.random() * 2}s`
-                      }}
-                    >
-                      <Sparkles className="w-6 h-6 text-yellow-300" />
-                    </div>
-                  ))}
-                </div>
-              )}
+        {/* Preview Modal */}
+        <PreviewModal
+          isOpen={showPreviewModal}
+          onClose={() => setShowPreviewModal(false)}
+        />
 
-              {/* Title */}
-              <h1 className="text-6xl font-bold mb-16 text-center">
-                SORTEIO DIGITAL SINDPAN
-              </h1>
-
-              {/* Countdown */}
-              {countdown > 0 && (
-                <div className="text-[20rem] font-bold animate-pulse mb-16">
-                  {countdown}
-                </div>
-              )}
-
-              {/* Number Display */}
-              {(isAnimating || showResult) && (
-                <div className="relative">
-                  <div className={`text-[15rem] font-mono font-bold text-center p-16 rounded-3xl border-8 transition-all duration-500 ${
-                    isAnimating 
-                      ? 'border-yellow-400 bg-yellow-400/20 animate-pulse' 
-                      : 'border-white bg-white/20 shadow-2xl'
-                  }`}>
-                    {currentNumber}
+        {/* Winner Details Modal */}
+        <Dialog open={showWinnerDetails} onOpenChange={setShowWinnerDetails}>
+          <DialogContent className="max-w-md">
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <Trophy className="w-5 h-5 text-primary" />
+                <h3 className="text-lg font-semibold">Detalhes do Ganhador</h3>
+              </div>
+              
+              {selectedWinner && (
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Nome Completo</label>
+                    <p className="text-lg">{selectedWinner.name}</p>
                   </div>
                   
-                  {/* Winner Information */}
-                  {showResult && winner && (
-                    <div className="mt-16 text-center space-y-8">
-                      <h2 className="text-8xl font-bold text-yellow-300 flex items-center justify-center gap-4">
-                        <Trophy className="w-16 h-16" />
-                        GANHADOR!
-                      </h2>
-                      <div className="space-y-4">
-                        <p className="text-6xl font-bold">{winner.name}</p>
-                        <p className="text-4xl">CPF: {winner.cpf}</p>
-                        <p className="text-5xl font-semibold text-yellow-300">{winner.bakery}</p>
-                      </div>
-                    </div>
-                  )}
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">CPF Completo</label>
+                    <p className="text-lg font-mono">{selectedWinner.cpf}789</p>
+                  </div>
+                  
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Padaria</label>
+                    <p className="text-lg">{selectedWinner.bakery}</p>
+                  </div>
+                  
+                  <div className="flex gap-2 pt-4">
+                    <Button variant="outline" className="flex-1">
+                      Entrar em contato
+                    </Button>
+                    <Button onClick={() => setShowWinnerDetails(false)}>
+                      Fechar
+                    </Button>
+                  </div>
                 </div>
-              )}
-
-              {/* Start Button */}
-              {!isAnimating && !showResult && countdown === 0 && (
-                <Button 
-                  onClick={startRaffle}
-                  size="lg"
-                  className="text-4xl px-24 py-12 bg-white text-primary hover:bg-white/90 font-bold"
-                >
-                  <Trophy className="w-12 h-12 mr-4" />
-                  INICIAR SORTEIO
-                </Button>
-              )}
-
-              {/* Restart Button for Presentation */}
-              {showResult && (
-                <Button 
-                  onClick={resetRaffle}
-                  size="lg"
-                  className="mt-16 text-2xl px-16 py-8 bg-white/20 text-white hover:bg-white/30 border-2 border-white"
-                >
-                  <RotateCcw className="w-8 h-8 mr-4" />
-                  NOVO SORTEIO
-                </Button>
               )}
             </div>
           </DialogContent>
