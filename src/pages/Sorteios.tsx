@@ -36,12 +36,12 @@ const raffles = [
 
 // Mock data for participants
 const participants = [
-  { name: "Maria Silva Santos", cpf: "***456", bakery: "Padaria Central" },
-  { name: "João Pereira Lima", cpf: "***789", bakery: "Pão Dourado" },
-  { name: "Ana Costa Oliveira", cpf: "***123", bakery: "Delícias do Forno" },
-  { name: "Carlos Eduardo", cpf: "***234", bakery: "Padaria Central" },
-  { name: "Fernanda Santos", cpf: "***567", bakery: "Pão Dourado" },
-  { name: "Roberto Silva", cpf: "***890", bakery: "Delícias do Forno" }
+  { name: "Maria Silva Santos", cpf: "***456", bakery: "Padaria Central", answer: "Na padaria" },
+  { name: "João Pereira Lima", cpf: "***789", bakery: "Pão Dourado", answer: "Outro lugar" },
+  { name: "Ana Costa Oliveira", cpf: "***123", bakery: "Delícias do Forno", answer: "Na padaria" },
+  { name: "Carlos Eduardo", cpf: "***234", bakery: "Padaria Central", answer: null },
+  { name: "Fernanda Santos", cpf: "***567", bakery: "Pão Dourado", answer: "Outro lugar" },
+  { name: "Roberto Silva", cpf: "***890", bakery: "Delícias do Forno", answer: "Na padaria" }
 ];
 
 export default function Sorteios() {
@@ -256,7 +256,7 @@ export default function Sorteios() {
                       <Button 
                         variant="ghost" 
                         size="sm"
-                        onClick={() => showWinnerInfo({ name: raffle.winner, cpf: raffle.cpf + "789", bakery: raffle.bakery })}
+                        onClick={() => showWinnerInfo({ name: raffle.winner, cpf: raffle.cpf + "789", bakery: raffle.bakery, answer: "Na padaria" })}
                       >
                         <User className="w-4 h-4 mr-1" />
                         Ver detalhes
@@ -337,6 +337,20 @@ export default function Sorteios() {
                         <p className="text-xl font-semibold">{winner.name}</p>
                         <p className="text-muted-foreground">CPF: {winner.cpf}</p>
                         <p className="text-secondary font-medium">{winner.bakery}</p>
+                        <div className="mt-3">
+                          <Badge 
+                            className={
+                              winner.answer === "Na padaria" 
+                                ? "bg-green-500 text-white hover:bg-green-600" 
+                                : winner.answer === "Outro lugar"
+                                ? "bg-yellow-500 text-black hover:bg-yellow-600"
+                                : "bg-gray-300 text-black hover:bg-gray-400"
+                            }
+                            aria-label={`Resposta da pergunta: ${winner.answer || "Não informado"}`}
+                          >
+                            {winner.answer || "Não informado"}
+                          </Badge>
+                        </div>
                       </CardContent>
                     </Card>
                   )}
@@ -413,6 +427,11 @@ export default function Sorteios() {
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">Padaria</label>
                     <p className="text-lg">{selectedWinner.bakery}</p>
+                  </div>
+                  
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Resposta da pergunta</label>
+                    <p className="text-lg">{selectedWinner.answer || "Não informado"}</p>
                   </div>
                   
                   <div className="flex gap-2 pt-4">
