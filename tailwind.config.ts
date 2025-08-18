@@ -156,6 +156,16 @@ export default {
 					'50%': {
 						backgroundPosition: '100% 50%'
 					}
+				},
+				'gradient-x': {
+					'0%, 100%': {
+						'background-size': '200% 200%',
+						'background-position': 'left center'
+					},
+					'50%': {
+						'background-size': '200% 200%', 
+						'background-position': 'right center'
+					}
 				}
 			},
 			animation: {
@@ -167,7 +177,8 @@ export default {
 				'confetti-fall': 'confetti-fall 3s linear infinite',
 				'slot-spin': 'slot-spin 0.1s linear infinite',
 				'bounce-soft': 'bounce-soft 2s ease-in-out infinite',
-				'gradient-shift': 'gradient-shift 3s ease-in-out infinite'
+				'gradient-shift': 'gradient-shift 3s ease-in-out infinite',
+				'gradient-x': 'gradient-x 15s ease infinite'
 			}
 		}
 	},

@@ -5,7 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogOverlay } from "@/components/ui/dialog";
-import { Trophy, Download, Plus, Calendar, Monitor, X, Save, RotateCcw, Sparkles, Eye, User } from "lucide-react";
+import { Trophy, Download, Plus, Calendar, Monitor, X, Save, RotateCcw, Sparkles, Eye, User, Clock } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { CinematicPresentation } from "@/components/CinematicPresentation";
 import { PreviewModal } from "@/components/PreviewModal";
@@ -45,6 +46,7 @@ const participants = [
 ];
 
 export default function Sorteios() {
+  const navigate = useNavigate();
   const [showRaffleModal, setShowRaffleModal] = useState(false);
   const [presentationMode, setPresentationMode] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
@@ -159,7 +161,7 @@ export default function Sorteios() {
             </Button>
             <Button 
               variant="outline" 
-              onClick={() => setPresentationMode(true)}
+              onClick={() => window.open('/sorteios/live', '_blank')}
               className="border-primary text-primary hover:bg-primary/10"
             >
               <Monitor className="w-4 h-4 mr-2" />
@@ -167,7 +169,7 @@ export default function Sorteios() {
             </Button>
             <Button 
               variant="outline" 
-              onClick={() => setShowPreviewModal(true)}
+              onClick={() => window.open('/sorteios/live?preview=1', '_blank')}
               className="border-secondary text-secondary hover:bg-secondary/10"
             >
               <Eye className="w-4 h-4 mr-2" />
@@ -217,57 +219,15 @@ export default function Sorteios() {
               <SelectItem value="delicias">Delícias do Forno</SelectItem>
             </SelectContent>
           </Select>
-          <Button variant="outline">
-            <Download className="w-4 h-4 mr-2" />
-            Exportar PDF
+          <Button 
+            variant="outline" 
+            onClick={() => navigate('/relatorios/sorteios')}
+            className="ml-auto"
+          >
+            <Clock className="w-4 h-4 mr-2" />
+            Ver histórico completo
           </Button>
         </div>
-
-        {/* Raffles Table */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Histórico de Sorteios</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Data do Sorteio</TableHead>
-                  <TableHead>Número Sorteado</TableHead>
-                  <TableHead>Ganhador</TableHead>
-                  <TableHead>CPF</TableHead>
-                  <TableHead>Padaria</TableHead>
-                  <TableHead>Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {raffles.map((raffle, index) => (
-                  <TableRow key={index}>
-                    <TableCell className="font-medium">{raffle.date}</TableCell>
-                    <TableCell>
-                      <Badge className="bg-secondary text-secondary-foreground">
-                        {raffle.number}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{raffle.winner}</TableCell>
-                    <TableCell>{raffle.cpf}</TableCell>
-                    <TableCell>{raffle.bakery}</TableCell>
-                    <TableCell>
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        onClick={() => showWinnerInfo({ name: raffle.winner, cpf: raffle.cpf + "789", bakery: raffle.bakery, answer: "Na padaria" })}
-                      >
-                        <User className="w-4 h-4 mr-1" />
-                        Ver detalhes
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
 
         {/* Raffle Animation Modal */}
         <Dialog open={showRaffleModal} onOpenChange={setShowRaffleModal}>

@@ -12,6 +12,8 @@ import Padarias from "./pages/Padarias";
 import Relatorios from "./pages/Relatorios";
 import Configuracoes from "./pages/Configuracoes";
 import NotFound from "./pages/NotFound";
+import RelatorioSorteios from "./pages/RelatorioSorteios";
+import SorteiosLive from "./pages/SorteiosLive";
 import { LoginPadaria } from "./pages/padaria/Login";
 import { PadariaDashboard } from "./pages/padaria/Dashboard";
 
@@ -64,6 +66,14 @@ const App = () => (
                 <Relatorios />
               </DashboardLayout>
             }
+          />
+          <Route
+            path="/relatorios/sorteios"
+            element={<RelatorioSorteios />}
+          />
+          <Route
+            path="/sorteios/live"
+            element={<SorteiosLive />}
           />
           <Route
             path="/configuracoes"

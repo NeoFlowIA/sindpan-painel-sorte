@@ -8,27 +8,27 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    /* Sindpan Brand Colors */
+    /* Sindpan Brand Colors (Updated to match request) */
     --background: 0 0% 98%;
-    --foreground: 0 65% 25%;
+    --foreground: 212 84% 15%;
 
     --card: 0 0% 100%;
-    --card-foreground: 0 65% 25%;
+    --card-foreground: 212 84% 15%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 0 65% 25%;
+    --popover-foreground: 212 84% 15%;
 
-    /* Dark Red (#8B1A1A) - Primary brand color */
-    --primary: 0 65% 32%;
+    /* Primary blue (#006CFF) */
+    --primary: 216 100% 50%;
     --primary-foreground: 0 0% 98%;
 
-    /* Wheat Orange (#F57C00) - Secondary/accent */
-    --secondary: 32 100% 48%;
+    /* Secondary dark blue (#0A1F44) */
+    --secondary: 212 84% 15%;
     --secondary-foreground: 0 0% 98%;
 
-    /* Soft Yellow (#FBC02D) - Highlights */
-    --accent: 48 96% 58%;
-    --accent-foreground: 0 65% 25%;
+    /* Accent cyan (#00C2FF) */
+    --accent: 194 100% 50%;
+    --accent-foreground: 212 84% 15%;
 
     --muted: 0 0% 96%;
     --muted-foreground: 0 10% 45%;
