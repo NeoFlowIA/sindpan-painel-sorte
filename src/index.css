@@ -8,49 +8,49 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    /* Sindpan Brand Colors (Updated to match request) */
-    --background: 0 0% 98%;
-    --foreground: 212 84% 15%;
+    /* SINDPAN Brand Colors */
+    --background: 0 0% 100%;
+    --foreground: 222.2 47.4% 11.2%;
 
     --card: 0 0% 100%;
-    --card-foreground: 212 84% 15%;
+    --card-foreground: 222.2 47.4% 11.2%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 212 84% 15%;
+    --popover-foreground: 222.2 47.4% 11.2%;
 
-    /* Primary blue (#006CFF) */
-    --primary: 216 100% 50%;
-    --primary-foreground: 0 0% 98%;
+    /* Primary red (#880808) */
+    --primary: 0 88.9% 28.2%;
+    --primary-foreground: 0 0% 100%;
 
-    /* Secondary dark blue (#0A1F44) */
-    --secondary: 212 84% 15%;
-    --secondary-foreground: 0 0% 98%;
+    /* Secondary orange (#F89818) */
+    --secondary: 34.3 94.1% 53.3%;
+    --secondary-foreground: 0 0% 100%;
 
-    /* Accent cyan (#00C2FF) */
-    --accent: 194 100% 50%;
-    --accent-foreground: 212 84% 15%;
+    /* Accent gold (#F8A828) */
+    --accent: 36.9 93.7% 56.5%;
+    --accent-foreground: 0 0% 20%;
 
-    --muted: 0 0% 96%;
-    --muted-foreground: 0 10% 45%;
+    --muted: 0 0% 97%;
+    --muted-foreground: 0 0% 45%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 0 10% 90%;
-    --input: 0 10% 90%;
-    --ring: 0 65% 32%;
+    --border: 0 0% 90%;
+    --input: 0 0% 90%;
+    --ring: 0 88.9% 28.2%;
 
     /* Custom dashboard tokens */
-    --dashboard-bg: 0 0% 96%;
-    --chart-primary: 0 65% 32%;
-    --chart-secondary: 32 100% 48%;
-    --chart-accent: 48 96% 58%;
+    --dashboard-bg: 0 0% 97%;
+    --chart-primary: 0 88.9% 28.2%;
+    --chart-secondary: 34.3 94.1% 53.3%;
+    --chart-accent: 36.9 93.7% 56.5%;
     --success: 120 60% 40%;
     --warning: 45 100% 50%;
     
     /* Gradients */
     --gradient-primary: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--secondary)));
-    --gradient-card: linear-gradient(145deg, hsl(0 0% 100%), hsl(0 0% 98%));
+    --gradient-card: linear-gradient(145deg, hsl(0 0% 100%), hsl(0 0% 99%));
     --gradient-presentation: linear-gradient(45deg, hsl(var(--primary)), hsl(var(--secondary)), hsl(var(--accent)));
     --gradient-cinematic: linear-gradient(135deg, hsl(0 0% 5%), hsl(var(--primary) / 0.8), hsl(0 0% 10%));
     
@@ -62,21 +62,21 @@ All colors MUST be HSL.
 
     --radius: 0.5rem;
 
-    --sidebar-background: 0 0% 98%;
+    --sidebar-background: 0 0% 100%;
 
-    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-foreground: 222.2 47.4% 11.2%;
 
-    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary: 0 88.9% 28.2%;
 
-    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-primary-foreground: 0 0% 100%;
 
-    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent: 0 0% 97%;
 
-    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-accent-foreground: 222.2 47.4% 11.2%;
 
-    --sidebar-border: 220 13% 91%;
+    --sidebar-border: 0 0% 90%;
 
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-ring: 0 88.9% 28.2%;
   }
 
   .dark {
