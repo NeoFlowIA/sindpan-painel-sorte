@@ -4,6 +4,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Store, Plus, Edit, QrCode, Trash2, Search } from "lucide-react";
+import { CriarPadariaModal } from "@/components/padaria/CriarPadariaModal";
 
 const bakeries = [
   {
@@ -48,10 +49,12 @@ export default function Padarias() {
             <h1 className="text-3xl font-bold text-primary">Padarias Participantes</h1>
             <p className="text-muted-foreground">Gerencie as padarias cadastradas na campanha</p>
           </div>
-          <Button className="bg-primary text-primary-foreground hover:bg-primary/90">
-            <Plus className="w-4 h-4 mr-2" />
-            Adicionar padaria
-          </Button>
+          <CriarPadariaModal>
+            <Button className="bg-primary text-primary-foreground hover:bg-primary/90">
+              <Plus className="w-4 h-4 mr-2" />
+              Adicionar padaria
+            </Button>
+          </CriarPadariaModal>
         </div>
 
         {/* Summary Cards */}
