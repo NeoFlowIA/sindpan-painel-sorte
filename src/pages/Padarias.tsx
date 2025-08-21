@@ -5,6 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Store, Plus, Edit, QrCode, Trash2, Search } from "lucide-react";
 import { CriarPadariaModal } from "@/components/padaria/CriarPadariaModal";
+import { EditarPadariaModal } from "@/components/padaria/EditarPadariaModal";
+import { PaymentDropdown } from "@/components/padaria/PaymentDropdown";
 
 const bakeries = [
   {
@@ -151,21 +153,18 @@ export default function Padarias() {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge 
-                        variant={bakery.payment === "pago" ? "default" : "outline"}
-                        className={bakery.payment === "pago" 
-                          ? "bg-secondary text-secondary-foreground" 
-                          : "text-red-600 border-red-600"
-                        }
-                      >
-                        {bakery.payment}
-                      </Badge>
+                      <PaymentDropdown 
+                        currentStatus={bakery.payment}
+                        bakeryName={bakery.name}
+                      />
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-1">
-                        <Button variant="ghost" size="sm">
-                          <Edit className="w-4 h-4" />
-                        </Button>
+                        <EditarPadariaModal bakery={bakery}>
+                          <Button variant="ghost" size="sm">
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                        </EditarPadariaModal>
                         <Button variant="ghost" size="sm">
                           <QrCode className="w-4 h-4" />
                         </Button>

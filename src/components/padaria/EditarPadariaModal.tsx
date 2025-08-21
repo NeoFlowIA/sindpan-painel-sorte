@@ -1,15 +1,15 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Plus, Eye, EyeOff, MessageCircle, Mail, Shuffle } from "lucide-react";
+import { Edit } from "lucide-react";
 import { toast } from "sonner";
 
 const formSchema = z.object({
@@ -21,22 +21,30 @@ const formSchema = z.object({
   email: z.string().email("Email inválido"),
   responsavel: z.string().min(2, "Nome do responsável deve ter pelo menos 2 caracteres"),
   ticketMedio: z.string().min(1, "Ticket médio é obrigatório"),
-  senha: z.string().min(6, "Senha deve ter pelo menos 6 caracteres"),
-  senhaAutomatica: z.boolean().default(false),
-  enviarWhatsapp: z.boolean().default(false),
-  enviarEmail: z.boolean().default(true),
+  status: z.enum(["ativa", "pendente", "inativa"]),
+  pagamento: z.enum(["pago", "pendente", "cancelado"]),
   observacoes: z.string().optional(),
 });
 
 type FormData = z.infer<typeof formSchema>;
 
-interface CriarPadariaModalProps {
-  children: React.ReactNode;
+interface Bakery {
+  name: string;
+  cnpj: string;
+  address: string;
+  averageTicket: string;
+  status: string;
+  payment: string;
 }
 
-export function CriarPadariaModal({ children }: CriarPadariaModalProps) {
+interface EditarPadariaModalProps {
+  children: React.ReactNode;
+  bakery: Bakery;
+  onUpdate?: (updatedBakery: Bakery) => void;
+}
+
+export function EditarPadariaModal({ children, bakery, onUpdate }: EditarPadariaModalProps) {
   const [open, setOpen] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const form = useForm<FormData>({
@@ -50,61 +58,59 @@ export function CriarPadariaModal({ children }: CriarPadariaModalProps) {
       email: "",
       responsavel: "",
       ticketMedio: "",
-      senha: "",
-      senhaAutomatica: false,
-      enviarWhatsapp: false,
-      enviarEmail: true,
+      status: "ativa",
+      pagamento: "pago",
       observacoes: "",
     },
   });
 
-  const generatePassword = () => {
-    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@#$%";
-    let password = "";
-    for (let i = 0; i < 12; i++) {
-      password += chars.charAt(Math.floor(Math.random() * chars.length));
+  useEffect(() => {
+    if (open && bakery) {
+      form.reset({
+        nomeFantasia: bakery.name,
+        razaoSocial: bakery.name + " Ltda", // Mock data
+        cnpj: bakery.cnpj,
+        endereco: bakery.address,
+        telefone: "(85) 99999-9999", // Mock data
+        email: "contato@" + bakery.name.toLowerCase().replace(/\s+/g, "") + ".com", // Mock data
+        responsavel: "João Silva", // Mock data
+        ticketMedio: bakery.averageTicket,
+        status: bakery.status as "ativa" | "pendente" | "inativa",
+        pagamento: bakery.payment as "pago" | "pendente" | "cancelado",
+        observacoes: "",
+      });
     }
-    return password;
-  };
-
-  const handleSenhaAutomaticaChange = (checked: boolean) => {
-    form.setValue("senhaAutomatica", checked);
-    if (checked) {
-      const newPassword = generatePassword();
-      form.setValue("senha", newPassword);
-    }
-  };
+  }, [open, bakery, form]);
 
   const onSubmit = async (data: FormData) => {
     try {
       setIsSubmitting(true);
       
       // Aqui seria feita a integração com o backend
-      console.log("Dados da padaria:", data);
+      console.log("Dados atualizados da padaria:", data);
       
       // Simular delay de envio
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      await new Promise(resolve => setTimeout(resolve, 1500));
       
-      toast.success("Padaria criada com sucesso!", {
-        description: `${data.nomeFantasia} foi cadastrada no sistema.`,
+      toast.success("Padaria atualizada com sucesso!", {
+        description: `${data.nomeFantasia} foi atualizada no sistema.`,
       });
-      
-      if (data.enviarEmail) {
-        toast.info("Credenciais enviadas por email", {
-          description: `Credenciais de acesso enviadas para ${data.email}`,
-        });
-      }
-      
-      if (data.enviarWhatsapp) {
-        toast.info("Credenciais enviadas por WhatsApp", {
-          description: `Credenciais de acesso enviadas para ${data.telefone}`,
+
+      // Callback para atualizar a lista na página pai
+      if (onUpdate) {
+        onUpdate({
+          name: data.nomeFantasia,
+          cnpj: data.cnpj,
+          address: data.endereco,
+          averageTicket: data.ticketMedio,
+          status: data.status,
+          payment: data.pagamento,
         });
       }
       
       setOpen(false);
-      form.reset();
     } catch (error) {
-      toast.error("Erro ao criar padaria", {
+      toast.error("Erro ao atualizar padaria", {
         description: "Tente novamente ou contate o suporte.",
       });
     } finally {
@@ -120,8 +126,8 @@ export function CriarPadariaModal({ children }: CriarPadariaModalProps) {
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-primary">
-            <Plus className="w-5 h-5" />
-            Nova Padaria
+            <Edit className="w-5 h-5" />
+            Editar Padaria
           </DialogTitle>
         </DialogHeader>
         
@@ -235,106 +241,66 @@ export function CriarPadariaModal({ children }: CriarPadariaModalProps) {
               />
             </div>
 
-            <FormField
-              control={form.control}
-              name="ticketMedio"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Ticket Médio *</FormLabel>
-                  <FormControl>
-                    <Input placeholder="R$ 25,50" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {/* Seção de Senha */}
-            <div className="space-y-4 p-4 bg-muted/30 rounded-lg border">
-              <h3 className="font-medium text-primary">Credenciais de Acesso</h3>
-              
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="senhaAutomatica"
-                  checked={form.watch("senhaAutomatica")}
-                  onCheckedChange={handleSenhaAutomaticaChange}
-                />
-                <Label htmlFor="senhaAutomatica" className="text-sm">
-                  Gerar senha automaticamente
-                </Label>
-                {form.watch("senhaAutomatica") && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      const newPassword = generatePassword();
-                      form.setValue("senha", newPassword);
-                    }}
-                  >
-                    <Shuffle className="w-4 h-4" />
-                  </Button>
-                )}
-              </div>
-
+            <div className="grid grid-cols-3 gap-4">
               <FormField
                 control={form.control}
-                name="senha"
+                name="ticketMedio"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Senha *</FormLabel>
+                    <FormLabel>Ticket Médio *</FormLabel>
                     <FormControl>
-                      <div className="relative">
-                        <Input
-                          type={showPassword ? "text" : "password"}
-                          placeholder="Digite a senha"
-                          disabled={form.watch("senhaAutomatica")}
-                          {...field}
-                        />
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="absolute right-2 top-0 h-full px-2"
-                          onClick={() => setShowPassword(!showPassword)}
-                        >
-                          {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                        </Button>
-                      </div>
+                      <Input placeholder="R$ 25,50" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
 
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Enviar credenciais via:</Label>
-                <div className="flex flex-col space-y-2">
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="enviarEmail"
-                      checked={form.watch("enviarEmail")}
-                      onCheckedChange={(checked) => form.setValue("enviarEmail", !!checked)}
-                    />
-                    <Label htmlFor="enviarEmail" className="text-sm flex items-center gap-2">
-                      <Mail className="w-4 h-4" />
-                      Enviar por email
-                    </Label>
-                  </div>
-                  
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="enviarWhatsapp"
-                      checked={form.watch("enviarWhatsapp")}
-                      onCheckedChange={(checked) => form.setValue("enviarWhatsapp", !!checked)}
-                    />
-                    <Label htmlFor="enviarWhatsapp" className="text-sm flex items-center gap-2">
-                      <MessageCircle className="w-4 h-4" />
-                      Enviar por WhatsApp
-                    </Label>
-                  </div>
-                </div>
-              </div>
+              <FormField
+                control={form.control}
+                name="status"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Status *</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione o status" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="ativa">Ativa</SelectItem>
+                        <SelectItem value="pendente">Pendente</SelectItem>
+                        <SelectItem value="inativa">Inativa</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="pagamento"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Pagamento *</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Status do pagamento" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="pago">Pago</SelectItem>
+                        <SelectItem value="pendente">Pendente</SelectItem>
+                        <SelectItem value="cancelado">Cancelado</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </div>
 
             <FormField
@@ -370,7 +336,7 @@ export function CriarPadariaModal({ children }: CriarPadariaModalProps) {
                 disabled={isSubmitting}
                 className="bg-primary text-primary-foreground hover:bg-primary/90"
               >
-                {isSubmitting ? "Criando..." : "Criar Padaria"}
+                {isSubmitting ? "Salvando..." : "Salvar Alterações"}
               </Button>
             </div>
           </form>
