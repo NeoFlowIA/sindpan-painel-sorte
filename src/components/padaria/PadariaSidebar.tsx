@@ -22,7 +22,7 @@ import {
 
 const navigation = [
   { title: "Dashboard", url: "/padaria/dashboard", icon: Home },
-  { title: "Clientes", url: "/padaria/clientes", icon: Users },
+  { title: "Sorteio", url: "/padaria/sorteio", icon: Trophy },
 ];
 
 export function PadariaSidebar() {

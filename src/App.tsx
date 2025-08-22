@@ -16,6 +16,7 @@ import RelatorioSorteios from "./pages/RelatorioSorteios";
 import SorteiosLive from "./pages/SorteiosLive";
 import { LoginPadaria } from "./pages/padaria/Login";
 import { PadariaDashboard } from "./pages/padaria/Dashboard";
+import { PadariaSorteio } from "./pages/padaria/Sorteio";
 
 const queryClient = new QueryClient();
 
@@ -91,6 +92,14 @@ const App = () => (
             element={
               <PadariaLayout>
                 <PadariaDashboard />
+              </PadariaLayout>
+            }
+          />
+          <Route
+            path="/padaria/sorteio"
+            element={
+              <PadariaLayout>
+                <PadariaSorteio />
               </PadariaLayout>
             }
           />
