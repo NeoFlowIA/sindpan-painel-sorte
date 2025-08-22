@@ -83,15 +83,15 @@ export default function SorteiosLive() {
     playSound('drumroll');
     
     let iterations = 0;
-    const maxIterations = 50;
+    const maxIterations = 80; // Increased from 50 to make it last 3s longer
     let speed = 50;
 
     const spinInterval = setInterval(() => {
       setCurrentNumber(generateRandomNumber());
       iterations++;
       
-      // Gradually slow down
-      if (iterations > 30) {
+      // Gradually slow down - adjusted threshold for longer duration
+      if (iterations > 60) {
         speed += 20;
         clearInterval(spinInterval);
         
@@ -109,7 +109,7 @@ export default function SorteiosLive() {
           } else {
             revealWinner();
           }
-        }, 100);
+        }, 200); // Increased delay for smoother transition
       }
       
       playSound('tick');
@@ -258,7 +258,7 @@ export default function SorteiosLive() {
       </div>
 
       {/* Main Content */}
-      <div className="text-center space-y-8 max-w-4xl w-full">
+      <div className="text-center space-y-8 max-w-4xl w-full relative z-10">
         {/* Title */}
         <h1 className={`font-bold transition-all duration-500 ${
           phase === 'initial' 
@@ -344,20 +344,72 @@ export default function SorteiosLive() {
 
       {/* Confetti Effect */}
       {phase === 'celebrating' && (
-        <div className="fixed inset-0 pointer-events-none overflow-hidden">
-          {Array.from({ length: 100 }).map((_, i) => (
+        <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
+          {/* Top area emojis */}
+          {Array.from({ length: 20 }).map((_, i) => (
             <div
-              key={i}
-              className="absolute animate-bounce opacity-80"
+              key={`top-${i}`}
+              className="absolute animate-[float_3s_ease-in-out_infinite] opacity-70"
+              style={{
+                left: `${Math.random() * 100}%`,
+                top: `${Math.random() * 15}%`, // Only in top 15% of screen
+                animationDelay: `${Math.random() * 3}s`,
+                animationDuration: `${2 + Math.random() * 2}s`,
+                fontSize: `${0.8 + Math.random() * 1.2}rem`
+              }}
+            >
+              {['🎉', '🎊', '✨', '🏆'][Math.floor(Math.random() * 4)]}
+            </div>
+          ))}
+          
+          {/* Bottom area emojis */}
+          {Array.from({ length: 20 }).map((_, i) => (
+            <div
+              key={`bottom-${i}`}
+              className="absolute animate-[float_2.5s_ease-in-out_infinite] opacity-70"
+              style={{
+                left: `${Math.random() * 100}%`,
+                top: `${85 + Math.random() * 15}%`, // Only in bottom 15% of screen
+                animationDelay: `${Math.random() * 3}s`,
+                animationDuration: `${1.5 + Math.random() * 2}s`,
+                fontSize: `${0.8 + Math.random() * 1.2}rem`
+              }}
+            >
+              {['🥖', '🍞', '✨', '🎊'][Math.floor(Math.random() * 4)]}
+            </div>
+          ))}
+
+          {/* Side area emojis */}
+          {Array.from({ length: 30 }).map((_, i) => (
+            <div
+              key={`side-${i}`}
+              className="absolute animate-[bounce_2s_infinite] opacity-60"
+              style={{
+                left: `${Math.random() < 0.5 ? Math.random() * 15 : 85 + Math.random() * 15}%`, // Left or right 15%
+                top: `${20 + Math.random() * 60}%`, // Middle area
+                animationDelay: `${Math.random() * 4}s`,
+                animationDuration: `${2 + Math.random() * 3}s`,
+                fontSize: `${0.6 + Math.random() * 1}rem`
+              }}
+            >
+              {['🎉', '🎊', '✨', '🏆', '🥖', '🍞'][Math.random() < 0.7 ? Math.floor(Math.random() * 4) : Math.floor(Math.random() * 6)]}
+            </div>
+          ))}
+
+          {/* Floating sparkles */}
+          {Array.from({ length: 30 }).map((_, i) => (
+            <div
+              key={`sparkle-${i}`}
+              className="absolute animate-[pulse_1.5s_ease-in-out_infinite] opacity-50"
               style={{
                 left: `${Math.random() * 100}%`,
                 top: `${Math.random() * 100}%`,
-                animationDelay: `${Math.random() * 3}s`,
-                animationDuration: `${2 + Math.random() * 2}s`,
-                fontSize: `${1 + Math.random() * 2}rem`
+                animationDelay: `${Math.random() * 2}s`,
+                fontSize: `${0.5 + Math.random() * 0.8}rem`,
+                filter: 'blur(0.5px)'
               }}
             >
-              {['🎉', '🎊', '✨', '🏆', '🥖', '🍞'][Math.floor(Math.random() * 6)]}
+              ✨
             </div>
           ))}
         </div>

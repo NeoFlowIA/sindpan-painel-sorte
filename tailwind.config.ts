@@ -166,6 +166,14 @@ export default {
 						'background-size': '200% 200%', 
 						'background-position': 'right center'
 					}
+				},
+				'float': {
+					'0%, 100%': {
+						transform: 'translateY(0px) rotate(0deg)'
+					},
+					'50%': {
+						transform: 'translateY(-10px) rotate(5deg)'
+					}
 				}
 			},
 			animation: {
@@ -178,7 +186,8 @@ export default {
 				'slot-spin': 'slot-spin 0.1s linear infinite',
 				'bounce-soft': 'bounce-soft 2s ease-in-out infinite',
 				'gradient-shift': 'gradient-shift 3s ease-in-out infinite',
-				'gradient-x': 'gradient-x 15s ease infinite'
+				'gradient-x': 'gradient-x 15s ease infinite',
+				'float': 'float 3s ease-in-out infinite'
 			}
 		}
 	},
