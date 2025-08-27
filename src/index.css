@@ -18,16 +18,16 @@ All colors MUST be HSL.
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 47.4% 11.2%;
 
-    /* Primary blue (#006CFF) */
-    --primary: 212 100% 50%;
+    /* Primary red (#880808) */
+    --primary: 0 88.9% 28.2%;
     --primary-foreground: 0 0% 100%;
 
-    /* Secondary navy (#0A1F44) */
-    --secondary: 215 66.7% 16.5%;
+    /* Secondary orange (#F89818) */
+    --secondary: 34.3 94.1% 53.3%;
     --secondary-foreground: 0 0% 100%;
 
-    /* Accent cyan (#00C2FF) */
-    --accent: 200 100% 50%;
+    /* Accent gold (#F8A828) */
+    --accent: 36.9 93.7% 56.5%;
     --accent-foreground: 0 0% 20%;
 
     --muted: 0 0% 97%;
