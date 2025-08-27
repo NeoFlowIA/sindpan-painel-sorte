@@ -4,7 +4,7 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { PadariaSidebar } from "@/components/padaria/PadariaSidebar";
 import { Bell, User, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,22 +19,33 @@ interface PadariaLayoutProps {
 
 export function PadariaLayout({ children }: PadariaLayoutProps) {
   const navigate = useNavigate();
-  const { toast } = useToast();
+  const { user, isLoading, logout, isAuthenticated } = useAuth();
 
-  // Check authentication
-  const isAuthenticated = localStorage.getItem("padaria_token");
+  // Show loading while checking authentication
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+          <p className="text-muted-foreground">Carregando...</p>
+        </div>
+      </div>
+    );
+  }
 
-  if (!isAuthenticated) {
+  // Check if user is authenticated and is a bakery
+  if (!isAuthenticated || !user) {
     return <Navigate to="/padaria/login" replace />;
   }
 
+  // Check if user role is bakery
+  if (user.role !== 'bakery') {
+    // If admin, redirect to admin dashboard
+    return <Navigate to="/" replace />;
+  }
+
   const handleLogout = () => {
-    localStorage.removeItem("padaria_token");
-    localStorage.removeItem("padaria_id");
-    toast({
-      title: "Logout realizado",
-      description: "Você foi desconectado com sucesso",
-    });
+    logout();
     navigate("/padaria/login");
   };
 
@@ -47,7 +58,9 @@ export function PadariaLayout({ children }: PadariaLayoutProps) {
             <SidebarTrigger />
             <div>
               <h1 className="text-xl font-bold text-primary">Portal da Padaria</h1>
-              <p className="text-sm text-muted-foreground">Campanha SINDPAN 2025</p>
+              <p className="text-sm text-muted-foreground">
+                {user.bakery_name || 'Campanha SINDPAN 2025'}
+              </p>
             </div>
           </div>
           
@@ -63,6 +76,11 @@ export function PadariaLayout({ children }: PadariaLayoutProps) {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                <div className="px-2 py-1.5 text-sm">
+                  <p className="font-medium">{user.bakery_name}</p>
+                  <p className="text-muted-foreground">{user.email}</p>
+                </div>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleLogout}>
                   <LogOut className="w-4 h-4 mr-2" />
                   Sair
