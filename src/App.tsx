@@ -3,6 +3,8 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AuthProvider } from "@/contexts/auth-context";
+import { Navbar } from "@/components/Navbar";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { PadariaLayout } from "@/components/padaria/PadariaLayout";
 import Index from "./pages/Index";
@@ -14,6 +16,9 @@ import Configuracoes from "./pages/Configuracoes";
 import NotFound from "./pages/NotFound";
 import RelatorioSorteios from "./pages/RelatorioSorteios";
 import SorteiosLive from "./pages/SorteiosLive";
+import Login from "./pages/Login";
+import Cadastro from "./pages/Cadastro";
+import Perfil from "./pages/Perfil";
 import { LoginPadaria } from "./pages/padaria/Login";
 import { PadariaDashboard } from "./pages/padaria/Dashboard";
 import { PadariaSorteio } from "./pages/padaria/Sorteio";
@@ -26,7 +31,9 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <Routes>
+        <AuthProvider>
+          <Navbar />
+          <Routes>
           {/* Admin Routes */}
           <Route
             path="/"
@@ -85,6 +92,11 @@ const App = () => (
             }
           />
 
+          {/* Auth Routes */}
+          <Route path="/entrar" element={<Login />} />
+          <Route path="/cadastro" element={<Cadastro />} />
+          <Route path="/perfil" element={<Perfil />} />
+
           {/* Padaria Routes */}
           <Route path="/padaria/login" element={<LoginPadaria />} />
           <Route
@@ -105,7 +117,8 @@ const App = () => (
           />
           
           <Route path="*" element={<NotFound />} />
-        </Routes>
+          </Routes>
+        </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
