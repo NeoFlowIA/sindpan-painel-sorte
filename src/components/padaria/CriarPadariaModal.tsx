@@ -11,17 +11,22 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Plus, Eye, EyeOff, MessageCircle, Mail, Shuffle } from "lucide-react";
 import { toast } from "sonner";
+import { sindpanAuthApi, SindpanApiError } from "@/services/sindpanAuthApi";
 
 const formSchema = z.object({
-  nomeFantasia: z.string().min(2, "Nome fantasia deve ter pelo menos 2 caracteres"),
-  razaoSocial: z.string().min(2, "Razão social deve ter pelo menos 2 caracteres"),
-  cnpj: z.string().min(14, "CNPJ deve ter 14 dígitos"),
-  endereco: z.string().min(5, "Endereço deve ter pelo menos 5 caracteres"),
-  telefone: z.string().min(10, "Telefone deve ter pelo menos 10 dígitos"),
+  // Required fields for API
   email: z.string().email("Email inválido"),
-  responsavel: z.string().min(2, "Nome do responsável deve ter pelo menos 2 caracteres"),
-  ticketMedio: z.string().min(1, "Ticket médio é obrigatório"),
-  senha: z.string().min(6, "Senha deve ter pelo menos 6 caracteres"),
+  password: z.string().min(6, "Senha deve ter pelo menos 6 caracteres"),
+  bakery_name: z.string().min(2, "Nome da padaria deve ter pelo menos 2 caracteres"),
+  
+  // Additional fields for internal use
+  nomeFantasia: z.string().optional(),
+  razaoSocial: z.string().optional(),
+  cnpj: z.string().optional(),
+  endereco: z.string().optional(),
+  telefone: z.string().optional(),
+  responsavel: z.string().optional(),
+  ticketMedio: z.string().optional(),
   senhaAutomatica: z.boolean().default(false),
   enviarWhatsapp: z.boolean().default(false),
   enviarEmail: z.boolean().default(true),
@@ -42,15 +47,19 @@ export function CriarPadariaModal({ children }: CriarPadariaModalProps) {
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      // API required fields
+      email: "",
+      password: "",
+      bakery_name: "",
+      
+      // Additional fields
       nomeFantasia: "",
       razaoSocial: "",
       cnpj: "",
       endereco: "",
       telefone: "",
-      email: "",
       responsavel: "",
       ticketMedio: "",
-      senha: "",
       senhaAutomatica: false,
       enviarWhatsapp: false,
       enviarEmail: true,
@@ -71,7 +80,7 @@ export function CriarPadariaModal({ children }: CriarPadariaModalProps) {
     form.setValue("senhaAutomatica", checked);
     if (checked) {
       const newPassword = generatePassword();
-      form.setValue("senha", newPassword);
+      form.setValue("password", newPassword);
     }
   };
 
@@ -79,33 +88,58 @@ export function CriarPadariaModal({ children }: CriarPadariaModalProps) {
     try {
       setIsSubmitting(true);
       
-      // Aqui seria feita a integração com o backend
-      console.log("Dados da padaria:", data);
+      // Use bakery_name if provided, otherwise fall back to nomeFantasia
+      const bakeryName = data.bakery_name || data.nomeFantasia || "";
       
-      // Simular delay de envio
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      if (!data.email || !data.password || !bakeryName) {
+        toast.error("Campos obrigatórios", {
+          description: "Email, senha e nome da padaria são obrigatórios.",
+        });
+        return;
+      }
+
+      // Call SINDPAN Auth API to register the bakery
+      const response = await sindpanAuthApi.register({
+        email: data.email,
+        password: data.password,
+        bakery_name: bakeryName,
+      });
       
       toast.success("Padaria criada com sucesso!", {
-        description: `${data.nomeFantasia} foi cadastrada no sistema.`,
+        description: `${bakeryName} foi cadastrada no sistema.`,
       });
       
       if (data.enviarEmail) {
-        toast.info("Credenciais enviadas por email", {
-          description: `Credenciais de acesso enviadas para ${data.email}`,
+        toast.info("Credenciais criadas", {
+          description: `Credenciais de acesso criadas para ${data.email}`,
         });
       }
       
-      if (data.enviarWhatsapp) {
-        toast.info("Credenciais enviadas por WhatsApp", {
-          description: `Credenciais de acesso enviadas para ${data.telefone}`,
+      if (data.enviarWhatsapp && data.telefone) {
+        toast.info("Notificação pendente", {
+          description: `Lembre-se de informar as credenciais via WhatsApp para ${data.telefone}`,
         });
       }
       
       setOpen(false);
       form.reset();
     } catch (error) {
+      console.error("Error creating bakery:", error);
+      
+      let errorMessage = "Tente novamente ou contate o suporte.";
+      
+      if (error instanceof SindpanApiError) {
+        if (error.status === 409) {
+          errorMessage = "Este email já está cadastrado no sistema.";
+        } else if (error.status === 400) {
+          errorMessage = "Dados inválidos. Verifique os campos obrigatórios.";
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
       toast.error("Erro ao criar padaria", {
-        description: "Tente novamente ou contate o suporte.",
+        description: errorMessage,
       });
     } finally {
       setIsSubmitting(false);
@@ -127,34 +161,72 @@ export function CriarPadariaModal({ children }: CriarPadariaModalProps) {
         
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="nomeFantasia"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Nome Fantasia *</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Ex: Padaria Central" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+            {/* API Required Fields */}
+            <div className="space-y-4 p-4 bg-primary/5 rounded-lg border border-primary/20">
+              <h3 className="font-medium text-primary">Informações Básicas (Obrigatório)</h3>
               
               <FormField
                 control={form.control}
-                name="razaoSocial"
+                name="bakery_name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Razão Social *</FormLabel>
+                    <FormLabel>Nome da Padaria *</FormLabel>
                     <FormControl>
-                      <Input placeholder="Ex: Padaria Central Ltda" {...field} />
+                      <Input placeholder="Ex: Padaria Pão Quente" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
+
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email *</FormLabel>
+                    <FormControl>
+                      <Input type="email" placeholder="contato@padaria.com" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            {/* Additional Information */}
+            <div className="space-y-4">
+              <h3 className="font-medium text-muted-foreground">Informações Complementares (Opcional)</h3>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="nomeFantasia"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Nome Fantasia</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Ex: Padaria Central" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="razaoSocial"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Razão Social</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Ex: Padaria Central Ltda" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -208,12 +280,12 @@ export function CriarPadariaModal({ children }: CriarPadariaModalProps) {
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
-                name="email"
+                name="responsavel"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Email *</FormLabel>
+                    <FormLabel>Responsável</FormLabel>
                     <FormControl>
-                      <Input type="email" placeholder="contato@padaria.com" {...field} />
+                      <Input placeholder="Nome do responsável" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -222,12 +294,12 @@ export function CriarPadariaModal({ children }: CriarPadariaModalProps) {
               
               <FormField
                 control={form.control}
-                name="responsavel"
+                name="ticketMedio"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Responsável *</FormLabel>
+                    <FormLabel>Ticket Médio</FormLabel>
                     <FormControl>
-                      <Input placeholder="Nome do responsável" {...field} />
+                      <Input placeholder="R$ 25,50" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -235,19 +307,7 @@ export function CriarPadariaModal({ children }: CriarPadariaModalProps) {
               />
             </div>
 
-            <FormField
-              control={form.control}
-              name="ticketMedio"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Ticket Médio *</FormLabel>
-                  <FormControl>
-                    <Input placeholder="R$ 25,50" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+
 
             {/* Seção de Senha */}
             <div className="space-y-4 p-4 bg-muted/30 rounded-lg border">
@@ -269,7 +329,7 @@ export function CriarPadariaModal({ children }: CriarPadariaModalProps) {
                     size="sm"
                     onClick={() => {
                       const newPassword = generatePassword();
-                      form.setValue("senha", newPassword);
+                      form.setValue("password", newPassword);
                     }}
                   >
                     <Shuffle className="w-4 h-4" />
@@ -279,7 +339,7 @@ export function CriarPadariaModal({ children }: CriarPadariaModalProps) {
 
               <FormField
                 control={form.control}
-                name="senha"
+                name="password"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Senha *</FormLabel>

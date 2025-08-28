@@ -6,14 +6,14 @@ import { Label } from "@/components/ui/label";
 import { Eye, EyeOff, ShoppingBag } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { ApiIntegrationInfo } from "@/components/ApiIntegrationInfo";
 
-export function LoginPadaria() {
+export function RegisterPadaria() {
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
+  const [bakeryName, setBakeryName] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
-  const { login, isLoading, user } = useAuth();
+  const { register, isLoading, user } = useAuth();
 
   // Redirect if already authenticated
   if (user) {
@@ -28,23 +28,20 @@ export function LoginPadaria() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!email || !senha) {
+    if (!email || !senha || !bakeryName) {
       return;
     }
 
     try {
-      await login(email, senha);
+      await register(email, senha, bakeryName);
       
-      // Navigate based on user role after successful login
-      // The AuthContext will update the user state
+      // Navigate to dashboard after successful registration
       navigate("/padaria/dashboard");
     } catch (error) {
       // Error handling is done in the AuthContext
-      console.error('Login error:', error);
+      console.error('Registration error:', error);
     }
   };
-
-
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 to-secondary/10 flex items-center justify-center p-4">
@@ -57,25 +54,37 @@ export function LoginPadaria() {
             </div>
           </div>
           <div>
-            <h1 className="text-3xl font-bold text-primary">Portal da Padaria</h1>
+            <h1 className="text-3xl font-bold text-primary">Cadastro de Padaria</h1>
             <p className="text-muted-foreground">
-              Acompanhe o desempenho da sua padaria na campanha SINDPAN
+              Cadastre sua padaria na campanha SINDPAN
             </p>
           </div>
         </div>
 
-        {/* Login Form */}
+        {/* Register Form */}
         <Card className="shadow-xl border-0">
           <CardHeader className="space-y-1">
             <CardTitle className="text-2xl text-center text-foreground">
-              Entrar
+              Criar Conta
             </CardTitle>
             <CardDescription className="text-center">
-              Acesse sua conta com email e senha
+              Preencha os dados para cadastrar sua padaria
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="bakeryName">Nome da Padaria</Label>
+                <Input
+                  id="bakeryName"
+                  type="text"
+                  placeholder="ex.: Padaria Pão Quente"
+                  value={bakeryName}
+                  onChange={(e) => setBakeryName(e.target.value)}
+                  required
+                />
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
                 <Input
@@ -94,10 +103,11 @@ export function LoginPadaria() {
                   <Input
                     id="senha"
                     type={showPassword ? "text" : "password"}
-                    placeholder="Digite sua senha"
+                    placeholder="Digite uma senha segura"
                     value={senha}
                     onChange={(e) => setSenha(e.target.value)}
                     required
+                    minLength={6}
                   />
                   <Button
                     type="button"
@@ -113,35 +123,29 @@ export function LoginPadaria() {
                     )}
                   </Button>
                 </div>
+                <p className="text-sm text-muted-foreground">
+                  A senha deve ter pelo menos 6 caracteres
+                </p>
               </div>
 
               <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? "Entrando..." : "Entrar"}
+                {isLoading ? "Criando conta..." : "Criar Conta"}
               </Button>
             </form>
 
-            <div className="mt-4 text-center space-y-2">
-              <Link
-                to="/padaria/esqueci-senha"
-                className="text-sm text-primary hover:underline block"
-              >
-                Esqueci minha senha
-              </Link>
+            <div className="mt-4 text-center">
               <p className="text-sm text-muted-foreground">
-                Não tem uma conta?{" "}
+                Já tem uma conta?{" "}
                 <Link
-                  to="/padaria/cadastro"
+                  to="/padaria/login"
                   className="text-primary hover:underline font-medium"
                 >
-                  Cadastre sua padaria
+                  Fazer login
                 </Link>
               </p>
             </div>
           </CardContent>
         </Card>
-
-        {/* API Integration Info */}
-        <ApiIntegrationInfo />
 
         {/* Footer */}
         <div className="text-center text-sm text-muted-foreground">

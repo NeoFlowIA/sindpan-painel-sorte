@@ -4,7 +4,8 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Settings, Save, Calendar, Bot, Shield, DollarSign } from "lucide-react";
+import { Settings, Save, Calendar, Bot, Shield, DollarSign, Globe } from "lucide-react";
+import { ApiHealthCheck } from "@/components/ApiHealthCheck";
 
 export default function Configuracoes() {
   return (
@@ -156,6 +157,48 @@ export default function Configuracoes() {
             <Button variant="outline" className="w-full">
               Adicionar novo usuário
             </Button>
+          </CardContent>
+        </Card>
+
+        {/* API Integration */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Globe className="w-5 h-5" />
+              Integração API SINDPAN
+              <Badge variant="outline" className="text-primary border-primary">Sistema</Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-3">
+                <div>
+                  <label className="text-sm font-medium">Base URL</label>
+                  <Input 
+                    value="https://neotalks-sindpan-auth.t2wird.easypanel.host" 
+                    readOnly 
+                    className="bg-muted"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Status da Conexão</label>
+                  <div className="mt-1">
+                    <ApiHealthCheck />
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-3">
+                <div>
+                  <label className="text-sm font-medium">Endpoints Disponíveis</label>
+                  <div className="space-y-1 text-sm text-muted-foreground mt-1">
+                    <div>• GET /health - Health check</div>
+                    <div>• POST /auth/register - Cadastro de padarias</div>
+                    <div>• POST /auth/login - Login</div>
+                    <div>• GET /auth/me - Perfil do usuário</div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </CardContent>
         </Card>
 
