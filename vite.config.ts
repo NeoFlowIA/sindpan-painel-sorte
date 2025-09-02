@@ -32,22 +32,11 @@ export default defineConfig(({ mode }) => ({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/graphql/, hasuraUrl.pathname),
         secure: true,
-        configure: (proxy, _options) => {
-          proxy.on('proxyReq', (proxyReq, req, _res) => {
-            console.log('📡 GraphQL Request:', req.method, req.url);
-          });
-          proxy.on('proxyRes', (proxyRes, req, _res) => {
-            console.log('✅ GraphQL Response:', proxyRes.statusCode, req.url);
-          });
-          proxy.on('error', (err, _req, _res) => {
-            console.log('❌ GraphQL Proxy Error:', err.message);
-          });
-        },
-      }
-    }
+      },
+    },
   },
   define: {
-    'import.meta.env.VITE_HASURA_ENDPOINT': JSON.stringify(hasuraEndpoint),
+    'import.meta.env.HASURA_ENDPOINT': JSON.stringify(hasuraEndpoint),
   },
   plugins: [
     react(),

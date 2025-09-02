@@ -96,14 +96,8 @@ class GraphQLClient {
   }
 }
 
-// Função para obter a URL do GraphQL baseada no ambiente
+// Função para obter a URL do GraphQL
 const getGraphQLEndpoint = (): string => {
-  // Em desenvolvimento, usamos o proxy local definido no Vite
-  if (import.meta.env.DEV) {
-    return '/graphql';
-  }
-
-  // Em produção, o endpoint deve vir da variável de ambiente
   if (!hasuraConfig.endpoint) {
     throw new Error('HASURA_ENDPOINT is not configured');
   }
