@@ -1,23 +1,11 @@
 // Configurações do Hasura
+// O endpoint é lido exclusivamente da variável de ambiente HASURA_ENDPOINT
+// Em desenvolvimento, se a variável não estiver definida, caímos no proxy local
 export const hasuraConfig = {
-  // Endpoint GraphQL
-  endpoint: 'https://neotalks-hasura.t2wird.easypanel.host/v1/graphql',
-  
-  // Chave de admin (você precisa fornecer a chave real)
-  adminSecret: 'mysecretkey', // TODO: Adicionar a chave real aqui
-  
-  // Headers padrão
-  getHeaders: () => {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-    };
-    
-    // Se tiver a chave de admin, adicionar
-    if (hasuraConfig.adminSecret) {
-      headers['x-hasura-admin-secret'] = hasuraConfig.adminSecret;
-    }
-    
-    return headers;
-  }
+  endpoint:
+    // valor injetado pelo build (define em `vite.config.ts`)
+    import.meta.env.HASURA_ENDPOINT ||
+    // fallback apenas para desenvolvimento
+    (import.meta.env.DEV ? '/graphql' : ''),
 };
 
