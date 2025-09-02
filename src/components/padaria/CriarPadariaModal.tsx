@@ -2,34 +2,26 @@ import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Plus, Eye, EyeOff, MessageCircle, Mail, Shuffle } from "lucide-react";
+import { Plus } from "lucide-react";
 import { toast } from "sonner";
-import { sindpanAuthApi, SindpanApiError } from "@/services/sindpanAuthApi";
+import { useCreatePadaria } from "@/hooks/usePadarias";
+import { unformatCNPJ, unformatPhone, applyCNPJMask, applyPhoneMask } from "@/utils/formatters";
 
 const formSchema = z.object({
-  // Required fields for API
-  email: z.string().email("Email inválido"),
-  password: z.string().min(6, "Senha deve ter pelo menos 6 caracteres"),
-  bakery_name: z.string().min(2, "Nome da padaria deve ter pelo menos 2 caracteres"),
-  
-  // Additional fields for internal use
-  nomeFantasia: z.string().optional(),
-  razaoSocial: z.string().optional(),
-  cnpj: z.string().optional(),
-  endereco: z.string().optional(),
+  nome: z.string().min(2, "Nome da padaria deve ter pelo menos 2 caracteres"),
+  cnpj: z.string().min(14, "CNPJ deve ter 14 dígitos"),
+  endereco: z.string().min(5, "Endereço deve ter pelo menos 5 caracteres"),
+  email: z.string().email("Email inválido").optional().or(z.literal("")),
   telefone: z.string().optional(),
-  responsavel: z.string().optional(),
   ticketMedio: z.string().optional(),
-  senhaAutomatica: z.boolean().default(false),
-  enviarWhatsapp: z.boolean().default(false),
-  enviarEmail: z.boolean().default(true),
+  status: z.enum(["ativa", "pendente", "inativa"]).default("ativa"),
+  statusPagamento: z.enum(["pago", "em_aberto", "atrasado"]).default("em_aberto"),
   observacoes: z.string().optional(),
 });
 
@@ -41,98 +33,68 @@ interface CriarPadariaModalProps {
 
 export function CriarPadariaModal({ children }: CriarPadariaModalProps) {
   const [open, setOpen] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  const createPadaria = useCreatePadaria();
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      // API required fields
-      email: "",
-      password: "",
-      bakery_name: "",
-      
-      // Additional fields
-      nomeFantasia: "",
-      razaoSocial: "",
+      nome: "",
       cnpj: "",
       endereco: "",
+      email: "",
       telefone: "",
-      responsavel: "",
       ticketMedio: "",
-      senhaAutomatica: false,
-      enviarWhatsapp: false,
-      enviarEmail: true,
+      status: "ativa",
+      statusPagamento: "em_aberto",
       observacoes: "",
     },
   });
-
-  const generatePassword = () => {
-    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@#$%";
-    let password = "";
-    for (let i = 0; i < 12; i++) {
-      password += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return password;
-  };
-
-  const handleSenhaAutomaticaChange = (checked: boolean) => {
-    form.setValue("senhaAutomatica", checked);
-    if (checked) {
-      const newPassword = generatePassword();
-      form.setValue("password", newPassword);
-    }
-  };
 
   const onSubmit = async (data: FormData) => {
     try {
       setIsSubmitting(true);
       
-      // Use bakery_name if provided, otherwise fall back to nomeFantasia
-      const bakeryName = data.bakery_name || data.nomeFantasia || "";
-      
-      if (!data.email || !data.password || !bakeryName) {
+      if (!data.nome || !data.cnpj || !data.endereco) {
         toast.error("Campos obrigatórios", {
-          description: "Email, senha e nome da padaria são obrigatórios.",
+          description: "Nome, CNPJ e endereço são obrigatórios.",
         });
         return;
       }
 
-      // Call SINDPAN Auth API to register the bakery
-      const response = await sindpanAuthApi.register({
-        email: data.email,
-        password: data.password,
-        bakery_name: bakeryName,
+      // Criar apenas na tabela padarias
+      await createPadaria.mutateAsync({
+        padaria: {
+          cnpj: unformatCNPJ(data.cnpj),
+          nome: data.nome,
+          email: data.email || null,
+          endereco: data.endereco,
+          telefone: data.telefone ? unformatPhone(data.telefone) : null,
+          status: data.status,
+          status_pagamento: data.statusPagamento,
+          ticket_medio: data.ticketMedio ? parseFloat(data.ticketMedio.replace(',', '.')) : 0,
+        }
       });
       
       toast.success("Padaria criada com sucesso!", {
-        description: `${bakeryName} foi cadastrada no sistema.`,
+        description: `${data.nome} foi cadastrada no sistema.`,
       });
       
-      if (data.enviarEmail) {
-        toast.info("Credenciais criadas", {
-          description: `Credenciais de acesso criadas para ${data.email}`,
-        });
-      }
-      
-      if (data.enviarWhatsapp && data.telefone) {
-        toast.info("Notificação pendente", {
-          description: `Lembre-se de informar as credenciais via WhatsApp para ${data.telefone}`,
-        });
-      }
+      toast.info("Próximo passo", {
+        description: "A padaria poderá criar sua conta de acesso através do portal de cadastro.",
+      });
       
       setOpen(false);
       form.reset();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error creating bakery:", error);
       
       let errorMessage = "Tente novamente ou contate o suporte.";
       
-      if (error instanceof SindpanApiError) {
-        if (error.status === 409) {
-          errorMessage = "Este email já está cadastrado no sistema.";
-        } else if (error.status === 400) {
-          errorMessage = "Dados inválidos. Verifique os campos obrigatórios.";
+      if (error.message) {
+        if (error.message.includes('duplicate') || error.message.includes('already exists')) {
+          errorMessage = "Este CNPJ já está cadastrado no sistema.";
         } else {
           errorMessage = error.message;
         }
@@ -153,21 +115,21 @@ export function CriarPadariaModal({ children }: CriarPadariaModalProps) {
       </DialogTrigger>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-primary">
+          <DialogTitle className="flex items-center gap-2">
             <Plus className="w-5 h-5" />
-            Nova Padaria
+            Adicionar Nova Padaria
           </DialogTitle>
         </DialogHeader>
-        
+
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            {/* API Required Fields */}
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            {/* Informações Básicas */}
             <div className="space-y-4 p-4 bg-primary/5 rounded-lg border border-primary/20">
-              <h3 className="font-medium text-primary">Informações Básicas (Obrigatório)</h3>
+              <h3 className="font-medium text-primary">Informações Básicas</h3>
               
               <FormField
                 control={form.control}
-                name="bakery_name"
+                name="nome"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Nome da Padaria *</FormLabel>
@@ -179,48 +141,89 @@ export function CriarPadariaModal({ children }: CriarPadariaModalProps) {
                 )}
               />
 
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email *</FormLabel>
-                    <FormControl>
-                      <Input type="email" placeholder="contato@padaria.com" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            {/* Additional Information */}
-            <div className="space-y-4">
-              <h3 className="font-medium text-muted-foreground">Informações Complementares (Opcional)</h3>
-              
               <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
-                  name="nomeFantasia"
+                  name="cnpj"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Nome Fantasia</FormLabel>
+                      <FormLabel>CNPJ *</FormLabel>
                       <FormControl>
-                        <Input placeholder="Ex: Padaria Central" {...field} />
+                        <Input 
+                          placeholder="00.000.000/0000-00" 
+                          value={field.value}
+                          onChange={(e) => {
+                            const maskedValue = applyCNPJMask(e.target.value);
+                            field.onChange(maskedValue);
+                          }}
+                          maxLength={18}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-                
+
                 <FormField
                   control={form.control}
-                  name="razaoSocial"
+                  name="email"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Razão Social</FormLabel>
+                      <FormLabel>Email</FormLabel>
                       <FormControl>
-                        <Input placeholder="Ex: Padaria Central Ltda" {...field} />
+                        <Input type="email" placeholder="contato@padaria.com" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <FormField
+                control={form.control}
+                name="endereco"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Endereço *</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Rua, número, bairro, cidade" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="telefone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Telefone</FormLabel>
+                      <FormControl>
+                        <Input 
+                          placeholder="(85) 99999-9999" 
+                          value={field.value}
+                          onChange={(e) => {
+                            const maskedValue = applyPhoneMask(e.target.value);
+                            field.onChange(maskedValue);
+                          }}
+                          maxLength={14}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="ticketMedio"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Ticket Médio</FormLabel>
+                      <FormControl>
+                        <Input placeholder="25,00" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -229,17 +232,68 @@ export function CriarPadariaModal({ children }: CriarPadariaModalProps) {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            {/* Status e Configurações */}
+            <div className="space-y-4 p-4 bg-gray-50 rounded-lg">
+              <h3 className="font-medium text-gray-700">Status e Configurações</h3>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="status"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Status</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione o status" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="ativa">Ativa</SelectItem>
+                          <SelectItem value="pendente">Pendente</SelectItem>
+                          <SelectItem value="inativa">Inativa</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="statusPagamento"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Status de Pagamento</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Status do pagamento" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="pago">Pago</SelectItem>
+                          <SelectItem value="em_aberto">Pendente</SelectItem>
+                          <SelectItem value="atrasado">Atrasado</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
               <FormField
                 control={form.control}
-                name="cnpj"
+                name="observacoes"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>CNPJ *</FormLabel>
+                    <FormLabel>Observações</FormLabel>
                     <FormControl>
-                      <Input 
-                        placeholder="00.000.000/0000-00" 
-                        maxLength={18}
+                      <Textarea 
+                        placeholder="Informações adicionais sobre a padaria..."
+                        rows={3}
                         {...field} 
                       />
                     </FormControl>
@@ -247,175 +301,9 @@ export function CriarPadariaModal({ children }: CriarPadariaModalProps) {
                   </FormItem>
                 )}
               />
-              
-              <FormField
-                control={form.control}
-                name="telefone"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Telefone/WhatsApp *</FormLabel>
-                    <FormControl>
-                      <Input placeholder="(00) 00000-0000" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
             </div>
 
-            <FormField
-              control={form.control}
-              name="endereco"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Endereço Completo *</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Rua, número, bairro, cidade - UF" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="responsavel"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Responsável</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Nome do responsável" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <FormField
-                control={form.control}
-                name="ticketMedio"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Ticket Médio</FormLabel>
-                    <FormControl>
-                      <Input placeholder="R$ 25,50" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-
-
-            {/* Seção de Senha */}
-            <div className="space-y-4 p-4 bg-muted/30 rounded-lg border">
-              <h3 className="font-medium text-primary">Credenciais de Acesso</h3>
-              
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="senhaAutomatica"
-                  checked={form.watch("senhaAutomatica")}
-                  onCheckedChange={handleSenhaAutomaticaChange}
-                />
-                <Label htmlFor="senhaAutomatica" className="text-sm">
-                  Gerar senha automaticamente
-                </Label>
-                {form.watch("senhaAutomatica") && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      const newPassword = generatePassword();
-                      form.setValue("password", newPassword);
-                    }}
-                  >
-                    <Shuffle className="w-4 h-4" />
-                  </Button>
-                )}
-              </div>
-
-              <FormField
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Senha *</FormLabel>
-                    <FormControl>
-                      <div className="relative">
-                        <Input
-                          type={showPassword ? "text" : "password"}
-                          placeholder="Digite a senha"
-                          disabled={form.watch("senhaAutomatica")}
-                          {...field}
-                        />
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="absolute right-2 top-0 h-full px-2"
-                          onClick={() => setShowPassword(!showPassword)}
-                        >
-                          {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                        </Button>
-                      </div>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Enviar credenciais via:</Label>
-                <div className="flex flex-col space-y-2">
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="enviarEmail"
-                      checked={form.watch("enviarEmail")}
-                      onCheckedChange={(checked) => form.setValue("enviarEmail", !!checked)}
-                    />
-                    <Label htmlFor="enviarEmail" className="text-sm flex items-center gap-2">
-                      <Mail className="w-4 h-4" />
-                      Enviar por email
-                    </Label>
-                  </div>
-                  
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="enviarWhatsapp"
-                      checked={form.watch("enviarWhatsapp")}
-                      onCheckedChange={(checked) => form.setValue("enviarWhatsapp", !!checked)}
-                    />
-                    <Label htmlFor="enviarWhatsapp" className="text-sm flex items-center gap-2">
-                      <MessageCircle className="w-4 h-4" />
-                      Enviar por WhatsApp
-                    </Label>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <FormField
-              control={form.control}
-              name="observacoes"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Observações</FormLabel>
-                  <FormControl>
-                    <Textarea 
-                      placeholder="Informações adicionais sobre a padaria..."
-                      className="resize-none"
-                      rows={3}
-                      {...field} 
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
+            {/* Footer */}
             <div className="flex justify-end gap-2 pt-4">
               <Button 
                 type="button" 
@@ -425,11 +313,7 @@ export function CriarPadariaModal({ children }: CriarPadariaModalProps) {
               >
                 Cancelar
               </Button>
-              <Button 
-                type="submit" 
-                disabled={isSubmitting}
-                className="bg-primary text-primary-foreground hover:bg-primary/90"
-              >
+              <Button type="submit" disabled={isSubmitting}>
                 {isSubmitting ? "Criando..." : "Criar Padaria"}
               </Button>
             </div>
