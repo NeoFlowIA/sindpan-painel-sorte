@@ -4,8 +4,10 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { AdminRoute, BakeryRoute } from "@/components/ProtectedRoute";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { PadariaLayout } from "@/components/padaria/PadariaLayout";
+import Login from "./pages/Login";
 import Index from "./pages/Index";
 import Sorteios from "./pages/Sorteios";
 import Participantes from "./pages/Participantes";
@@ -30,81 +32,108 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
         <Routes>
-          {/* Admin Routes */}
+          {/* Public Routes */}
+          <Route path="/login" element={<Login />} />
+          
+          {/* Admin Routes - Protected */}
           <Route
             path="/"
             element={
-              <DashboardLayout>
-                <Index />
-              </DashboardLayout>
+              <AdminRoute>
+                <DashboardLayout>
+                  <Index />
+                </DashboardLayout>
+              </AdminRoute>
             }
           />
           <Route
             path="/participantes"
             element={
-              <DashboardLayout>
-                <Participantes />
-              </DashboardLayout>
+              <AdminRoute>
+                <DashboardLayout>
+                  <Participantes />
+                </DashboardLayout>
+              </AdminRoute>
             }
           />
           <Route
             path="/padarias"
             element={
-              <DashboardLayout>
-                <Padarias />
-              </DashboardLayout>
+              <AdminRoute>
+                <DashboardLayout>
+                  <Padarias />
+                </DashboardLayout>
+              </AdminRoute>
             }
           />
           <Route
             path="/sorteios"
             element={
-              <DashboardLayout>
-                <Sorteios />
-              </DashboardLayout>
+              <AdminRoute>
+                <DashboardLayout>
+                  <Sorteios />
+                </DashboardLayout>
+              </AdminRoute>
             }
           />
           <Route
             path="/relatorios"
             element={
-              <DashboardLayout>
-                <Relatorios />
-              </DashboardLayout>
+              <AdminRoute>
+                <DashboardLayout>
+                  <Relatorios />
+                </DashboardLayout>
+              </AdminRoute>
             }
           />
           <Route
             path="/relatorios/sorteios"
-            element={<RelatorioSorteios />}
+            element={
+              <AdminRoute>
+                <RelatorioSorteios />
+              </AdminRoute>
+            }
           />
           <Route
             path="/sorteios/live"
-            element={<SorteiosLive />}
+            element={
+              <AdminRoute>
+                <SorteiosLive />
+              </AdminRoute>
+            }
           />
           <Route
             path="/configuracoes"
             element={
-              <DashboardLayout>
-                <Configuracoes />
-              </DashboardLayout>
+              <AdminRoute>
+                <DashboardLayout>
+                  <Configuracoes />
+                </DashboardLayout>
+              </AdminRoute>
             }
           />
 
-          {/* Padaria Routes */}
+          {/* Padaria Routes - Protected */}
           <Route path="/padaria/login" element={<LoginPadaria />} />
           <Route path="/padaria/cadastro" element={<RegisterPadaria />} />
           <Route
             path="/padaria/dashboard"
             element={
-              <PadariaLayout>
-                <PadariaDashboard />
-              </PadariaLayout>
+              <BakeryRoute>
+                <PadariaLayout>
+                  <PadariaDashboard />
+                </PadariaLayout>
+              </BakeryRoute>
             }
           />
           <Route
             path="/padaria/sorteio"
             element={
-              <PadariaLayout>
-                <PadariaSorteio />
-              </PadariaLayout>
+              <BakeryRoute>
+                <PadariaLayout>
+                  <PadariaSorteio />
+                </PadariaLayout>
+              </BakeryRoute>
             }
           />
           

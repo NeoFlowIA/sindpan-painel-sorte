@@ -11,6 +11,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Edit } from "lucide-react";
 import { toast } from "sonner";
+import { useUpdatePadaria } from "@/hooks/usePadarias";
+import { unformatCNPJ, unformatPhone } from "@/utils/formatters";
 
 const formSchema = z.object({
   nomeFantasia: z.string().min(2, "Nome fantasia deve ter pelo menos 2 caracteres"),
@@ -22,19 +24,26 @@ const formSchema = z.object({
   responsavel: z.string().min(2, "Nome do responsável deve ter pelo menos 2 caracteres"),
   ticketMedio: z.string().min(1, "Ticket médio é obrigatório"),
   status: z.enum(["ativa", "pendente", "inativa"]),
-  pagamento: z.enum(["pago", "pendente", "cancelado"]),
+  pagamento: z.enum(["pago", "em_aberto", "atrasado"]),
   observacoes: z.string().optional(),
 });
 
 type FormData = z.infer<typeof formSchema>;
 
 interface Bakery {
-  name: string;
+  name?: string;
   cnpj: string;
-  address: string;
-  averageTicket: string;
+  address?: string;
+  averageTicket?: string;
   status: string;
-  payment: string;
+  payment?: string;
+  // Novos campos da API Hasura
+  nome?: string;
+  endereco?: string;
+  email?: string;
+  telefone?: string;
+  ticket_medio?: number;
+  status_pagamento?: string;
 }
 
 interface EditarPadariaModalProps {
@@ -46,6 +55,9 @@ interface EditarPadariaModalProps {
 export function EditarPadariaModal({ children, bakery, onUpdate }: EditarPadariaModalProps) {
   const [open, setOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Mutation para atualizar padaria
+  const updatePadaria = useUpdatePadaria();
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -59,7 +71,7 @@ export function EditarPadariaModal({ children, bakery, onUpdate }: EditarPadaria
       responsavel: "",
       ticketMedio: "",
       status: "ativa",
-      pagamento: "pago",
+      pagamento: "em_aberto",
       observacoes: "",
     },
   });
@@ -67,16 +79,16 @@ export function EditarPadariaModal({ children, bakery, onUpdate }: EditarPadaria
   useEffect(() => {
     if (open && bakery) {
       form.reset({
-        nomeFantasia: bakery.name,
-        razaoSocial: bakery.name + " Ltda", // Mock data
+        nomeFantasia: bakery.nome || bakery.name || "",
+        razaoSocial: (bakery.nome || bakery.name || "") + " Ltda", // Mock data
         cnpj: bakery.cnpj,
-        endereco: bakery.address,
-        telefone: "(85) 99999-9999", // Mock data
-        email: "contato@" + bakery.name.toLowerCase().replace(/\s+/g, "") + ".com", // Mock data
+        endereco: bakery.endereco || bakery.address || "",
+        telefone: bakery.telefone || "(85) 99999-9999", // Mock data
+        email: bakery.email || "contato@exemplo.com", // Mock data
         responsavel: "João Silva", // Mock data
-        ticketMedio: bakery.averageTicket,
+        ticketMedio: bakery.ticket_medio?.toString() || bakery.averageTicket || "0",
         status: bakery.status as "ativa" | "pendente" | "inativa",
-        pagamento: bakery.payment as "pago" | "pendente" | "cancelado",
+        pagamento: (bakery.status_pagamento || bakery.payment || "em_aberto") as "pago" | "em_aberto" | "atrasado",
         observacoes: "",
       });
     }
@@ -86,32 +98,46 @@ export function EditarPadariaModal({ children, bakery, onUpdate }: EditarPadaria
     try {
       setIsSubmitting(true);
       
-      // Aqui seria feita a integração com o backend
-      console.log("Dados atualizados da padaria:", data);
-      
-      // Simular delay de envio
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // Preparar dados para a mutation
+      const updateData = {
+        nome: data.nomeFantasia,
+        endereco: data.endereco,
+        email: data.email,
+        telefone: unformatPhone(data.telefone),
+        ticket_medio: parseFloat(data.ticketMedio.replace(',', '.')),
+        status: data.status, // Já está no formato correto
+        status_pagamento: data.pagamento, // Já está no formato correto
+      };
+
+      // Executar mutation
+      await updatePadaria.mutateAsync({
+        cnpj: unformatCNPJ(bakery.cnpj),
+        changes: updateData
+      });
       
       toast.success("Padaria atualizada com sucesso!", {
         description: `${data.nomeFantasia} foi atualizada no sistema.`,
       });
 
-      // Callback para atualizar a lista na página pai
+      // Callback para compatibilidade
       if (onUpdate) {
         onUpdate({
-          name: data.nomeFantasia,
-          cnpj: data.cnpj,
-          address: data.endereco,
-          averageTicket: data.ticketMedio,
-          status: data.status,
-          payment: data.pagamento,
+          ...bakery,
+          nome: data.nomeFantasia,
+          endereco: data.endereco,
+          email: data.email,
+          telefone: data.telefone,
+          ticket_medio: parseFloat(data.ticketMedio.replace(',', '.')),
+          status: updateData.status,
+          status_pagamento: updateData.status_pagamento,
         });
       }
       
       setOpen(false);
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Error updating padaria:', error);
       toast.error("Erro ao atualizar padaria", {
-        description: "Tente novamente ou contate o suporte.",
+        description: error.message || "Tente novamente ou contate o suporte.",
       });
     } finally {
       setIsSubmitting(false);
@@ -293,8 +319,8 @@ export function EditarPadariaModal({ children, bakery, onUpdate }: EditarPadaria
                       </FormControl>
                       <SelectContent>
                         <SelectItem value="pago">Pago</SelectItem>
-                        <SelectItem value="pendente">Pendente</SelectItem>
-                        <SelectItem value="cancelado">Cancelado</SelectItem>
+                        <SelectItem value="em_aberto">Pendente</SelectItem>
+                        <SelectItem value="atrasado">Atrasado</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
