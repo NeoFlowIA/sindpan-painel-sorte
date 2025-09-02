@@ -46,6 +46,9 @@ export default defineConfig(({ mode }) => ({
       }
     }
   },
+  define: {
+    'import.meta.env.VITE_HASURA_ENDPOINT': JSON.stringify(hasuraEndpoint),
+  },
   plugins: [
     react(),
     mode === 'development' &&
