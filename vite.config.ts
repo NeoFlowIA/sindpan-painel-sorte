@@ -3,6 +3,13 @@ import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
 
+// Obter endpoint do Hasura do ambiente
+const hasuraEndpoint = process.env.HASURA_ENDPOINT;
+if (!hasuraEndpoint) {
+  throw new Error('HASURA_ENDPOINT is not defined');
+}
+const hasuraUrl = new URL(hasuraEndpoint);
+
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
   server: {
@@ -21,15 +28,13 @@ export default defineConfig(({ mode }) => ({
         secure: true,
       },
       '/graphql': {
-        target: 'https://neotalks-hasura.t2wird.easypanel.host',
+        target: hasuraUrl.origin,
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/graphql/, '/v1/graphql'),
+        rewrite: (path) => path.replace(/^\/graphql/, hasuraUrl.pathname),
         secure: true,
         configure: (proxy, _options) => {
           proxy.on('proxyReq', (proxyReq, req, _res) => {
             console.log('📡 GraphQL Request:', req.method, req.url);
-            // Adicionar headers necessários para Hasura
-            // proxyReq.setHeader('x-hasura-admin-secret', 'your-secret-here');
           });
           proxy.on('proxyRes', (proxyRes, req, _res) => {
             console.log('✅ GraphQL Response:', proxyRes.statusCode, req.url);

@@ -1,5 +1,8 @@
 // Cliente GraphQL simples usando fetch
-interface GraphQLResponse<T = any> {
+import { hasuraConfig } from '@/config/hasura';
+import { sindpanAuthApi } from '@/services/sindpanAuthApi';
+
+interface GraphQLResponse<T = unknown> {
   data?: T;
   errors?: Array<{
     message: string;
@@ -10,72 +13,85 @@ interface GraphQLResponse<T = any> {
 
 interface GraphQLRequest {
   query: string;
-  variables?: Record<string, any>;
+  variables?: Record<string, unknown>;
   operationName?: string;
+}
+
+// Verifica se o token JWT está expirado
+function isTokenExpired(token: string): boolean {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    if (!payload.exp) return true;
+    return Date.now() >= payload.exp * 1000;
+  } catch {
+    return true;
+  }
 }
 
 class GraphQLClient {
   private endpoint: string;
-  private headers: Record<string, string>;
 
-  constructor(endpoint: string, headers: Record<string, string> = {}) {
+  constructor(endpoint: string) {
     this.endpoint = endpoint;
-    this.headers = {
-      'Content-Type': 'application/json',
-      ...headers,
-    };
   }
 
-  async request<T = any>(
+  async request<T = unknown>(
     query: string,
-    variables?: Record<string, any>,
+    variables?: Record<string, unknown>,
     operationName?: string
   ): Promise<GraphQLResponse<T>> {
+    const token = sindpanAuthApi.getToken();
+
+    // Não chamar o Hasura se não houver token ou se estiver expirado
+    if (!token || isTokenExpired(token)) {
+      throw new Error('Authentication token missing or expired');
+    }
+
     const body: GraphQLRequest = {
       query,
       variables,
       operationName,
     };
 
-    try {
-      const response = await fetch(this.endpoint, {
-        method: 'POST',
-        headers: this.headers,
-        body: JSON.stringify(body),
-        mode: 'cors',
-      });
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    };
 
-      if (!response.ok) {
-        throw new Error(`HTTP Error: ${response.status} ${response.statusText}`);
-      }
+    const response = await fetch(this.endpoint, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+      mode: 'cors',
+    });
 
-      const result: GraphQLResponse<T> = await response.json();
-      return result;
-    } catch (error) {
-      console.error('GraphQL Request Error:', error);
-      throw error;
+    if (!response.ok) {
+      throw new Error(`HTTP Error: ${response.status} ${response.statusText}`);
     }
+
+    const result: GraphQLResponse<T> = await response.json();
+    return result;
   }
 
   // Método de conveniência para queries
-  async query<T = any>(query: string, variables?: Record<string, any>): Promise<T> {
+  async query<T = unknown>(query: string, variables?: Record<string, unknown>): Promise<T> {
     const response = await this.request<T>(query, variables);
-    
+
     if (response.errors && response.errors.length > 0) {
       throw new Error(response.errors[0].message);
     }
-    
+
     return response.data as T;
   }
 
   // Método de conveniência para mutations
-  async mutate<T = any>(mutation: string, variables?: Record<string, any>): Promise<T> {
+  async mutate<T = unknown>(mutation: string, variables?: Record<string, unknown>): Promise<T> {
     const response = await this.request<T>(mutation, variables);
-    
+
     if (response.errors && response.errors.length > 0) {
       throw new Error(response.errors[0].message);
     }
-    
+
     return response.data as T;
   }
 }
@@ -86,14 +102,13 @@ const getGraphQLEndpoint = (): string => {
     // No navegador, usar o proxy local
     return '/graphql';
   }
-  // Fallback para a URL direta (endpoint correto)
-  return 'https://neotalks-hasura.t2wird.easypanel.host/v1/graphql';
+  if (!hasuraConfig.endpoint) {
+    throw new Error('HASURA_ENDPOINT is not configured');
+  }
+  return hasuraConfig.endpoint;
 };
 
-// Importar configuração do Hasura
-import { hasuraConfig } from '@/config/hasura';
-
 // Cliente GraphQL configurado
-export const graphqlClient = new GraphQLClient(getGraphQLEndpoint(), hasuraConfig.getHeaders());
+export const graphqlClient = new GraphQLClient(getGraphQLEndpoint());
 
 export default graphqlClient;
