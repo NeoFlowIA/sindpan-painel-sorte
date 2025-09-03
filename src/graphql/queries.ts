@@ -224,3 +224,12 @@ export const SCHEDULE_SORTEIO = `
     }
   }
 `;
+
+export const UPDATE_SORTEIO = `
+  mutation UpdateSorteio($id: uuid!, $data: timestamptz!) {
+    update_sorteios_by_pk(pk_columns: {id: $id}, _set: {data_sorteio: $data}) {
+      id
+      data_sorteio
+    }
+  }
+`;

@@ -7,10 +7,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Calendar as DatePicker } from "@/components/ui/calendar";
 import { useGraphQLQuery, useGraphQLMutation } from "@/hooks/useGraphQL";
-import { GET_NEXT_SORTEIO, SCHEDULE_SORTEIO } from "@/graphql/queries";
+import { GET_NEXT_SORTEIO, SCHEDULE_SORTEIO, UPDATE_SORTEIO } from "@/graphql/queries";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { Trophy, Calendar as CalendarIcon, Monitor, X, Save, RotateCcw, Sparkles, Eye, Clock } from "lucide-react";
+import { Trophy, Calendar as CalendarIcon, Monitor, X, Save, RotateCcw, Sparkles, Eye, Clock, Pencil } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { CinematicPresentation } from "@/components/CinematicPresentation";
@@ -67,6 +67,7 @@ export default function Sorteios() {
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
   const [selectedTime, setSelectedTime] = useState("");
+  const [editingSorteioId, setEditingSorteioId] = useState<string | null>(null);
 
   const { data: nextSorteioData } = useGraphQLQuery<{ sorteios: { id: string; data_sorteio: string }[] }>(['next-sorteio'], GET_NEXT_SORTEIO);
   const nextSorteio = nextSorteioData?.sorteios[0];
@@ -84,13 +85,42 @@ export default function Sorteios() {
     }
   });
 
+  const { mutate: updateSorteio, isPending: isUpdating } = useGraphQLMutation(UPDATE_SORTEIO, {
+    invalidateQueries: [['next-sorteio']],
+    onSuccess: () => {
+      toast.success('Sorteio atualizado!');
+      setShowScheduleModal(false);
+      setSelectedDate(undefined);
+      setSelectedTime('');
+      setEditingSorteioId(null);
+    },
+    onError: () => {
+      toast.error('Erro ao atualizar sorteio');
+    }
+  });
+
+  const isMutating = isScheduling || isUpdating;
+
   const handleSchedule = () => {
     if (!selectedDate || !selectedTime) return;
     const [hours, minutes] = selectedTime.split(':').map(Number);
     const date = new Date(selectedDate);
     date.setHours(hours);
     date.setMinutes(minutes);
-    scheduleSorteio({ id: crypto.randomUUID(), data: date.toISOString() });
+    if (editingSorteioId) {
+      updateSorteio({ id: editingSorteioId, data: date.toISOString() });
+    } else {
+      scheduleSorteio({ id: crypto.randomUUID(), data: date.toISOString() });
+    }
+  };
+
+  const handleEdit = () => {
+    if (!nextSorteio) return;
+    const date = new Date(nextSorteio.data_sorteio);
+    setSelectedDate(date);
+    setSelectedTime(format(date, 'HH:mm'));
+    setEditingSorteioId(nextSorteio.id);
+    setShowScheduleModal(true);
   };
 
   const generateRandomNumber = () => {
@@ -186,7 +216,12 @@ export default function Sorteios() {
           </div>
           <div className="flex gap-2">
             <Button
-              onClick={() => setShowScheduleModal(true)}
+              onClick={() => {
+                setEditingSorteioId(null);
+                setSelectedDate(undefined);
+                setSelectedTime('');
+                setShowScheduleModal(true);
+              }}
               className="bg-primary text-primary-foreground hover:bg-primary/90"
             >
               <CalendarIcon className="w-4 h-4 mr-2" />
@@ -227,11 +262,19 @@ export default function Sorteios() {
                     <p className="text-2xl font-bold text-primary">{format(new Date(nextSorteio.data_sorteio), 'dd/MM/yyyy')}</p>
                     <p className="text-sm text-muted-foreground">{format(new Date(nextSorteio.data_sorteio), 'HH:mm')}h</p>
                   </div>
-                  <div className="ml-auto">
+                  <div className="ml-auto flex items-center gap-2">
                     <Badge variant="outline" className="text-secondary border-secondary">
                       <CalendarIcon className="w-3 h-3 mr-1" />
                       Agendado
                     </Badge>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={handleEdit}
+                      aria-label="Editar data do sorteio"
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </Button>
                   </div>
                 </>
               ) : (
@@ -267,10 +310,20 @@ export default function Sorteios() {
             Ver histórico completo
           </Button>
         </div>
-        <Dialog open={showScheduleModal} onOpenChange={setShowScheduleModal}>
+        <Dialog
+          open={showScheduleModal}
+          onOpenChange={(open) => {
+            setShowScheduleModal(open);
+            if (!open) {
+              setEditingSorteioId(null);
+              setSelectedDate(undefined);
+              setSelectedTime('');
+            }
+          }}
+        >
           <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
-              <DialogTitle>Agendar Sorteio</DialogTitle>
+              <DialogTitle>{editingSorteioId ? 'Editar Sorteio' : 'Agendar Sorteio'}</DialogTitle>
             </DialogHeader>
             <div className="flex flex-col gap-4 py-4">
               <DatePicker mode="single" selected={selectedDate} onSelect={setSelectedDate} className="rounded-md border" />
@@ -278,8 +331,14 @@ export default function Sorteios() {
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setShowScheduleModal(false)}>Cancelar</Button>
-              <Button onClick={handleSchedule} disabled={!selectedDate || !selectedTime || isScheduling}>
-                {isScheduling ? 'Agendando...' : 'Agendar'}
+              <Button onClick={handleSchedule} disabled={!selectedDate || !selectedTime || isMutating}>
+                {isMutating
+                  ? editingSorteioId
+                    ? 'Salvando...'
+                    : 'Agendando...'
+                  : editingSorteioId
+                  ? 'Salvar'
+                  : 'Agendar'}
               </Button>
             </DialogFooter>
           </DialogContent>
