@@ -202,3 +202,25 @@ export const GET_PARTICIPANTES = `
     }
   }
 `;
+
+export const GET_NEXT_SORTEIO = `
+  query GetNextSorteio {
+    sorteios(
+      where: {data_sorteio: {_gt: now()}},
+      order_by: {data_sorteio: asc},
+      limit: 1
+    ) {
+      id
+      data_sorteio
+    }
+  }
+`;
+
+export const SCHEDULE_SORTEIO = `
+  mutation ScheduleSorteio($id: uuid!, $data: timestamptz!) {
+    insert_sorteios_one(object: {id: $id, data_sorteio: $data}) {
+      id
+      data_sorteio
+    }
+  }
+`;
