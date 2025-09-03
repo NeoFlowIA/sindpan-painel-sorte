@@ -103,6 +103,14 @@ const App = () => (
             }
           />
           <Route
+            path="/sorteio/live"
+            element={
+              <AdminRoute>
+                <SorteiosLive />
+              </AdminRoute>
+            }
+          />
+          <Route
             path="/configuracoes"
             element={
               <AdminRoute>
