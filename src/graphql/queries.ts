@@ -206,7 +206,7 @@ export const GET_PARTICIPANTES = `
 export const GET_NEXT_SORTEIO = `
   query GetNextSorteio {
     sorteios(
-      where: {data_sorteio: {_gt: now()}},
+      where: {data_sorteio: {_gt: "now()"}},
       order_by: {data_sorteio: asc},
       limit: 1
     ) {
