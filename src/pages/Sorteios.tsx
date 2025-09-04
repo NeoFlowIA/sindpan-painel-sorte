@@ -4,10 +4,15 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogOverlay } from "@/components/ui/dialog";
-import { Trophy, Download, Plus, Calendar, Monitor, X, Save, RotateCcw, Sparkles, Eye, User, Clock } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Calendar as DatePicker } from "@/components/ui/calendar";
+import { useGraphQLQuery, useGraphQLMutation } from "@/hooks/useGraphQL";
+import { GET_NEXT_SORTEIO, SCHEDULE_SORTEIO, UPDATE_SORTEIO } from "@/graphql/queries";
+import { toast } from "sonner";
+import { format } from "date-fns";
+import { Trophy, Calendar as CalendarIcon, Monitor, X, Save, RotateCcw, Sparkles, Eye, Clock, Pencil } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { CinematicPresentation } from "@/components/CinematicPresentation";
 import { PreviewModal } from "@/components/PreviewModal";
 
@@ -59,6 +64,64 @@ export default function Sorteios() {
   const [winner, setWinner] = useState<typeof participants[0] | null>(null);
   const [showResult, setShowResult] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>();
+  const [selectedTime, setSelectedTime] = useState("");
+  const [editingSorteioId, setEditingSorteioId] = useState<string | null>(null);
+
+  const { data: nextSorteioData } = useGraphQLQuery<{ sorteios: { id: string; data_sorteio: string }[] }>(['next-sorteio'], GET_NEXT_SORTEIO);
+  const nextSorteio = nextSorteioData?.sorteios[0];
+
+  const { mutate: scheduleSorteio, isPending: isScheduling } = useGraphQLMutation(SCHEDULE_SORTEIO, {
+    invalidateQueries: [['next-sorteio']],
+    onSuccess: () => {
+      toast.success('Sorteio agendado!');
+      setShowScheduleModal(false);
+      setSelectedDate(undefined);
+      setSelectedTime('');
+    },
+    onError: () => {
+      toast.error('Erro ao agendar sorteio');
+    }
+  });
+
+  const { mutate: updateSorteio, isPending: isUpdating } = useGraphQLMutation(UPDATE_SORTEIO, {
+    invalidateQueries: [['next-sorteio']],
+    onSuccess: () => {
+      toast.success('Sorteio atualizado!');
+      setShowScheduleModal(false);
+      setSelectedDate(undefined);
+      setSelectedTime('');
+      setEditingSorteioId(null);
+    },
+    onError: () => {
+      toast.error('Erro ao atualizar sorteio');
+    }
+  });
+
+  const isMutating = isScheduling || isUpdating;
+
+  const handleSchedule = () => {
+    if (!selectedDate || !selectedTime) return;
+    const [hours, minutes] = selectedTime.split(':').map(Number);
+    const date = new Date(selectedDate);
+    date.setHours(hours);
+    date.setMinutes(minutes);
+    if (editingSorteioId) {
+      updateSorteio({ id: editingSorteioId, data: date.toISOString() });
+    } else {
+      scheduleSorteio({ id: crypto.randomUUID(), data: date.toISOString() });
+    }
+  };
+
+  const handleEdit = () => {
+    if (!nextSorteio) return;
+    const date = new Date(nextSorteio.data_sorteio);
+    setSelectedDate(date);
+    setSelectedTime(format(date, 'HH:mm'));
+    setEditingSorteioId(nextSorteio.id);
+    setShowScheduleModal(true);
+  };
 
   const generateRandomNumber = () => {
     return Math.floor(Math.random() * 100000).toString().padStart(5, '0');
@@ -152,15 +215,20 @@ export default function Sorteios() {
             <p className="text-muted-foreground">Gerencie e execute sorteios da campanha</p>
           </div>
           <div className="flex gap-2">
-            <Button 
-              onClick={() => setShowRaffleModal(true)}
+            <Button
+              onClick={() => {
+                setEditingSorteioId(null);
+                setSelectedDate(undefined);
+                setSelectedTime('');
+                setShowScheduleModal(true);
+              }}
               className="bg-primary text-primary-foreground hover:bg-primary/90"
             >
-              <Plus className="w-4 h-4 mr-2" />
-              Realizar novo sorteio
+              <CalendarIcon className="w-4 h-4 mr-2" />
+              Agendar novo sorteio
             </Button>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => window.open('/sorteios/live', '_blank')}
               className="border-primary text-primary hover:bg-primary/10"
             >
@@ -188,16 +256,30 @@ export default function Sorteios() {
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-4">
-              <div>
-                <p className="text-2xl font-bold text-primary">22/01/2024</p>
-                <p className="text-sm text-muted-foreground">15:00h</p>
-              </div>
-              <div className="ml-auto">
-                <Badge variant="outline" className="text-secondary border-secondary">
-                  <Calendar className="w-3 h-3 mr-1" />
-                  Agendado
-                </Badge>
-              </div>
+              {nextSorteio ? (
+                <>
+                  <div>
+                    <p className="text-2xl font-bold text-primary">{format(new Date(nextSorteio.data_sorteio), 'dd/MM/yyyy')}</p>
+                    <p className="text-sm text-muted-foreground">{format(new Date(nextSorteio.data_sorteio), 'HH:mm')}h</p>
+                  </div>
+                  <div className="ml-auto flex items-center gap-2">
+                    <Badge variant="outline" className="text-secondary border-secondary">
+                      <CalendarIcon className="w-3 h-3 mr-1" />
+                      Agendado
+                    </Badge>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={handleEdit}
+                      aria-label="Editar data do sorteio"
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <p className="text-muted-foreground">Nenhum sorteio agendado</p>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -228,6 +310,39 @@ export default function Sorteios() {
             Ver histórico completo
           </Button>
         </div>
+        <Dialog
+          open={showScheduleModal}
+          onOpenChange={(open) => {
+            setShowScheduleModal(open);
+            if (!open) {
+              setEditingSorteioId(null);
+              setSelectedDate(undefined);
+              setSelectedTime('');
+            }
+          }}
+        >
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>{editingSorteioId ? 'Editar Sorteio' : 'Agendar Sorteio'}</DialogTitle>
+            </DialogHeader>
+            <div className="flex flex-col gap-4 py-4">
+              <DatePicker mode="single" selected={selectedDate} onSelect={setSelectedDate} className="rounded-md border" />
+              <Input type="time" value={selectedTime} onChange={(e) => setSelectedTime(e.target.value)} />
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowScheduleModal(false)}>Cancelar</Button>
+              <Button onClick={handleSchedule} disabled={!selectedDate || !selectedTime || isMutating}>
+                {isMutating
+                  ? editingSorteioId
+                    ? 'Salvando...'
+                    : 'Agendando...'
+                  : editingSorteioId
+                  ? 'Salvar'
+                  : 'Agendar'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* Raffle Animation Modal */}
         <Dialog open={showRaffleModal} onOpenChange={setShowRaffleModal}>
