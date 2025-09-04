@@ -53,7 +53,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     !!sindpanUser?.email
   );
 
-  const isAuthenticated = !!user && sindpanAuthApi.isAuthenticated();
+  const isAuthenticated = sindpanAuthApi.isAuthenticated();
   const isAdmin = user?.role === 'admin';
   const isBakery = user?.role === 'bakery';
 
