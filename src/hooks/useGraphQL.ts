@@ -2,10 +2,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { graphqlClient } from '@/lib/graphql-client';
 
 // Hook para queries GraphQL
-export const useGraphQLQuery = <T = any>(
+export const useGraphQLQuery = <T = unknown>(
   queryKey: string[],
   query: string,
-  variables?: Record<string, any>,
+  variables?: Record<string, unknown>,
   options?: {
     enabled?: boolean;
     refetchInterval?: number;
@@ -25,7 +25,10 @@ export const useGraphQLQuery = <T = any>(
 };
 
 // Hook para mutations GraphQL
-export const useGraphQLMutation = <T = any, V = Record<string, any>>(
+export const useGraphQLMutation = <
+  T = unknown,
+  V extends Record<string, unknown> = Record<string, unknown>
+>(
   mutation: string,
   options?: {
     onSuccess?: (data: T) => void;
@@ -37,7 +40,7 @@ export const useGraphQLMutation = <T = any, V = Record<string, any>>(
 
   return useMutation({
     mutationFn: async (variables: V) => {
-      const result = await graphqlClient.mutate<T>(mutation, variables as Record<string, any>);
+      const result = await graphqlClient.mutate<T>(mutation, variables);
       return result;
     },
     onSuccess: (data) => {

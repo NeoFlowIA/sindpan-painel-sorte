@@ -134,10 +134,10 @@ export function EditarPadariaModal({ children, bakery, onUpdate }: EditarPadaria
       }
       
       setOpen(false);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error updating padaria:', error);
       toast.error("Erro ao atualizar padaria", {
-        description: error.message || "Tente novamente ou contate o suporte.",
+        description: error instanceof Error ? error.message : "Tente novamente ou contate o suporte.",
       });
     } finally {
       setIsSubmitting(false);
