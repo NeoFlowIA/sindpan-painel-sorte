@@ -5,7 +5,7 @@ export interface TestResult {
   endpoint: string;
   status: 'success' | 'error';
   message: string;
-  response?: any;
+  response?: unknown;
   error?: string;
 }
 

@@ -38,10 +38,10 @@ export function ExcluirPadariaModal({ children, padaria }: ExcluirPadariaModalPr
       toast.success("Padaria excluída com sucesso!", {
         description: `${padaria.nome} foi removida do sistema.`,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error deleting padaria:', error);
       toast.error("Erro ao excluir padaria", {
-        description: error.message || "Tente novamente ou contate o suporte.",
+        description: error instanceof Error ? error.message : "Tente novamente ou contate o suporte.",
       });
     } finally {
       setIsDeleting(false);

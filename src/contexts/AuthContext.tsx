@@ -143,14 +143,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
             // Em produção, você deve implementar verificação de senha adequada
             if (hasuraUser.role === 'admin') {
               // Simular usuário SINDPAN para compatibilidade
-              const mockSindpanUser = {
+              const mockSindpanUser: SindpanUser = {
                 id: hasuraUser.id,
                 email: hasuraUser.email,
                 bakery_name: hasuraUser.bakery_name,
                 role: hasuraUser.role
               };
-              
-              setSindpanUser(mockSindpanUser as any);
+
+              setSindpanUser(mockSindpanUser);
               
               toast.success('Login realizado com sucesso', {
                 description: 'Bem-vindo ao painel administrativo!',

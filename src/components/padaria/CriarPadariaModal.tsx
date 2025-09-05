@@ -87,19 +87,19 @@ export function CriarPadariaModal({ children }: CriarPadariaModalProps) {
       
       setOpen(false);
       form.reset();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error creating bakery:", error);
-      
+
       let errorMessage = "Tente novamente ou contate o suporte.";
-      
-      if (error.message) {
+
+      if (error instanceof Error && error.message) {
         if (error.message.includes('duplicate') || error.message.includes('already exists')) {
           errorMessage = "Este CNPJ já está cadastrado no sistema.";
         } else {
           errorMessage = error.message;
         }
       }
-      
+
       toast.error("Erro ao criar padaria", {
         description: errorMessage,
       });
