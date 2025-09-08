@@ -235,3 +235,60 @@ export const UPDATE_SORTEIO = `
     }
   }
 `;
+// Queries e mutations para cadastro de cupons e clientes
+export const GET_PADARIA_TICKET_MEDIO = `
+  query GetPadariaTicketMedio($id: uuid!) {
+    padarias_by_pk(id: $id) {
+      id
+      ticket_medio
+    }
+  }
+`;
+
+export const GET_CLIENTE = `
+  query GetCliente($padariaId: uuid!, $cpf: String, $whatsapp: String) {
+    clientes(where: {
+      padaria_id: {_eq: $padariaId},
+      _or: [{cpf: {_eq: $cpf}}, {whatsapp: {_eq: $whatsapp}}]
+    }) {
+      id
+      nome
+      cpf
+      whatsapp
+      clientes_padarias_saldos(where: {padaria_id: {_eq: $padariaId}}) {
+        saldo_centavos
+      }
+    }
+  }
+`;
+
+export const CREATE_CLIENTE = `
+  mutation CreateCliente($cliente: clientes_insert_input!) {
+    insert_clientes_one(object: $cliente) {
+      id
+      nome
+      cpf
+      whatsapp
+    }
+  }
+`;
+
+export const CADASTRAR_CUPOM = `
+  mutation CadastrarCupom(
+    $compra: compras_insert_input!,
+    $cupons: [cupons_insert_input!]!,
+    $saldo: clientes_padarias_saldos_insert_input!
+  ) {
+    insert_compras_one(object: $compra) { id }
+    insert_cupons(objects: $cupons) { affected_rows }
+    insert_clientes_padarias_saldos_one(
+      object: $saldo,
+      on_conflict: {
+        constraint: clientes_padarias_saldos_cliente_id_padaria_id_key,
+        update_columns: saldo_centavos
+      }
+    ) {
+      saldo_centavos
+    }
+  }
+`;
