@@ -1,49 +1,90 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search } from "lucide-react";
+import { Plus, Search, Loader2 } from "lucide-react";
 import { NovoClienteModal } from "./NovoClienteModal";
-
-// Mock data
-const mockClientes = [
-  {
-    id: 1,
-    cpf: "123.456.789-00",
-    nome: "Ana Souza",
-    whatsapp: "(+55) (85) 98888-1111",
-    dataCadastro: "07/08/2025",
-    totalCupons: 12
-  },
-  {
-    id: 2,
-    cpf: "987.654.321-99",
-    nome: "Carlos Silva",
-    whatsapp: "(+55) (85) 97777-2222",
-    dataCadastro: "05/08/2025",
-    totalCupons: 8
-  },
-  {
-    id: 3,
-    cpf: "456.789.123-55",
-    nome: "Maria Santos",
-    whatsapp: "(+55) (85) 96666-3333",
-    dataCadastro: "03/08/2025",
-    totalCupons: 15
-  }
-];
+// import { useClientesByBakeryName } from "@/hooks/useClientes"; // Removido temporariamente para debug
+import { useAuth } from "@/contexts/AuthContext";
+import { formatCPF } from "@/utils/formatters";
+import { useGraphQLQuery } from "@/hooks/useGraphQL";
+import { GET_CLIENTES, GET_ALL_CLIENTES_WITH_CUPONS } from "@/graphql/queries";
 
 export function ClientesTable() {
   const [searchTerm, setSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+  
+  const { user } = useAuth();
 
-  const filteredClientes = mockClientes.filter(cliente => 
-    cliente.cpf.includes(searchTerm) || 
-    cliente.whatsapp.includes(searchTerm) ||
-    cliente.nome.toLowerCase().includes(searchTerm.toLowerCase())
+  // Buscar clientes da padaria do usuário usando padarias_id direto
+  const padariasId = user?.padarias_id;
+  
+  // Query para clientes específicos da padaria (se tiver padarias_id)
+  const { data: clientesData, isLoading: clientesLoading, error: clientesError } = useGraphQLQuery(
+    ['clientes-by-padaria', padariasId],
+    GET_CLIENTES,
+    {
+      padaria_id: padariasId,
+      limit: 100,
+      offset: 0
+    },
+    { enabled: !!padariasId }
   );
+
+  // Query para todos os clientes (fallback se não tiver padarias_id)
+  const { data: allClientesData, isLoading: allClientesLoading, error: allClientesError } = useGraphQLQuery(
+    ['all-clientes-cupons'], 
+    GET_ALL_CLIENTES_WITH_CUPONS,
+    undefined,
+    { enabled: !padariasId }
+  );
+
+  const isLoading = padariasId ? clientesLoading : allClientesLoading;
+  const error = padariasId ? clientesError : allClientesError;
+
+  // Usar todos os clientes ou filtrar por padaria se necessário
+  type Cliente = {
+    padaria: any;
+    cupons: any;
+    id: string;
+    nome: string;
+    cpf: string;
+    whatsapp?: string;
+    // adicione outros campos conforme necessário
+  };
+
+  // Usar clientes específicos da padaria ou todos os clientes
+  const clientesFiltered: Cliente[] = padariasId 
+    ? (Array.isArray((clientesData as any)?.clientes) ? (clientesData as any).clientes : [])
+    : (Array.isArray((allClientesData as any)?.clientes) ? (allClientesData as any).clientes : []);
+
+  // Debug logs
+  console.log('🔍 ClientesTable Debug (Usando padarias_id direto):', {
+    bakeryName: user?.bakery_name,
+    userPadariasId: user?.padarias_id,
+    padariasId,
+    clientesFilteredCount: clientesFiltered.length,
+    isLoading,
+    error,
+    clientesFiltered,
+    clientesData,
+    allClientesData,
+    usingSpecificPadaria: !!padariasId
+  });
+
+  // Filtrar clientes baseado no termo de busca
+  const filteredClientes = useMemo(() => {
+    if (!searchTerm) return clientesFiltered;
+    
+    const searchLower = searchTerm.toLowerCase();
+    return clientesFiltered.filter(cliente => 
+      cliente.cpf.includes(searchTerm) || 
+      (cliente.whatsapp && cliente.whatsapp.includes(searchTerm)) ||
+      cliente.nome.toLowerCase().includes(searchLower)
+    );
+  }, [clientesFiltered, searchTerm]);
 
   const totalPages = Math.ceil(filteredClientes.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -51,8 +92,63 @@ export function ClientesTable() {
 
   const handleClienteAdded = () => {
     setIsModalOpen(false);
-    // Refresh data in real implementation
+    // Forçar atualização da query
+    window.location.reload(); // Solução temporária para garantir que os dados sejam atualizados
   };
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-foreground">Clientes Cadastrados</CardTitle>
+              <CardDescription>Gerencie os clientes da sua padaria</CardDescription>
+            </div>
+            <Button disabled>
+              <Plus className="w-4 h-4 mr-2" />
+              Novo Cliente
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="w-6 h-6 animate-spin mr-2" />
+            <span>Carregando clientes...</span>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-foreground">Clientes Cadastrados</CardTitle>
+              <CardDescription>Gerencie os clientes da sua padaria</CardDescription>
+            </div>
+            <Button onClick={() => setIsModalOpen(true)}>
+              <Plus className="w-4 h-4 mr-2" />
+              Novo Cliente
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-8">
+            <p className="text-destructive mb-2">Erro ao carregar clientes</p>
+            <p className="text-muted-foreground text-sm">
+              Verifique sua conexão e tente novamente
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card>
@@ -60,7 +156,9 @@ export function ClientesTable() {
         <div className="flex items-center justify-between">
           <div>
             <CardTitle className="text-foreground">Clientes Cadastrados</CardTitle>
-            <CardDescription>Gerencie os clientes da sua padaria</CardDescription>
+            <CardDescription>
+              Gerencie os clientes da sua padaria ({filteredClientes.length} total)
+            </CardDescription>
           </div>
           <Button onClick={() => setIsModalOpen(true)}>
             <Plus className="w-4 h-4 mr-2" />
@@ -84,32 +182,45 @@ export function ClientesTable() {
 
         {/* Table */}
         <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-border">
-                <th className="text-left p-3 font-medium text-muted-foreground">CPF</th>
+          {currentClientes.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-muted-foreground">
+                {searchTerm ? 'Nenhum cliente encontrado com esse termo de busca.' : 'Nenhum cliente cadastrado ainda.'}
+              </p>
+              {!searchTerm && (
+                <p className="text-sm text-muted-foreground mt-2">
+                  Clique em "Novo Cliente" para começar.
+                </p>
+              )}
+            </div>
+          ) : (
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-border">
                 <th className="text-left p-3 font-medium text-muted-foreground">Nome</th>
+                <th className="text-left p-3 font-medium text-muted-foreground">CPF</th>
+                <th className="text-left p-3 font-medium text-muted-foreground">Padaria</th>
                 <th className="text-left p-3 font-medium text-muted-foreground">WhatsApp</th>
                 <th className="text-center p-3 font-medium text-muted-foreground">Cupons</th>
-                <th className="text-center p-3 font-medium text-muted-foreground">Cadastro</th>
-              </tr>
-            </thead>
-            <tbody>
-              {currentClientes.map((cliente) => (
-                <tr key={cliente.id} className="border-b border-border/50 hover:bg-muted/50 transition-colors duration-200">
-                  <td className="p-3 font-mono text-sm">{cliente.cpf}</td>
-                  <td className="p-3 font-medium">{cliente.nome}</td>
-                  <td className="p-3 text-muted-foreground">{cliente.whatsapp}</td>
-                  <td className="p-3 text-center">
-                    <span className="bg-primary/10 text-primary px-2 py-1 rounded-full text-sm font-medium">
-                      {cliente.totalCupons}
-                    </span>
-                  </td>
-                  <td className="p-3 text-center text-muted-foreground">{cliente.dataCadastro}</td>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {currentClientes.map((cliente) => (
+                  <tr key={cliente.id} className="border-b border-border/50 hover:bg-muted/50 transition-colors duration-200">
+                    <td className="p-3 font-mono text-sm">{formatCPF(cliente.cpf)}</td>
+                    <td className="p-3 font-medium">{cliente.nome}</td>
+                    <td className="p-3 text-muted-foreground">{cliente.padaria?.nome || '-'}</td>
+                    <td className="p-3 text-muted-foreground">{cliente.whatsapp || '-'}</td>
+                    <td className="p-3 text-center">
+                      <span className="bg-primary/10 text-primary px-2 py-1 rounded-full text-sm font-medium">
+                        {cliente.cupons?.length || 0}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
 
         {/* Pagination */}

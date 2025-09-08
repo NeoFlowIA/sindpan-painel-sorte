@@ -1,6 +1,25 @@
 // Utilitários de formatação para dados das padarias
 
 /**
+ * Formatar CPF: 00000000000 -> 000.000.000-00
+ */
+export const formatCPF = (cpf: string): string => {
+  if (!cpf) return '';
+  
+  // Remove tudo que não é número
+  const numbers = cpf.replace(/\D/g, '');
+  
+  // Se não tem 11 dígitos, retorna como está
+  if (numbers.length !== 11) return cpf;
+  
+  // Aplica a máscara: 000.000.000-00
+  return numbers.replace(
+    /^(\d{3})(\d{3})(\d{3})(\d{2})$/,
+    '$1.$2.$3-$4'
+  );
+};
+
+/**
  * Formatar CNPJ: 00000000000000 -> 00.000.000/0000-00
  */
 export const formatCNPJ = (cnpj: string): string => {

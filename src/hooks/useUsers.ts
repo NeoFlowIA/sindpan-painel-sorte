@@ -8,7 +8,12 @@ export interface User {
   cnpj?: string;
   bakery_name: string;
   role: 'admin' | 'bakery';
-  created_at: string;
+  padarias_id?: string; // UUID da padaria
+  cnpj?: string;
+  padarias?: {
+    nome: string;
+    id: string;
+  };
 }
 
 export interface UserResponse {

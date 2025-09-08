@@ -42,10 +42,14 @@ class GraphQLClient {
   ): Promise<GraphQLResponse<T>> {
     const token = sindpanAuthApi.getToken();
 
-    // Não chamar o Hasura se não houver token ou se estiver expirado
-    if (!token || isTokenExpired(token)) {
-      throw new Error('Authentication token missing or expired');
-    }
+    // Log para debug
+    console.log('🔍 GraphQL Client Debug:', {
+      hasToken: !!token,
+      tokenExpired: token ? isTokenExpired(token) : 'no token',
+      endpoint: this.endpoint,
+      query: query.substring(0, 200) + '...',
+      variables
+    });
 
     const body: GraphQLRequest = {
       query,
@@ -55,8 +59,12 @@ class GraphQLClient {
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
     };
+
+    // Adicionar token se disponível e válido
+    if (token && !isTokenExpired(token)) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
 
     const response = await fetch(this.endpoint, {
       method: 'POST',
@@ -66,10 +74,18 @@ class GraphQLClient {
     });
 
     if (!response.ok) {
-      throw new Error(`HTTP Error: ${response.status} ${response.statusText}`);
+      const errorText = await response.text();
+      console.error('🔍 GraphQL Error Response:', errorText);
+      throw new Error(`HTTP Error: ${response.status} ${response.statusText} - ${errorText}`);
     }
 
     const result: GraphQLResponse<T> = await response.json();
+    
+    // Log apenas se houver erros
+    if (result.errors && result.errors.length > 0) {
+      console.error('🔍 GraphQL Errors:', result.errors);
+    }
+
     return result;
   }
 
@@ -78,7 +94,12 @@ class GraphQLClient {
     const response = await this.request<T>(query, variables);
 
     if (response.errors && response.errors.length > 0) {
-      throw new Error(response.errors[0].message);
+      console.error('🔍 GraphQL Query Error Details:', {
+        errors: response.errors,
+        query: query.substring(0, 200),
+        variables
+      });
+      throw new Error(`GraphQL Error: ${response.errors[0].message}`);
     }
 
     return response.data as T;
@@ -89,7 +110,12 @@ class GraphQLClient {
     const response = await this.request<T>(mutation, variables);
 
     if (response.errors && response.errors.length > 0) {
-      throw new Error(response.errors[0].message);
+      console.error('🔍 GraphQL Mutation Error Details:', {
+        errors: response.errors,
+        mutation: mutation.substring(0, 200),
+        variables
+      });
+      throw new Error(`GraphQL Error: ${response.errors[0].message}`);
     }
 
     return response.data as T;
