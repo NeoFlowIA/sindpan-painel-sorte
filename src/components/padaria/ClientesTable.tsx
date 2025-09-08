@@ -1,48 +1,42 @@
-import { useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState, useEffect } from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Plus, Search } from "lucide-react";
 import { NovoClienteModal } from "./NovoClienteModal";
-
-// Mock data
-const mockClientes = [
-  {
-    id: 1,
-    cpf: "123.456.789-00",
-    nome: "Ana Souza",
-    whatsapp: "(+55) (85) 98888-1111",
-    dataCadastro: "07/08/2025",
-    totalCupons: 12
-  },
-  {
-    id: 2,
-    cpf: "987.654.321-99",
-    nome: "Carlos Silva",
-    whatsapp: "(+55) (85) 97777-2222",
-    dataCadastro: "05/08/2025",
-    totalCupons: 8
-  },
-  {
-    id: 3,
-    cpf: "456.789.123-55",
-    nome: "Maria Santos",
-    whatsapp: "(+55) (85) 96666-3333",
-    dataCadastro: "03/08/2025",
-    totalCupons: 15
-  }
-];
+import { getClientes, Cliente } from "@/utils/clientesStorage";
 
 export function ClientesTable() {
+  const [clientes, setClientes] = useState<Cliente[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  const filteredClientes = mockClientes.filter(cliente => 
-    cliente.cpf.includes(searchTerm) || 
-    cliente.whatsapp.includes(searchTerm) ||
-    cliente.nome.toLowerCase().includes(searchTerm.toLowerCase())
+  useEffect(() => {
+    const load = () => setClientes(getClientes());
+    load();
+    if (typeof window !== "undefined") {
+      window.addEventListener("clientesUpdated", load);
+    }
+    return () => {
+      if (typeof window !== "undefined") {
+        window.removeEventListener("clientesUpdated", load);
+      }
+    };
+  }, []);
+
+  const filteredClientes = clientes.filter(
+    (cliente) =>
+      cliente.cpf.includes(searchTerm) ||
+      cliente.whatsapp.includes(searchTerm) ||
+      cliente.nome.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
   const totalPages = Math.ceil(filteredClientes.length / itemsPerPage);
@@ -51,7 +45,6 @@ export function ClientesTable() {
 
   const handleClienteAdded = () => {
     setIsModalOpen(false);
-    // Refresh data in real implementation
   };
 
   return (
@@ -96,7 +89,10 @@ export function ClientesTable() {
             </thead>
             <tbody>
               {currentClientes.map((cliente) => (
-                <tr key={cliente.id} className="border-b border-border/50 hover:bg-muted/50 transition-colors duration-200">
+                <tr
+                  key={cliente.id}
+                  className="border-b border-border/50 hover:bg-muted/50 transition-colors duration-200"
+                >
                   <td className="p-3 font-mono text-sm">{cliente.cpf}</td>
                   <td className="p-3 font-medium">{cliente.nome}</td>
                   <td className="p-3 text-muted-foreground">{cliente.whatsapp}</td>

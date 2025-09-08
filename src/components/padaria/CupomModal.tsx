@@ -1,13 +1,26 @@
 import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Search, User, Calculator, Receipt } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { ClienteInlineForm } from "./ClienteInlineForm";
+import { getClientes, updateCliente, Cliente } from "@/utils/clientesStorage";
 
 interface CupomModalProps {
   open: boolean;
@@ -15,30 +28,7 @@ interface CupomModalProps {
   onCupomCadastrado: () => void;
 }
 
-interface Cliente {
-  cpf: string;
-  nome: string;
-  whatsapp: string;
-  saldoAcumulado: number;
-}
-
 const TICKET_MEDIO = 28.65;
-
-// Mock clientes
-const mockClientes: Cliente[] = [
-  {
-    cpf: "123.456.789-00",
-    nome: "Ana Souza",
-    whatsapp: "(+55) (85) 98888-1111",
-    saldoAcumulado: 15.50
-  },
-  {
-    cpf: "987.654.321-99", 
-    nome: "Carlos Silva",
-    whatsapp: "(+55) (85) 97777-2222",
-    saldoAcumulado: 8.30
-  }
-];
 
 export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModalProps) {
   const [searchTerm, setSearchTerm] = useState("");
@@ -90,15 +80,15 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
     return formatted;
   };
 
+  const digitize = (s: string) => s.replace(/\D/g, "");
+
   const handleSearch = () => {
     if (!searchTerm.trim()) return;
-
-    // Search by CPF or WhatsApp
-    const cliente = mockClientes.find(c => 
-      c.cpf.includes(searchTerm) || 
-      c.whatsapp.includes(searchTerm)
+    const term = digitize(searchTerm);
+    const clientes = getClientes();
+    const cliente = clientes.find(
+      (c) => digitize(c.cpf) === term || digitize(c.whatsapp) === term,
     );
-
     if (cliente) {
       setClienteEncontrado(cliente);
       setShowClienteForm(false);
@@ -162,27 +152,29 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
     setIsLoading(true);
 
     try {
-      // Mock API call
       const numerosSorte = gerarNumerosSorte(cuponsGerados);
-      await new Promise(resolve => setTimeout(resolve, 1500));
-
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      const atualizado = updateCliente(clienteEncontrado.cpf, {
+        totalCupons: clienteEncontrado.totalCupons + cuponsGerados,
+        saldoAcumulado: novoSaldo,
+      });
+      if (atualizado) {
+        setClienteEncontrado(atualizado);
+      }
       toast({
         title: "Cupom cadastrado com sucesso",
-        description: `${cuponsGerados} números gerados: ${numerosSorte.join(", ")}`
+        description: `${cuponsGerados} números gerados: ${numerosSorte.join(", ")}`,
       });
-
-      // Reset form
       setSearchTerm("");
       setClienteEncontrado(null);
       setShowClienteForm(false);
       setValorCompra("");
-      
       onCupomCadastrado();
     } catch (error) {
       toast({
         title: "Erro",
         description: "Erro ao cadastrar cupom",
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setIsLoading(false);

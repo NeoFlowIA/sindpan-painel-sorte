@@ -1,9 +1,17 @@
 import { useState } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { addCliente } from "@/utils/clientesStorage";
 
 interface NovoClienteModalProps {
   open: boolean;
@@ -35,35 +43,24 @@ export function NovoClienteModal({ open, onOpenChange, onClienteAdded }: NovoCli
   };
 
   const formatWhatsApp = (value: string) => {
-    // Remove non-digits
-    const digits = value.replace(/\D/g, "");
-    
-    // Apply mask: (+55) (99) 99999-9999 or (+55) (99) 9999-9999
-    if (digits.length <= 13) {
-      let formatted = "(+55) ";
-      
-      if (digits.length >= 2) {
-        formatted += `(${digits.slice(0, 2)}) `;
-      }
-      
-      if (digits.length >= 7) {
-        const localNumber = digits.slice(2);
-        if (localNumber.length === 9) {
-          // 9 digits - mobile with 9
-          formatted += `${localNumber.slice(0, 5)}-${localNumber.slice(5)}`;
-        } else if (localNumber.length === 8) {
-          // 8 digits - landline or old mobile
-          formatted += `${localNumber.slice(0, 4)}-${localNumber.slice(4)}`;
-        } else {
-          formatted += localNumber;
-        }
-      } else if (digits.length > 2) {
-        formatted += digits.slice(2);
-      }
-      
-      return formatted;
+    let digits = value.replace(/\D/g, "");
+    if (digits.startsWith("55")) {
+      digits = digits.slice(2);
     }
-    return value;
+    digits = digits.slice(0, 11);
+    let formatted = "(+55) ";
+    if (digits.length >= 2) {
+      formatted += `(${digits.slice(0, 2)}) `;
+      const local = digits.slice(2);
+      if (local.length > 5) {
+        formatted += `${local.slice(0, 5)}-${local.slice(5)}`;
+      } else {
+        formatted += local;
+      }
+    } else if (digits.length > 0) {
+      formatted += digits;
+    }
+    return formatted.trim();
   };
 
   const validateCPF = (cpf: string) => {
@@ -72,8 +69,11 @@ export function NovoClienteModal({ open, onOpenChange, onClienteAdded }: NovoCli
   };
 
   const validateWhatsApp = (whatsapp: string) => {
-    const digits = whatsapp.replace(/\D/g, "");
-    return digits.length >= 10 && digits.length <= 13;
+    let digits = whatsapp.replace(/\D/g, "");
+    if (digits.startsWith("55")) {
+      digits = digits.slice(2);
+    }
+    return digits.length >= 10 && digits.length <= 11;
   };
 
   const handleInputChange = (field: string, value: string) => {
@@ -124,21 +124,23 @@ export function NovoClienteModal({ open, onOpenChange, onClienteAdded }: NovoCli
     setIsLoading(true);
     
     try {
-      // Mock API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      addCliente({
+        cpf: formData.cpf,
+        nome: formData.nome,
+        whatsapp: formData.whatsapp,
+      });
       toast({
         title: "Sucesso",
-        description: "Cliente cadastrado com sucesso"
+        description: "Cliente cadastrado com sucesso",
       });
-      
       setFormData({ cpf: "", nome: "", whatsapp: "" });
       onClienteAdded();
     } catch (error) {
       toast({
         title: "Erro",
         description: "Erro ao cadastrar cliente",
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setIsLoading(false);

@@ -1,17 +1,17 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { UserPlus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-
-interface Cliente {
-  cpf: string;
-  nome: string;
-  whatsapp: string;
-  saldoAcumulado: number;
-}
+import { addCliente, Cliente } from "@/utils/clientesStorage";
 
 interface ClienteInlineFormProps {
   onClienteCriado: (cliente: Cliente) => void;
@@ -36,27 +36,24 @@ export function ClienteInlineForm({ onClienteCriado, searchTerm }: ClienteInline
   };
 
   const formatWhatsApp = (value: string) => {
-    const digits = value.replace(/\D/g, "");
+    let digits = value.replace(/\D/g, "");
+    if (digits.startsWith("55")) {
+      digits = digits.slice(2);
+    }
+    digits = digits.slice(0, 11);
     let formatted = "(+55) ";
-    
     if (digits.length >= 2) {
       formatted += `(${digits.slice(0, 2)}) `;
-    }
-    
-    if (digits.length >= 7) {
-      const localNumber = digits.slice(2);
-      if (localNumber.length === 9) {
-        formatted += `${localNumber.slice(0, 5)}-${localNumber.slice(5)}`;
-      } else if (localNumber.length === 8) {
-        formatted += `${localNumber.slice(0, 4)}-${localNumber.slice(4)}`;
+      const local = digits.slice(2);
+      if (local.length > 5) {
+        formatted += `${local.slice(0, 5)}-${local.slice(5)}`;
       } else {
-        formatted += localNumber;
+        formatted += local;
       }
-    } else if (digits.length > 2) {
-      formatted += digits.slice(2);
+    } else if (digits.length > 0) {
+      formatted += digits;
     }
-    
-    return formatted;
+    return formatted.trim();
   };
 
   const validateCPF = (cpf: string) => {
@@ -65,8 +62,11 @@ export function ClienteInlineForm({ onClienteCriado, searchTerm }: ClienteInline
   };
 
   const validateWhatsApp = (whatsapp: string) => {
-    const digits = whatsapp.replace(/\D/g, "");
-    return digits.length >= 10 && digits.length <= 13;
+    let digits = whatsapp.replace(/\D/g, "");
+    if (digits.startsWith("55")) {
+      digits = digits.slice(2);
+    }
+    return digits.length >= 10 && digits.length <= 11;
   };
 
   const handleInputChange = (field: string, value: string) => {
@@ -85,7 +85,7 @@ export function ClienteInlineForm({ onClienteCriado, searchTerm }: ClienteInline
   };
 
   // Pre-fill form if search term looks like CPF or WhatsApp
-  useState(() => {
+  useEffect(() => {
     if (searchTerm) {
       const digits = searchTerm.replace(/\D/g, "");
       if (digits.length === 11) {
@@ -96,7 +96,7 @@ export function ClienteInlineForm({ onClienteCriado, searchTerm }: ClienteInline
         setFormData(prev => ({ ...prev, whatsapp: formatWhatsApp(searchTerm) }));
       }
     }
-  });
+  }, [searchTerm]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -131,25 +131,22 @@ export function ClienteInlineForm({ onClienteCriado, searchTerm }: ClienteInline
     setIsLoading(true);
 
     try {
-      // Mock API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      const novoCliente: Cliente = {
-        ...formData,
-        saldoAcumulado: 0
-      };
-
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      const novoCliente = addCliente({
+        cpf: formData.cpf,
+        nome: formData.nome,
+        whatsapp: formData.whatsapp,
+      });
       toast({
         title: "Cliente criado",
-        description: "Cliente cadastrado e vinculado à padaria"
+        description: "Cliente cadastrado e vinculado à padaria",
       });
-
       onClienteCriado(novoCliente);
     } catch (error) {
       toast({
         title: "Erro",
         description: "Erro ao criar cliente",
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setIsLoading(false);
