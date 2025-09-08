@@ -3,11 +3,15 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Search, User, Calculator, Receipt } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { ClienteInlineForm } from "./ClienteInlineForm";
+import { ClienteInlineForm, type Cliente } from "./ClienteInlineForm";
+import { useAuth } from "@/contexts/AuthContext";
+import { useGraphQLQuery } from "@/hooks/useGraphQL";
+import { graphqlClient } from "@/lib/graphql-client";
+import { GET_PADARIA_TICKET_MEDIO, GET_CLIENTE, CADASTRAR_CUPOM } from "@/graphql/queries";
 
 interface CupomModalProps {
   open: boolean;
@@ -15,32 +19,10 @@ interface CupomModalProps {
   onCupomCadastrado: () => void;
 }
 
-interface Cliente {
-  cpf: string;
-  nome: string;
-  whatsapp: string;
-  saldoAcumulado: number;
-}
-
-const TICKET_MEDIO = 28.65;
-
-// Mock clientes
-const mockClientes: Cliente[] = [
-  {
-    cpf: "123.456.789-00",
-    nome: "Ana Souza",
-    whatsapp: "(+55) (85) 98888-1111",
-    saldoAcumulado: 15.50
-  },
-  {
-    cpf: "987.654.321-99", 
-    nome: "Carlos Silva",
-    whatsapp: "(+55) (85) 97777-2222",
-    saldoAcumulado: 8.30
-  }
-];
 
 export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModalProps) {
+  const { user } = useAuth();
+  const padariaId = user?.id;
   const [searchTerm, setSearchTerm] = useState("");
   const [clienteEncontrado, setClienteEncontrado] = useState<Cliente | null>(null);
   const [showClienteForm, setShowClienteForm] = useState(false);
@@ -48,6 +30,19 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
   const [dataHora, setDataHora] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+
+  const { data: padariaData } = useGraphQLQuery<{
+    padarias_by_pk: { ticket_medio: number | string } | null;
+  }>(
+    ["padaria-ticket", padariaId],
+    GET_PADARIA_TICKET_MEDIO,
+    { id: padariaId },
+    { enabled: !!padariaId && open }
+  );
+
+  const ticketMedio = padariaData?.padarias_by_pk?.ticket_medio
+    ? parseFloat(padariaData.padarias_by_pk.ticket_medio as string)
+    : 0;
 
   useEffect(() => {
     if (open) {
@@ -90,21 +85,48 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
     return formatted;
   };
 
-  const handleSearch = () => {
-    if (!searchTerm.trim()) return;
+  const handleSearch = async () => {
+    if (!searchTerm.trim() || !padariaId) return;
 
-    // Search by CPF or WhatsApp
-    const cliente = mockClientes.find(c => 
-      c.cpf.includes(searchTerm) || 
-      c.whatsapp.includes(searchTerm)
-    );
+    try {
+      const digits = searchTerm.replace(/\D/g, "");
+      const variables = {
+        padariaId,
+        cpf: digits.length === 11 ? digits : null,
+        whatsapp: digits.length >= 10 ? digits : null,
+      };
 
-    if (cliente) {
-      setClienteEncontrado(cliente);
-      setShowClienteForm(false);
-    } else {
-      setClienteEncontrado(null);
-      setShowClienteForm(true);
+      const data = await graphqlClient.query<{
+        clientes: Array<{
+          id: string;
+          nome: string;
+          cpf: string;
+          whatsapp: string;
+          clientes_padarias_saldos: Array<{ saldo_centavos: number }>;
+        }>;
+      }>(GET_CLIENTE, variables);
+
+      if (data.clientes.length > 0) {
+        const c = data.clientes[0];
+        const saldo = c.clientes_padarias_saldos[0]?.saldo_centavos || 0;
+        setClienteEncontrado({
+          id: c.id,
+          nome: c.nome,
+          cpf: formatCPF(c.cpf),
+          whatsapp: formatWhatsApp(c.whatsapp),
+          saldoAcumulado: Number(saldo) / 100,
+        });
+        setShowClienteForm(false);
+      } else {
+        setClienteEncontrado(null);
+        setShowClienteForm(true);
+      }
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Erro ao buscar cliente",
+        variant: "destructive",
+      });
     }
   };
 
@@ -117,15 +139,15 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
     const valor = parseFloat(valorCompra) || 0;
     const saldoAtual = clienteEncontrado?.saldoAcumulado || 0;
     const valorTotal = valor + saldoAtual;
-    return Math.floor(valorTotal / TICKET_MEDIO);
+    return ticketMedio > 0 ? Math.floor(valorTotal / ticketMedio) : 0;
   };
 
   const calcularNovoSaldo = () => {
     const valor = parseFloat(valorCompra) || 0;
     const saldoAtual = clienteEncontrado?.saldoAcumulado || 0;
     const valorTotal = valor + saldoAtual;
-    const cuponsGerados = Math.floor(valorTotal / TICKET_MEDIO);
-    return valorTotal - (cuponsGerados * TICKET_MEDIO);
+    const cuponsGerados = ticketMedio > 0 ? Math.floor(valorTotal / ticketMedio) : 0;
+    return valorTotal - cuponsGerados * ticketMedio;
   };
 
   const gerarNumerosSorte = (quantidade: number): string[] => {
@@ -139,22 +161,22 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
   };
 
   const handleSubmit = async () => {
-    if (!clienteEncontrado || !valorCompra) {
+    if (!clienteEncontrado || !valorCompra || !padariaId) {
       toast({
         title: "Erro",
         description: "Cliente e valor da compra são obrigatórios",
-        variant: "destructive"
+        variant: "destructive",
       });
       return;
     }
 
     const cuponsGerados = calcularCupons();
-    
+
     if (cuponsGerados === 0) {
       toast({
-        title: "Erro", 
+        title: "Erro",
         description: "Valor insuficiente para gerar cupons",
-        variant: "destructive"
+        variant: "destructive",
       });
       return;
     }
@@ -162,32 +184,51 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
     setIsLoading(true);
 
     try {
-      // Mock API call
       const numerosSorte = gerarNumerosSorte(cuponsGerados);
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      await graphqlClient.mutate(CADASTRAR_CUPOM, {
+        compra: {
+          cliente_id: clienteEncontrado.id,
+          padaria_id: padariaId,
+          valor_centavos: Math.round(parseFloat(valorCompra) * 100),
+          data_compra: new Date(dataHora).toISOString(),
+        },
+        cupons: numerosSorte.map(numero => ({
+          numero_sorte: numero,
+          cliente_id: clienteEncontrado.id,
+          padaria_id: padariaId,
+          valor_compra: valorCompra.toString(),
+          data_compra: new Date(dataHora).toISOString(),
+        })),
+        saldo: {
+          cliente_id: clienteEncontrado.id,
+          padaria_id: padariaId,
+          saldo_centavos: Math.round(calcularNovoSaldo() * 100),
+        },
+      });
 
       toast({
         title: "Cupom cadastrado com sucesso",
-        description: `${cuponsGerados} números gerados: ${numerosSorte.join(", ")}`
+        description: `${cuponsGerados} números gerados: ${numerosSorte.join(", ")}`,
       });
 
-      // Reset form
       setSearchTerm("");
       setClienteEncontrado(null);
       setShowClienteForm(false);
       setValorCompra("");
-      
+
       onCupomCadastrado();
     } catch (error) {
       toast({
         title: "Erro",
         description: "Erro ao cadastrar cupom",
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setIsLoading(false);
     }
   };
+
+
 
   const cuponsGerados = calcularCupons();
   const novoSaldo = calcularNovoSaldo();
@@ -297,7 +338,7 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
                 <div className="space-y-3">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Ticket Médio:</span>
-                    <span className="font-medium">R$ {TICKET_MEDIO.toFixed(2)}</span>
+                    <span className="font-medium">R$ {ticketMedio.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Valor da Compra:</span>

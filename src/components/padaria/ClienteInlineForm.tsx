@@ -5,8 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { UserPlus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
+import { useGraphQLMutation } from "@/hooks/useGraphQL";
+import { CREATE_CLIENTE } from "@/graphql/queries";
 
-interface Cliente {
+export interface Cliente {
+  id: string;
   cpf: string;
   nome: string;
   whatsapp: string;
@@ -26,6 +30,22 @@ export function ClienteInlineForm({ onClienteCriado, searchTerm }: ClienteInline
   });
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  const { user } = useAuth();
+  const padariaId = user?.id;
+
+  interface CreateClienteResponse {
+    insert_clientes_one: {
+      id: string;
+      nome: string;
+      cpf: string;
+      whatsapp: string;
+    };
+  }
+
+  const { mutateAsync: createCliente } = useGraphQLMutation<
+    CreateClienteResponse,
+    { cliente: Record<string, unknown> }
+  >(CREATE_CLIENTE);
 
   const formatCPF = (value: string) => {
     const digits = value.replace(/\D/g, "");
@@ -100,12 +120,12 @@ export function ClienteInlineForm({ onClienteCriado, searchTerm }: ClienteInline
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.cpf || !formData.nome || !formData.whatsapp) {
       toast({
         title: "Erro",
         description: "Todos os campos são obrigatórios",
-        variant: "destructive"
+        variant: "destructive",
       });
       return;
     }
@@ -114,7 +134,7 @@ export function ClienteInlineForm({ onClienteCriado, searchTerm }: ClienteInline
       toast({
         title: "Erro",
         description: "CPF inválido",
-        variant: "destructive"
+        variant: "destructive",
       });
       return;
     }
@@ -123,7 +143,7 @@ export function ClienteInlineForm({ onClienteCriado, searchTerm }: ClienteInline
       toast({
         title: "Erro",
         description: "WhatsApp inválido",
-        variant: "destructive"
+        variant: "destructive",
       });
       return;
     }
@@ -131,17 +151,26 @@ export function ClienteInlineForm({ onClienteCriado, searchTerm }: ClienteInline
     setIsLoading(true);
 
     try {
-      // Mock API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const result = await createCliente({
+        cliente: {
+          cpf: formData.cpf.replace(/\D/g, ""),
+          nome: formData.nome,
+          whatsapp: formData.whatsapp.replace(/\D/g, ""),
+          padaria_id: padariaId,
+        },
+      });
 
       const novoCliente: Cliente = {
-        ...formData,
-        saldoAcumulado: 0
+        id: result.insert_clientes_one.id,
+        cpf: formData.cpf,
+        nome: formData.nome,
+        whatsapp: formData.whatsapp,
+        saldoAcumulado: 0,
       };
 
       toast({
         title: "Cliente criado",
-        description: "Cliente cadastrado e vinculado à padaria"
+        description: "Cliente cadastrado e vinculado à padaria",
       });
 
       onClienteCriado(novoCliente);
@@ -149,7 +178,7 @@ export function ClienteInlineForm({ onClienteCriado, searchTerm }: ClienteInline
       toast({
         title: "Erro",
         description: "Erro ao criar cliente",
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setIsLoading(false);
