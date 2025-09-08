@@ -9,7 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { ApiIntegrationInfo } from "@/components/ApiIntegrationInfo";
 
 export function LoginPadaria() {
-  const [email, setEmail] = useState("");
+  const [cnpj, setCnpj] = useState("");
   const [senha, setSenha] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
@@ -28,12 +28,12 @@ export function LoginPadaria() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!email || !senha) {
+    if (!cnpj || !senha) {
       return;
     }
 
     try {
-      await login(email, senha);
+      await login(cnpj, senha);
       
       // Navigate based on user role after successful login
       // The AuthContext will update the user state
@@ -71,19 +71,19 @@ export function LoginPadaria() {
               Entrar
             </CardTitle>
             <CardDescription className="text-center">
-              Acesse sua conta com email e senha
+              Acesse sua conta com CNPJ e senha
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="cnpj">CNPJ</Label>
                 <Input
-                  id="email"
-                  type="email"
-                  placeholder="ex.: padaria@exemplo.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  id="cnpj"
+                  type="text"
+                  placeholder="ex.: 00.000.000/0000-00"
+                  value={cnpj}
+                  onChange={(e) => setCnpj(e.target.value)}
                   required
                 />
               </div>

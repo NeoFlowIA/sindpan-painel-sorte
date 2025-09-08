@@ -78,7 +78,7 @@ export function PadariaLayout({ children }: PadariaLayoutProps) {
               <DropdownMenuContent align="end">
                 <div className="px-2 py-1.5 text-sm">
                   <p className="font-medium">{user.bakery_name}</p>
-                  <p className="text-muted-foreground">{user.email}</p>
+                  <p className="text-muted-foreground">{user.cnpj || user.email}</p>
                 </div>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleLogout}>

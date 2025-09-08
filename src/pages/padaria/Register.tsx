@@ -8,7 +8,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 
 export function RegisterPadaria() {
-  const [email, setEmail] = useState("");
+  const [cnpj, setCnpj] = useState("");
   const [senha, setSenha] = useState("");
   const [bakeryName, setBakeryName] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -28,12 +28,12 @@ export function RegisterPadaria() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!email || !senha || !bakeryName) {
+    if (!cnpj || !senha || !bakeryName) {
       return;
     }
 
     try {
-      await register(email, senha, bakeryName);
+      await register(cnpj, senha, bakeryName);
       
       // Navigate to dashboard after successful registration
       navigate("/padaria/dashboard");
@@ -86,13 +86,13 @@ export function RegisterPadaria() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="cnpj">CNPJ</Label>
                 <Input
-                  id="email"
-                  type="email"
-                  placeholder="ex.: padaria@exemplo.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  id="cnpj"
+                  type="text"
+                  placeholder="ex.: 00.000.000/0000-00"
+                  value={cnpj}
+                  onChange={(e) => setCnpj(e.target.value)}
                   required
                 />
               </div>
