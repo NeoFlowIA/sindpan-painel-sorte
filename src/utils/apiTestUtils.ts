@@ -1,5 +1,5 @@
 // Utilities para testar a integração da API SINDPAN
-import { sindpanAuthApi, SindpanApiError } from '@/services/sindpanAuthApi';
+import { sindpanAuthApi, SindpanApiError, LoginData, RegisterData, User } from '@/services/sindpanAuthApi';
 
 export interface TestResult {
   endpoint: string;
@@ -29,13 +29,16 @@ export class ApiTester {
     }
   }
 
-  static async testRegistration(email: string, password: string, bakeryName: string): Promise<TestResult> {
+  static async testRegistration(identifier: string, password: string, bakeryName: string): Promise<TestResult> {
     try {
-      const response = await sindpanAuthApi.register({
-        email,
-        password,
-        bakery_name: bakeryName
-      });
+      const data: Partial<RegisterData> = { password, bakery_name: bakeryName };
+      if (identifier.includes('@')) {
+        data.email = identifier;
+      } else {
+        data.cnpj = identifier;
+      }
+
+      const response = await sindpanAuthApi.register(data);
       
       return {
         endpoint: 'POST /auth/register',
@@ -44,6 +47,7 @@ export class ApiTester {
         response: {
           userId: response.user.id,
           email: response.user.email,
+          cnpj: response.user.cnpj,
           role: response.user.role,
           bakeryName: response.user.bakery_name,
           hasToken: !!response.accessToken
@@ -55,7 +59,7 @@ export class ApiTester {
       if (error instanceof SindpanApiError) {
         switch (error.status) {
           case 409:
-            errorMessage = 'Email já está cadastrado';
+            errorMessage = 'Identificador já está cadastrado';
             break;
           case 400:
             errorMessage = 'Dados inválidos ou incompletos';
@@ -74,20 +78,25 @@ export class ApiTester {
     }
   }
 
-  static async testLogin(email: string, password: string): Promise<TestResult> {
+  static async testLogin(identifier: string, password: string): Promise<TestResult> {
     try {
-      const response = await sindpanAuthApi.login({
-        email,
-        password
-      });
+      const data: Partial<LoginData> = { password };
+      if (identifier.includes('@')) {
+        data.email = identifier;
+      } else {
+        data.cnpj = identifier;
+      }
+
+      const response = await sindpanAuthApi.login(data);
       
       return {
         endpoint: 'POST /auth/login',
         status: 'success',
-        message: `Login realizado com sucesso para ${response.user.email}`,
+        message: `Login realizado com sucesso para ${response.user.email || response.user.cnpj}`,
         response: {
           userId: response.user.id,
           email: response.user.email,
+          cnpj: response.user.cnpj,
           role: response.user.role,
           bakeryName: response.user.bakery_name,
           hasToken: !!response.accessToken
@@ -99,10 +108,10 @@ export class ApiTester {
       if (error instanceof SindpanApiError) {
         switch (error.status) {
           case 401:
-            errorMessage = 'Email ou senha inválidos';
+            errorMessage = 'Credenciais inválidas';
             break;
           case 400:
-            errorMessage = 'Email e senha são obrigatórios';
+            errorMessage = 'Identificador e senha são obrigatórios';
             break;
           default:
             errorMessage = error.message;
@@ -134,10 +143,11 @@ export class ApiTester {
       return {
         endpoint: 'GET /auth/me',
         status: 'success',
-        message: `Perfil obtido com sucesso para ${response.user.email}`,
+        message: `Perfil obtido com sucesso para ${response.user.email || response.user.cnpj}`,
         response: {
           userId: response.user.id,
           email: response.user.email,
+          cnpj: response.user.cnpj,
           role: response.user.role,
           bakeryName: response.user.bakery_name,
           createdAt: response.user.created_at
@@ -165,7 +175,7 @@ export class ApiTester {
     }
   }
 
-  static async runFullTest(email: string, password: string, bakeryName: string): Promise<TestResult[]> {
+  static async runFullTest(identifier: string, password: string, bakeryName: string): Promise<TestResult[]> {
     const results: TestResult[] = [];
 
     // 1. Test health check
@@ -174,12 +184,12 @@ export class ApiTester {
 
     // 2. Test registration (only if not already registered)
     console.log('Testing registration...');
-    const registrationResult = await this.testRegistration(email, password, bakeryName);
+    const registrationResult = await this.testRegistration(identifier, password, bakeryName);
     results.push(registrationResult);
 
     // 3. Test login (even if registration failed, in case user already exists)
     console.log('Testing login...');
-    results.push(await this.testLogin(email, password));
+    results.push(await this.testLogin(identifier, password));
 
     // 4. Test profile (only if login was successful)
     if (sindpanAuthApi.isAuthenticated()) {
@@ -220,12 +230,12 @@ export class ApiTester {
 
 // Exemplo de uso:
 export const runExampleTest = async () => {
-  const testEmail = 'teste@padaria.com';
+  const testIdentifier = '00.000.000/0000-00';
   const testPassword = 'senha123';
   const testBakeryName = 'Padaria Teste API';
 
-  const results = await ApiTester.runFullTest(testEmail, testPassword, testBakeryName);
+  const results = await ApiTester.runFullTest(testIdentifier, testPassword, testBakeryName);
   ApiTester.logResults(results);
-  
+
   return results;
 };

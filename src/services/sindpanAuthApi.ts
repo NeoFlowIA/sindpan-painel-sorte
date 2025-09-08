@@ -29,7 +29,8 @@ if (import.meta.env.DEV) {
 // Types for API responses
 export interface User {
   id: string;
-  email: string;
+  email?: string;
+  cnpj?: string;
   role: string;
   bakery_name?: string;
   created_at?: string;
@@ -41,13 +42,15 @@ export interface AuthResponse {
 }
 
 export interface RegisterData {
-  email: string;
+  email?: string;
+  cnpj?: string;
   password: string;
-  bakery_name: string;
+  bakery_name?: string;
 }
 
 export interface LoginData {
-  email: string;
+  email?: string;
+  cnpj?: string;
   password: string;
 }
 
