@@ -75,13 +75,16 @@ export function LoginPadaria() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} noValidate className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="cnpj">CNPJ</Label>
                 <Input
                   id="cnpj"
+                  name="cnpj"
                   type="text"
-                  placeholder="ex.: 00.000.000/0000-00"
+                  inputMode="numeric"
+                  pattern="[0-9]{14}"
+                  placeholder="ex.: 00000000000000"
                   value={cnpj}
                   onChange={(e) => setCnpj(e.target.value)}
                   required
