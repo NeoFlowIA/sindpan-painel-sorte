@@ -12,7 +12,12 @@ interface User {
   bakery_name: string;
   // Dados do Hasura
   role: 'admin' | 'bakery';
-  created_at?: string;
+  padarias_id?: string; // UUID da padaria
+  cnpj?: string;
+  padarias?: {
+    nome: string;
+    id: string;
+  };
 }
 
 interface AuthContextType {
@@ -71,8 +76,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
         email: sindpanUser.email,
         bakery_name: sindpanUser.bakery_name,
         role: hasuraUser.role,
-        created_at: hasuraUser.created_at,
+        padarias_id: hasuraUser.padarias_id, // UUID da padaria vinculada
+        cnpj: hasuraUser.cnpj,
+        padarias: undefined // Temporariamente undefined até confirmar relacionamento
       };
+      
+      console.log('🔍 AuthContext - Combined User (Com padarias_id da FK):', combinedUser);
       setUser(combinedUser);
     } else if (!sindpanUser) {
       setUser(null);
@@ -131,13 +140,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
                 email
                 bakery_name
                 role
-                created_at
+                padarias_id
+                cnpj
               }
             }
           `, { email });
           
-          if (hasuraResponse.users && hasuraResponse.users.length > 0) {
-            const hasuraUser = hasuraResponse.users[0];
+          if ((hasuraResponse as any).users && (hasuraResponse as any).users.length > 0) {
+            const hasuraUser = (hasuraResponse as any).users[0];
             
             // Para simplificar, vamos aceitar qualquer senha para admins (temporariamente)
             // Em produção, você deve implementar verificação de senha adequada

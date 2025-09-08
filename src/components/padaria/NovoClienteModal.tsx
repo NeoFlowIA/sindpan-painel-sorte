@@ -4,21 +4,55 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { useGraphQLQuery } from "@/hooks/useGraphQL";
+import { useAuth } from "@/contexts/AuthContext";
+import { CREATE_CLIENTE, CREATE_CLIENTE_SIMPLE, CREATE_CLIENTE_TEST, GET_NEXT_CLIENTE_ID, GET_PADARIA_BY_NAME, GET_ALL_PADARIAS_SIMPLE } from "@/graphql/queries";
+import { graphqlClient } from "@/lib/graphql-client";
 
 interface NovoClienteModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onClienteAdded: () => void;
+  padariaCnpj?: string;
 }
 
 export function NovoClienteModal({ open, onOpenChange, onClienteAdded }: NovoClienteModalProps) {
   const [formData, setFormData] = useState({
     cpf: "",
     nome: "",
-    whatsapp: ""
+    whatsapp: "",
+    resposta_pergunta: ""
   });
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  const { user } = useAuth();
+
+  // Usar padarias_id diretamente (sem relacionamento)
+  const padariasId = user?.padarias_id;
+
+  // Buscar todas as padarias para fallback (só se não tiver padarias vinculada)
+  const { data: allPadariasData } = useGraphQLQuery(
+    ['all-padarias'],
+    GET_ALL_PADARIAS_SIMPLE,
+    undefined,
+    { enabled: !padariasId }
+  );
+
+  const allPadarias = (allPadariasData as any)?.padarias || [];
+  const fallbackPadaria = !padariasId && allPadarias.length > 0 ? allPadarias[0] : null;
+  
+  const padariaIdToUse = padariasId || fallbackPadaria?.id;
+
+  // Debug logs para entender a estrutura
+  console.log('🔍 NovoClienteModal Debug (Usando padarias_id direto):', {
+    userBakeryName: user?.bakery_name,
+    userPadariasId: user?.padarias_id,
+    padariasId,
+    padariaIdToUse,
+    allPadarias: allPadarias.slice(0, 3),
+    hasDirectLink: !!padariasId,
+    usingFallback: !padariasId && !!fallbackPadaria
+  });
 
   const formatCPF = (value: string) => {
     // Remove non-digits
@@ -35,34 +69,7 @@ export function NovoClienteModal({ open, onOpenChange, onClienteAdded }: NovoCli
   };
 
   const formatWhatsApp = (value: string) => {
-    // Remove non-digits
-    const digits = value.replace(/\D/g, "");
-    
-    // Apply mask: (+55) (99) 99999-9999 or (+55) (99) 9999-9999
-    if (digits.length <= 13) {
-      let formatted = "(+55) ";
-      
-      if (digits.length >= 2) {
-        formatted += `(${digits.slice(0, 2)}) `;
-      }
-      
-      if (digits.length >= 7) {
-        const localNumber = digits.slice(2);
-        if (localNumber.length === 9) {
-          // 9 digits - mobile with 9
-          formatted += `${localNumber.slice(0, 5)}-${localNumber.slice(5)}`;
-        } else if (localNumber.length === 8) {
-          // 8 digits - landline or old mobile
-          formatted += `${localNumber.slice(0, 4)}-${localNumber.slice(4)}`;
-        } else {
-          formatted += localNumber;
-        }
-      } else if (digits.length > 2) {
-        formatted += digits.slice(2);
-      }
-      
-      return formatted;
-    }
+    // Retornar exatamente o que o usuário digitou, sem modificações
     return value;
   };
 
@@ -72,8 +79,8 @@ export function NovoClienteModal({ open, onOpenChange, onClienteAdded }: NovoCli
   };
 
   const validateWhatsApp = (whatsapp: string) => {
-    const digits = whatsapp.replace(/\D/g, "");
-    return digits.length >= 10 && digits.length <= 13;
+    // Validação simples: apenas verificar se não está vazio
+    return whatsapp.trim().length > 0;
   };
 
   const handleInputChange = (field: string, value: string) => {
@@ -121,23 +128,86 @@ export function NovoClienteModal({ open, onOpenChange, onClienteAdded }: NovoCli
       return;
     }
 
+    if (!padariaIdToUse) {
+      toast({
+        title: "Erro",
+        description: "Não foi possível encontrar uma padaria para vincular o cliente. Verifique se existe uma padaria cadastrada no sistema.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Validação adicional dos dados
+    if (!formData.cpf.replace(/\D/g, "") || !formData.nome.trim() || !formData.whatsapp.trim()) {
+      toast({
+        title: "Erro",
+        description: "Dados inválidos. Verifique se todos os campos estão preenchidos corretamente.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setIsLoading(true);
     
     try {
-      // Mock API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Remover formatação apenas do CPF - WhatsApp manter como digitado
+      const cpfLimpo = formData.cpf.replace(/\D/g, "");
+      const whatsappValue = formData.whatsapp.trim(); // Manter exatamente como digitado
+
+      const clienteData = {
+        cpf: cpfLimpo,
+        nome: formData.nome.trim(),
+        padaria_id: String(padariaIdToUse), // Garantir que seja string UUID
+        // Campos opcionais só se tiverem valor
+        ...(whatsappValue && { whatsapp: whatsappValue }),
+        ...(formData.resposta_pergunta && { resposta_pergunta: formData.resposta_pergunta })
+      };
+
+      console.log('🔍 Criando cliente - Dados completos:', {
+        clienteData,
+        padariaIdToUse,
+        cpfLimpo,
+        whatsappValue,
+        formData
+      });
+
+      // Criar cliente SEM definir ID - deixar o Hasura gerar automaticamente
+      console.log('🔍 Criando cliente sem ID (auto-incremento)...');
+      
+      const result = await graphqlClient.mutate(CREATE_CLIENTE, {
+        cliente: {
+          // NÃO incluir campo id - será gerado automaticamente
+          nome: formData.nome.trim(),
+          cpf: cpfLimpo,
+          padaria_id: String(padariaIdToUse),
+          // Campos opcionais
+          ...(whatsappValue && { whatsapp: whatsappValue }),
+          ...(formData.resposta_pergunta && { resposta_pergunta: formData.resposta_pergunta })
+        }
+      });
+
+      console.log('🔍 Cliente criado - Resultado final:', result);
       
       toast({
         title: "Sucesso",
-        description: "Cliente cadastrado com sucesso"
+        description: "Cliente cadastrado com sucesso!"
       });
       
-      setFormData({ cpf: "", nome: "", whatsapp: "" });
+      setFormData({ cpf: "", nome: "", whatsapp: "", resposta_pergunta: "" });
       onClienteAdded();
-    } catch (error) {
+    } catch (error: any) {
+      console.error('🔍 Erro ao criar cliente:', error);
+      
+      let errorMessage = "Erro ao cadastrar cliente";
+      if (error.message?.includes("unique constraint")) {
+        errorMessage = "Este CPF já está cadastrado";
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
       toast({
         title: "Erro",
-        description: "Erro ao cadastrar cliente",
+        description: errorMessage,
         variant: "destructive"
       });
     } finally {
@@ -146,7 +216,7 @@ export function NovoClienteModal({ open, onOpenChange, onClienteAdded }: NovoCli
   };
 
   const handleCancel = () => {
-    setFormData({ cpf: "", nome: "", whatsapp: "" });
+    setFormData({ cpf: "", nome: "", whatsapp: "", resposta_pergunta: "" });
     onOpenChange(false);
   };
 
@@ -157,6 +227,25 @@ export function NovoClienteModal({ open, onOpenChange, onClienteAdded }: NovoCli
           <DialogTitle>Novo Cliente</DialogTitle>
           <DialogDescription>
             Cadastre um novo cliente para sua padaria
+            {padariasId && (
+              <span className="block mt-2 text-sm font-medium text-green-600">
+                ✅ Usuário vinculado à padaria: {user?.bakery_name}
+                <br />
+                <small>Padaria ID: {padariasId}</small>
+              </span>
+            )}
+            {!padariasId && fallbackPadaria && (
+              <span className="block mt-2 text-sm text-amber-600">
+                ⚠️ Usuário não vinculado. Usando: {fallbackPadaria.nome}
+                <br />
+                <small>Configure o campo padarias_id para este usuário</small>
+              </span>
+            )}
+            {!padariaIdToUse && (
+              <span className="block mt-2 text-sm text-red-600">
+                ❌ Nenhuma padaria disponível no sistema
+              </span>
+            )}
           </DialogDescription>
         </DialogHeader>
         
@@ -187,10 +276,24 @@ export function NovoClienteModal({ open, onOpenChange, onClienteAdded }: NovoCli
             <Label htmlFor="whatsapp">WhatsApp *</Label>
             <Input
               id="whatsapp"
-              placeholder="(+55) (00) 00000-0000"
+              placeholder="Digite o WhatsApp"
               value={formData.whatsapp}
               onChange={(e) => handleInputChange("whatsapp", e.target.value)}
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck="false"
               required
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="resposta_pergunta">Resposta da Pergunta</Label>
+            <Input
+              id="resposta_pergunta"
+              placeholder="Resposta opcional"
+              value={formData.resposta_pergunta}
+              onChange={(e) => handleInputChange("resposta_pergunta", e.target.value)}
             />
           </div>
           

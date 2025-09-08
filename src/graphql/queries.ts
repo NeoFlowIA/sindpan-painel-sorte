@@ -7,6 +7,24 @@ export const TEST_CONNECTION = `
   }
 `;
 
+// Query para descobrir tabelas disponíveis
+export const DISCOVER_SCHEMA = `
+  query DiscoverSchema {
+    __schema {
+      types {
+        name
+        kind
+        fields {
+          name
+          type {
+            name
+          }
+        }
+      }
+    }
+  }
+`;
+
 // Query para buscar informações do schema (útil para debug)
 export const INTROSPECTION_QUERY = `
   query IntrospectionQuery {
@@ -158,7 +176,7 @@ export const DELETE_PADARIA = `
   }
 `;
 
-// Query para buscar dados do usuário
+// Query para buscar dados do usuário (sem created_at)
 export const GET_USER_BY_EMAIL = `
   query GetUserByEmail($email: String!) {
     users(where: {email: {_eq: $email}}) {
@@ -166,7 +184,22 @@ export const GET_USER_BY_EMAIL = `
       email
       bakery_name
       role
-      created_at
+      padarias_id
+      cnpj
+    }
+  }
+`;
+
+// Query para quando o campo padarias_id for criado no Hasura
+export const GET_USER_BY_EMAIL_WITH_PADARIA = `
+  query GetUserByEmailWithPadaria($email: String!) {
+    users(where: {email: {_eq: $email}}) {
+      id
+      email
+      bakery_name
+      role
+      padarias_id
+      cnpj
     }
   }
 `;
@@ -179,7 +212,8 @@ export const GET_USERS = `
       email
       bakery_name
       role
-      created_at
+      padarias_id
+      cnpj
     }
   }
 `;
@@ -230,6 +264,244 @@ export const UPDATE_SORTEIO = `
     update_sorteios_by_pk(pk_columns: {id: $id}, _set: {data_sorteio: $data}) {
       id
       data_sorteio
+    }
+  }
+`;
+
+// Query para buscar padaria pelo nome (tabela correta: padarias)
+export const GET_PADARIA_BY_NAME = `
+  query GetPadariaByName($nome: String!) {
+    padarias(where: {nome: {_eq: $nome}}, limit: 1) {
+      id
+      cnpj
+      nome
+      endereco
+      telefone
+      email
+      status
+      status_pagamento
+      ticket_medio
+    }
+  }
+`;
+
+// ===== QUERIES PARA CLIENTES =====
+
+// Query de teste para verificar conectividade
+export const TEST_HASURA_CONNECTION = `
+  query TestConnection {
+    __typename
+  }
+`;
+
+// Query simplificada para testar a estrutura das tabelas
+export const GET_CLIENTES_SIMPLE = `
+  query GetClientesSimple {
+    clientes {
+      id
+      nome
+      cpf
+      whatsapp
+      padaria_id
+    }
+  }
+`;
+
+// Query para listar todas as padarias (tabela correta: padarias)
+export const GET_ALL_PADARIAS_SIMPLE = `
+  query GetAllPadariasSimple {
+    padarias {
+      id
+      nome
+      cnpj
+    }
+  }
+`;
+
+// Query para buscar padaria por nome com busca flexível
+export const GET_PADARIA_BY_NAME_FLEXIBLE = `
+  query GetPadariaByNameFlexible($nome: String!) {
+    padarias(where: {nome: {_ilike: $nome}}, limit: 5) {
+      id
+      cnpj
+      nome
+      endereco
+      telefone
+      email
+      status
+      status_pagamento
+      ticket_medio
+    }
+  }
+`;
+
+// Query para criar uma nova padaria se não existir
+export const CREATE_PADARIA_IF_NOT_EXISTS = `
+  mutation CreatePadariaIfNotExists($nome: String!) {
+    insert_padarias(
+      objects: {nome: $nome, status: "ativa"}
+      on_conflict: {constraint: padarias_nome_key, update_columns: []}
+    ) {
+      returning {
+        id
+        nome
+      }
+    }
+  }
+`;
+
+// Query para buscar clientes com cupons baseada na estrutura real do Hasura
+// Query para buscar clientes filtrando pelo id da padaria
+export const GET_CLIENTES = `
+  query GetClientes($padaria_id: uuid!, $limit: Int, $offset: Int) {
+    clientes(
+      where: {padaria_id: {_eq: $padaria_id}}, 
+      limit: $limit, 
+      offset: $offset,
+      order_by: {id: desc}
+    ) {
+      id
+      nome
+      cpf
+      whatsapp
+      resposta_pergunta
+      padaria_id
+      
+    }
+    clientes_aggregate(where: {padaria_id: {_eq: $padaria_id}}) {
+      aggregate {
+        count
+      }
+    }
+  }
+`;
+
+// Query simplificada para todos os clientes (tabela correta: clientes)
+export const GET_ALL_CLIENTES_WITH_CUPONS = `
+  query GetAllClientesWithCupons {
+    clientes {
+      id
+      nome
+      cpf
+      padaria_id
+      whatsapp
+      resposta_pergunta
+      cupons {
+        cliente_id
+        data_compra
+        id
+      }
+    }
+  }
+`;
+
+// Query para buscar um cliente específico
+export const GET_CLIENTE_BY_ID = `
+  query GetClienteById($id: Int!) {
+    clientes_by_pk(id: $id) {
+      id
+      nome
+      cpf
+      whatsapp
+      resposta_pergunta
+      padaria_id
+      created_at
+      cupons_aggregate {
+        aggregate {
+          count
+        }
+      }
+    }
+  }
+`;
+
+// Mutation para criar novo cliente (com ID manual)
+export const CREATE_CLIENTE = `
+  mutation CreateCliente($cliente: clientes_insert_input!) {
+    insert_clientes_one(object: $cliente) {
+      id
+      nome
+      cpf
+      whatsapp
+      resposta_pergunta
+      padaria_id
+    }
+  }
+`;
+
+// Mutation de teste mais simples (sem retornar id)
+export const CREATE_CLIENTE_SIMPLE = `
+  mutation CreateClienteSimple($nome: String!, $cpf: String!, $padaria_id: uuid!) {
+    insert_clientes_one(object: {
+      nome: $nome,
+      cpf: $cpf,
+      padaria_id: $padaria_id
+    }) {
+      nome
+      cpf
+      padaria_id
+    }
+  }
+`;
+
+// Mutation alternativa usando insert múltiplo
+export const CREATE_CLIENTE_BULK = `
+  mutation CreateClienteBulk($cliente: [clientes_insert_input!]!) {
+    insert_clientes(objects: $cliente) {
+      returning {
+        nome
+        cpf
+        padaria_id
+      }
+    }
+  }
+`;
+
+// Query para obter o próximo ID disponível
+export const GET_NEXT_CLIENTE_ID = `
+  query GetNextClienteId {
+    clientes_aggregate {
+      aggregate {
+        max {
+          id
+        }
+      }
+    }
+  }
+`;
+
+// Mutation de teste ultra simples (apenas nome)
+export const CREATE_CLIENTE_TEST = `
+  mutation CreateClienteTest($nome: String!) {
+    insert_clientes_one(object: {
+      nome: $nome
+    }) {
+      nome
+    }
+  }
+`;
+
+// Mutation para atualizar cliente
+export const UPDATE_CLIENTE = `
+  mutation UpdateCliente($id: Int!, $changes: clientes_set_input!) {
+    update_clientes_by_pk(pk_columns: {id: $id}, _set: $changes) {
+      id
+      nome
+      cpf
+      whatsapp
+      resposta_pergunta
+      padaria_id
+      
+    }
+  }
+`;
+
+// Mutation para deletar cliente
+export const DELETE_CLIENTE = `
+  mutation DeleteCliente($id: Int!) {
+    delete_clientes_by_pk(id: $id) {
+      id
+      nome
     }
   }
 `;

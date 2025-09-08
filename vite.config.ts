@@ -3,19 +3,24 @@ import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
 
-// Obter endpoint do Hasura do ambiente
-const hasuraEndpoint = process.env.HASURA_ENDPOINT;
-if (!hasuraEndpoint) {
-  throw new Error('HASURA_ENDPOINT is not defined');
+// Obter endpoint do Hasura do ambiente com fallback para desenvolvimento
+const hasuraEndpoint = process.env.HASURA_ENDPOINT || 'https://neotalks-hasura.t2wird.easypanel.host/v1/graphql';
+
+// Log da configuração em desenvolvimento
+if (process.env.NODE_ENV === 'development' || !process.env.NODE_ENV) {
+  console.log('🔧 Vite Configuration:');
+  console.log('📍 HASURA_ENDPOINT:', hasuraEndpoint);
+  console.log('🌍 NODE_ENV:', process.env.NODE_ENV || 'development');
 }
+
 const hasuraUrl = new URL(hasuraEndpoint);
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
   server: {
     host: "localhost",
-    port: 8080,
-    strictPort: true,
+    port: 3000,
+    strictPort: false,
     cors: {
       origin: true,
       credentials: true,
