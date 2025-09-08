@@ -176,12 +176,14 @@ export const DELETE_PADARIA = `
   }
 `;
 
-// Query para buscar dados do usuário (sem created_at)
-export const GET_USER_BY_EMAIL = `
-  query GetUserByEmail($email: String!) {
-    users(where: {email: {_eq: $email}}) {
+
+// Query para buscar dados do usuário por email ou CNPJ
+export const GET_USER = `
+  query GetUser($email: String, $cnpj: String) {
+    users(where: {_or: [{email: {_eq: $email}}, {cnpj: {_eq: $cnpj}}]}) {
       id
       email
+      cnpj
       bakery_name
       role
       padarias_id
@@ -210,6 +212,7 @@ export const GET_USERS = `
     users {
       id
       email
+      cnpj
       bakery_name
       role
       padarias_id
