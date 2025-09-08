@@ -1,9 +1,16 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { sindpanAuthApi, User as ApiUser, SindpanApiError, LoginData, RegisterData } from '@/services/sindpanAuthApi';
+import { sindpanAuthApi, User as SindpanUser, SindpanApiError, LoginData, RegisterData } from '@/services/sindpanAuthApi';
+import { useUser } from '@/hooks/useUsers';
+import { graphqlClient } from '@/lib/graphql-client';
 import { toast } from 'sonner';
 
-interface User extends ApiUser {
+interface User {
+  id: string;
+  email?: string;
+  cnpj?: string;
+  bakery_name?: string;
   role: 'admin' | 'bakery';
+  created_at?: string;
 }
 
 interface AuthContextType {
@@ -33,6 +40,7 @@ interface AuthProviderProps {
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
+  const [sindpanUser, setSindpanUser] = useState<SindpanUser | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -40,25 +48,51 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const isAdmin = user?.role === 'admin';
   const isBakery = user?.role === 'bakery';
 
+  // Buscar dados do usuário no Hasura quando temos email ou CNPJ
+  const { data: hasuraUserData, isLoading: hasuraLoading } = useUser(
+    { email: sindpanUser?.email, cnpj: sindpanUser?.cnpj },
+    !!(sindpanUser?.email || sindpanUser?.cnpj)
+  );
+
   useEffect(() => {
     loadUserProfile();
   }, []);
+
+  // Combinar dados do SINDPAN com dados do Hasura
+  useEffect(() => {
+    if (sindpanUser && hasuraUserData?.users?.[0] && !hasuraLoading) {
+      const hasuraUser = hasuraUserData.users[0];
+      const combinedUser: User = {
+        id: sindpanUser.id,
+        email: sindpanUser.email,
+        cnpj: sindpanUser.cnpj,
+        bakery_name: sindpanUser.bakery_name,
+        role: hasuraUser.role,
+        created_at: hasuraUser.created_at,
+      };
+      setUser(combinedUser);
+    } else if (!sindpanUser) {
+      setUser(null);
+    }
+  }, [sindpanUser, hasuraUserData, hasuraLoading]);
 
   const loadUserProfile = async () => {
     try {
       setIsLoading(true);
 
       if (!sindpanAuthApi.isAuthenticated()) {
+        setSindpanUser(null);
         setUser(null);
         return;
       }
 
       const { user: userData } = await sindpanAuthApi.getProfile();
-      setUser(userData as User);
+      setSindpanUser(userData);
     } catch (error) {
       console.error('Failed to load user profile:', error);
       if (error instanceof SindpanApiError && error.status === 401) {
         sindpanAuthApi.logout();
+        setSindpanUser(null);
         setUser(null);
       }
     } finally {
@@ -69,7 +103,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const login = async (identifier: string, password: string) => {
     try {
       setIsLoading(true);
-
       const payload: Partial<LoginData> = { password };
       if (identifier.includes('@')) {
         payload.email = identifier;
@@ -77,12 +110,62 @@ export function AuthProvider({ children }: AuthProviderProps) {
         payload.cnpj = identifier;
       }
 
-      const response = await sindpanAuthApi.login(payload);
-      setUser(response.user as User);
+      try {
+        const response = await sindpanAuthApi.login(payload);
+        setSindpanUser(response.user);
 
-      toast.success('Login realizado com sucesso', {
-        description: 'Carregando seus dados...',
-      });
+        toast.success('Login realizado com sucesso', {
+          description: 'Carregando seus dados...',
+        });
+        return;
+      } catch (sindpanError) {
+        console.log('🔍 SINDPAN login failed, trying Hasura fallback...', sindpanError);
+
+        if (
+          sindpanError instanceof SindpanApiError &&
+          sindpanError.status === 401 &&
+          identifier.includes('@')
+        ) {
+          const hasuraResponse = await graphqlClient.query(
+            `
+            query CheckUser($email: String!) {
+              users(where: {email: {_eq: $email}}) {
+                id
+                email
+                cnpj
+                bakery_name
+                role
+                created_at
+              }
+            }
+          `,
+            { email: identifier }
+          );
+
+          if (hasuraResponse.users && hasuraResponse.users.length > 0) {
+            const hasuraUser = hasuraResponse.users[0];
+
+            if (hasuraUser.role === 'admin') {
+              const mockSindpanUser: SindpanUser = {
+                id: hasuraUser.id,
+                email: hasuraUser.email,
+                cnpj: hasuraUser.cnpj,
+                bakery_name: hasuraUser.bakery_name,
+                role: hasuraUser.role,
+              };
+
+              setSindpanUser(mockSindpanUser);
+
+              toast.success('Login realizado com sucesso', {
+                description: 'Bem-vindo ao painel administrativo!',
+              });
+              return;
+            }
+          }
+        }
+
+        throw sindpanError;
+      }
     } catch (error) {
       console.error('Login failed:', error);
 
@@ -117,9 +200,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
       } else {
         payload.cnpj = identifier;
       }
-
       const response = await sindpanAuthApi.register(payload);
-      setUser(response.user as User);
+      setSindpanUser(response.user);
 
       toast.success('Cadastro realizado com sucesso', {
         description: `Padaria ${bakeryName} foi cadastrada no sistema!`,
@@ -150,6 +232,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const logout = () => {
     sindpanAuthApi.logout();
+    setSindpanUser(null);
     setUser(null);
 
     toast.success('Logout realizado', {
