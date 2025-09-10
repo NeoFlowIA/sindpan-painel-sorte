@@ -11,7 +11,6 @@ interface User {
   bakery_name?: string;
   role: 'admin' | 'bakery';
   padarias_id?: string; // UUID da padaria
-  cnpj?: string;
   padarias?: {
     nome: string;
     id: string;
@@ -70,11 +69,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const combinedUser: User = {
         id: sindpanUser.id,
         email: sindpanUser.email,
-        cnpj: sindpanUser.cnpj,
+        cnpj: hasuraUser.cnpj || sindpanUser.cnpj,
         bakery_name: sindpanUser.bakery_name,
         role: hasuraUser.role,
         padarias_id: hasuraUser.padarias_id, // UUID da padaria vinculada
-        cnpj: hasuraUser.cnpj,
         padarias: undefined // Temporariamente undefined até confirmar relacionamento
       };
       
@@ -112,7 +110,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const login = async (identifier: string, password: string) => {
     try {
       setIsLoading(true);
-      const payload: Partial<LoginData> = { password };
+      const payload: LoginData = { password } as LoginData;
       if (identifier.includes('@')) {
         payload.email = identifier;
       } else {
@@ -135,7 +133,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
           sindpanError.status === 401 &&
           identifier.includes('@')
         ) {
-          const hasuraResponse = await graphqlClient.query(
+          const hasuraResponse = await graphqlClient.query<{
+            users: Array<{
+              id: string;
+              email: string;
+              cnpj: string;
+              bakery_name: string;
+              role: string;
+              padarias_id: string;
+            }>;
+          }>(
             `
             query CheckUser($email: String!) {
               users(where: {email: {_eq: $email}}) {
@@ -145,10 +152,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
                 bakery_name
                 role
                 padarias_id
-                cnpj
               }
             }
-            if (hasuraUser.role === 'admin') {
+            `,
+            { email: identifier }
+          );
+
+          const hasuraUser = hasuraResponse.users?.[0];
+          if (hasuraUser && hasuraUser.role === 'admin') {
               const mockSindpanUser: SindpanUser = {
                 id: hasuraUser.id,
                 email: hasuraUser.email,
@@ -163,7 +174,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
                 description: 'Bem-vindo ao painel administrativo!',
               });
               return;
-            }
           }
         }
 
@@ -197,7 +207,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       setIsLoading(true);
 
-      const payload: Partial<RegisterData> = { password, bakery_name: bakeryName };
+      const payload: RegisterData = { password, bakery_name: bakeryName } as RegisterData;
       if (identifier.includes('@')) {
         payload.email = identifier;
       } else {
@@ -207,7 +217,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setSindpanUser(response.user);
 
       toast.success('Cadastro realizado com sucesso', {
-        description: `Padaria ${bakeryName} foi cadastrada no sistema!`,
+        description: 'Padaria ' + bakeryName + ' foi cadastrada no sistema!',
       });
     } catch (error) {
       console.error('Registration failed:', error);
