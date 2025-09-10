@@ -92,8 +92,7 @@ export function ClientesTable() {
 
   const handleClienteAdded = () => {
     setIsModalOpen(false);
-    // Forçar atualização da query
-    window.location.reload(); // Solução temporária para garantir que os dados sejam atualizados
+    // A invalidação da query será feita automaticamente pela mutation no NovoClienteModal
   };
 
   // Loading state

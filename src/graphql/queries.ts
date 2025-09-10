@@ -484,6 +484,60 @@ export const CREATE_CLIENTE_TEST = `
   }
 `;
 
+// Query para buscar cliente por CPF
+export const GET_CLIENTE_BY_CPF = `
+  query GetClienteByCpf($cpf: String!) {
+    clientes(where: {cpf: {_eq: $cpf}}) {
+      id
+      nome
+      cpf
+      whatsapp
+      resposta_pergunta
+      padaria_id
+      padaria {
+        id
+        nome
+      }
+    }
+  }
+`;
+
+// Query para buscar cliente por WhatsApp
+export const GET_CLIENTE_BY_WHATSAPP = `
+  query GetClienteByWhatsapp($whatsapp: String!) {
+    clientes(where: {whatsapp: {_eq: $whatsapp}}) {
+      id
+      nome
+      cpf
+      whatsapp
+      resposta_pergunta
+      padaria_id
+      padaria {
+        id
+        nome
+      }
+    }
+  }
+`;
+
+// Query para buscar cliente por CPF ou WhatsApp
+export const GET_CLIENTE_BY_CPF_OR_WHATSAPP = `
+  query GetClienteByCpfOrWhatsapp($cpf: String, $whatsapp: String) {
+    clientes(where: {_or: [{cpf: {_eq: $cpf}}, {whatsapp: {_eq: $whatsapp}}]}) {
+      id
+      nome
+      cpf
+      whatsapp
+      resposta_pergunta
+      padaria_id
+      padaria {
+        id
+        nome
+      }
+    }
+  }
+`;
+
 // Mutation para atualizar cliente
 export const UPDATE_CLIENTE = `
   mutation UpdateCliente($id: Int!, $changes: clientes_set_input!) {

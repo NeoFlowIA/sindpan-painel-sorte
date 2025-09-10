@@ -1,31 +1,130 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { UserPlus } from "lucide-react";
+import { UserPlus, Search, User, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useGraphQLQuery, useGraphQLMutation } from "@/hooks/useGraphQL";
+import { useAuth } from "@/contexts/AuthContext";
+import { GET_CLIENTE_BY_CPF_OR_WHATSAPP, CREATE_CLIENTE } from "@/graphql/queries";
 
 interface Cliente {
+  id?: number;
   cpf: string;
   nome: string;
-  whatsapp: string;
-  saldoAcumulado: number;
+  whatsapp?: string;
+  saldoAcumulado?: number;
+  padaria_id?: string;
+  padaria?: {
+    id: string;
+    nome: string;
+  };
 }
 
 interface ClienteInlineFormProps {
-  onClienteCriado: (cliente: Cliente) => void;
-  searchTerm: string;
+  onClienteEncontrado?: (cliente: Cliente) => void;
+  onClienteCriado?: (cliente: Cliente) => void;
+  searchTerm?: string;
 }
 
-export function ClienteInlineForm({ onClienteCriado, searchTerm }: ClienteInlineFormProps) {
+export function ClienteInlineForm({ onClienteEncontrado, onClienteCriado, searchTerm = "" }: ClienteInlineFormProps) {
+  const [searchValue, setSearchValue] = useState(searchTerm);
+  const [clienteEncontrado, setClienteEncontrado] = useState<Cliente | null>(null);
+  const [showCreateForm, setShowCreateForm] = useState(false);
   const [formData, setFormData] = useState({
     cpf: "",
     nome: "",
     whatsapp: ""
   });
-  const [isLoading, setIsLoading] = useState(false);
+  
   const { toast } = useToast();
+  const { user } = useAuth();
+
+  // Detectar se o valor de busca é CPF ou WhatsApp
+  const isSearchValueCPF = (value: string) => {
+    const digits = value.replace(/\D/g, "");
+    return digits.length === 11;
+  };
+
+  const isSearchValueWhatsApp = (value: string) => {
+    const digits = value.replace(/\D/g, "");
+    return digits.length >= 10 && digits.length <= 13;
+  };
+
+  // Query para buscar cliente por CPF ou WhatsApp
+  const searchVariables = searchValue ? {
+    cpf: isSearchValueCPF(searchValue) ? searchValue.replace(/\D/g, "") : null,
+    whatsapp: isSearchValueWhatsApp(searchValue) ? searchValue : null
+  } : {};
+
+  const { data: clienteData, isLoading: isSearching, refetch: refetchCliente } = useGraphQLQuery(
+    ['search-cliente', searchValue],
+    GET_CLIENTE_BY_CPF_OR_WHATSAPP,
+    searchVariables,
+    { 
+      enabled: !!searchValue && (isSearchValueCPF(searchValue) || isSearchValueWhatsApp(searchValue))
+    }
+  );
+
+  // Effect para processar os resultados da busca
+  useEffect(() => {
+    if (clienteData) {
+      const clientes = (clienteData as any)?.clientes || [];
+      if (clientes.length > 0) {
+        const cliente = clientes[0];
+        setClienteEncontrado(cliente);
+        setShowCreateForm(false);
+        onClienteEncontrado?.(cliente);
+      } else {
+        setClienteEncontrado(null);
+        setShowCreateForm(true);
+        // Pre-preencher o formulário com o valor pesquisado
+        if (isSearchValueCPF(searchValue)) {
+          setFormData(prev => ({ ...prev, cpf: formatCPF(searchValue) }));
+        } else if (isSearchValueWhatsApp(searchValue)) {
+          setFormData(prev => ({ ...prev, whatsapp: formatWhatsApp(searchValue) }));
+        }
+      }
+    }
+  }, [clienteData, searchValue, onClienteEncontrado]);
+
+  // Mutation para criar novo cliente
+  const createClienteMutation = useGraphQLMutation(CREATE_CLIENTE, {
+    onSuccess: (data: any) => {
+      const novoCliente = data?.insert_clientes_one;
+      if (novoCliente) {
+        toast({
+          title: "Cliente criado",
+          description: "Cliente cadastrado com sucesso!"
+        });
+        
+        setClienteEncontrado(novoCliente);
+        setShowCreateForm(false);
+        setFormData({ cpf: "", nome: "", whatsapp: "" });
+        onClienteCriado?.(novoCliente);
+      }
+    },
+    onError: (error: any) => {
+      let errorMessage = "Erro ao cadastrar cliente";
+      if (error.message?.includes("unique constraint")) {
+        errorMessage = "Este CPF já está cadastrado";
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      toast({
+        title: "Erro",
+        description: errorMessage,
+        variant: "destructive"
+      });
+    },
+    invalidateQueries: [
+      ['clientes-by-padaria', user?.padarias_id],
+      ['all-clientes-cupons'],
+      ['search-cliente', searchValue]
+    ]
+  });
 
   const formatCPF = (value: string) => {
     const digits = value.replace(/\D/g, "");
@@ -98,7 +197,29 @@ export function ClienteInlineForm({ onClienteCriado, searchTerm }: ClienteInline
     }
   });
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSearch = () => {
+    if (!searchValue.trim()) {
+      toast({
+        title: "Erro",
+        description: "Digite um CPF ou WhatsApp para pesquisar",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!isSearchValueCPF(searchValue) && !isSearchValueWhatsApp(searchValue)) {
+      toast({
+        title: "Erro",
+        description: "Digite um CPF válido (11 dígitos) ou WhatsApp válido",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    refetchCliente();
+  };
+
+  const handleCreateCliente = (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!formData.cpf || !formData.nome || !formData.whatsapp) {
@@ -128,87 +249,145 @@ export function ClienteInlineForm({ onClienteCriado, searchTerm }: ClienteInline
       return;
     }
 
-    setIsLoading(true);
-
-    try {
-      // Mock API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      const novoCliente: Cliente = {
-        ...formData,
-        saldoAcumulado: 0
-      };
-
-      toast({
-        title: "Cliente criado",
-        description: "Cliente cadastrado e vinculado à padaria"
-      });
-
-      onClienteCriado(novoCliente);
-    } catch (error) {
+    if (!user?.padarias_id) {
       toast({
         title: "Erro",
-        description: "Erro ao criar cliente",
+        description: "Erro ao identificar a padaria. Faça login novamente.",
         variant: "destructive"
       });
-    } finally {
-      setIsLoading(false);
+      return;
     }
+
+    // Criar cliente usando a mutation
+    createClienteMutation.mutate({
+      cliente: {
+        nome: formData.nome.trim(),
+        cpf: formData.cpf.replace(/\D/g, ""),
+        whatsapp: formData.whatsapp.trim(),
+        padaria_id: user.padarias_id
+      }
+    });
   };
 
   return (
-    <Card className="border-dashed">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-base">
-          <UserPlus className="w-4 h-4" />
-          Cliente não encontrado - Criar novo
-        </CardTitle>
-        <CardDescription>
-          Preencha os dados para criar um novo cliente
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="inline-cpf">CPF *</Label>
-              <Input
-                id="inline-cpf"
-                placeholder="000.000.000-00"
-                value={formData.cpf}
-                onChange={(e) => handleInputChange("cpf", e.target.value)}
-                required
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="inline-nome">Nome Completo *</Label>
-              <Input
-                id="inline-nome"
-                placeholder="Nome completo"
-                value={formData.nome}
-                onChange={(e) => handleInputChange("nome", e.target.value)}
-                required
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="inline-whatsapp">WhatsApp *</Label>
-              <Input
-                id="inline-whatsapp"
-                placeholder="(+55) (00) 00000-0000"
-                value={formData.whatsapp}
-                onChange={(e) => handleInputChange("whatsapp", e.target.value)}
-                required
-              />
-            </div>
+    <div className="space-y-4">
+      {/* Campo de Busca */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Search className="w-4 h-4" />
+            Buscar Cliente
+          </CardTitle>
+          <CardDescription>
+            Digite o CPF ou WhatsApp para buscar um cliente existente
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-2">
+            <Input
+              placeholder="Digite CPF ou WhatsApp..."
+              value={searchValue}
+              onChange={(e) => setSearchValue(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+            />
+            <Button 
+              onClick={handleSearch} 
+              disabled={isSearching || !searchValue.trim()}
+            >
+              {isSearching ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Search className="w-4 h-4" />
+              )}
+            </Button>
           </div>
-          
-          <Button type="submit" disabled={isLoading} className="w-full">
-            {isLoading ? "Criando..." : "Criar Cliente"}
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+
+      {/* Cliente Encontrado */}
+      {clienteEncontrado && (
+        <Card className="border-green-200 bg-green-50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base text-green-700">
+              <User className="w-4 h-4" />
+              Cliente Encontrado
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              <p><strong>Nome:</strong> {clienteEncontrado.nome}</p>
+              <p><strong>CPF:</strong> {formatCPF(clienteEncontrado.cpf)}</p>
+              {clienteEncontrado.whatsapp && (
+                <p><strong>WhatsApp:</strong> {clienteEncontrado.whatsapp}</p>
+              )}
+              {clienteEncontrado.padaria && (
+                <p><strong>Padaria:</strong> {clienteEncontrado.padaria.nome}</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Formulário de Criação de Cliente */}
+      {showCreateForm && (
+        <Card className="border-dashed border-orange-200">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <UserPlus className="w-4 h-4" />
+              Cliente não encontrado - Criar novo
+            </CardTitle>
+            <CardDescription>
+              Preencha os dados para criar um novo cliente
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleCreateCliente} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="inline-cpf">CPF *</Label>
+                  <Input
+                    id="inline-cpf"
+                    placeholder="000.000.000-00"
+                    value={formData.cpf}
+                    onChange={(e) => handleInputChange("cpf", e.target.value)}
+                    required
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="inline-nome">Nome Completo *</Label>
+                  <Input
+                    id="inline-nome"
+                    placeholder="Nome completo"
+                    value={formData.nome}
+                    onChange={(e) => handleInputChange("nome", e.target.value)}
+                    required
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="inline-whatsapp">WhatsApp *</Label>
+                  <Input
+                    id="inline-whatsapp"
+                    placeholder="(+55) (00) 00000-0000"
+                    value={formData.whatsapp}
+                    onChange={(e) => handleInputChange("whatsapp", e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+              
+              <Button 
+                type="submit" 
+                disabled={createClienteMutation.isPending} 
+                className="w-full"
+              >
+                {createClienteMutation.isPending ? "Criando..." : "Criar Cliente"}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      )}
+    </div>
   );
 }

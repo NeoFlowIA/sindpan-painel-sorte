@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { useGraphQLQuery } from "@/hooks/useGraphQL";
+import { useGraphQLQuery, useGraphQLMutation } from "@/hooks/useGraphQL";
 import { useAuth } from "@/contexts/AuthContext";
 import { CREATE_CLIENTE, CREATE_CLIENTE_SIMPLE, CREATE_CLIENTE_TEST, GET_NEXT_CLIENTE_ID, GET_PADARIA_BY_NAME, GET_ALL_PADARIAS_SIMPLE } from "@/graphql/queries";
 import { graphqlClient } from "@/lib/graphql-client";
@@ -23,9 +23,44 @@ export function NovoClienteModal({ open, onOpenChange, onClienteAdded }: NovoCli
     whatsapp: "",
     resposta_pergunta: ""
   });
-  const [isLoading, setIsLoading] = useState(false);
+  // Removido useState local do isLoading - usar o da mutation
   const { toast } = useToast();
   const { user } = useAuth();
+
+  // Mutation para criar cliente
+  const createClienteMutation = useGraphQLMutation(CREATE_CLIENTE, {
+    onSuccess: (data) => {
+      console.log('🔍 Cliente criado - Resultado final:', data);
+      
+      toast({
+        title: "Sucesso",
+        description: "Cliente cadastrado com sucesso!"
+      });
+      
+      setFormData({ cpf: "", nome: "", whatsapp: "", resposta_pergunta: "" });
+      onClienteAdded();
+    },
+    onError: (error: any) => {
+      console.error('🔍 Erro ao criar cliente:', error);
+      
+      let errorMessage = "Erro ao cadastrar cliente";
+      if (error.message?.includes("unique constraint")) {
+        errorMessage = "Este CPF já está cadastrado";
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      toast({
+        title: "Erro",
+        description: errorMessage,
+        variant: "destructive"
+      });
+    },
+    invalidateQueries: [
+      ['clientes-by-padaria', user?.padarias_id],
+      ['all-clientes-cupons']
+    ]
+  });
 
   // Usar padarias_id diretamente (sem relacionamento)
   const padariasId = user?.padarias_id;
@@ -147,72 +182,29 @@ export function NovoClienteModal({ open, onOpenChange, onClienteAdded }: NovoCli
       return;
     }
 
-    setIsLoading(true);
-    
-    try {
-      // Remover formatação apenas do CPF - WhatsApp manter como digitado
-      const cpfLimpo = formData.cpf.replace(/\D/g, "");
-      const whatsappValue = formData.whatsapp.trim(); // Manter exatamente como digitado
+    // Remover formatação apenas do CPF - WhatsApp manter como digitado
+    const cpfLimpo = formData.cpf.replace(/\D/g, "");
+    const whatsappValue = formData.whatsapp.trim(); // Manter exatamente como digitado
 
-      const clienteData = {
-        cpf: cpfLimpo,
+    console.log('🔍 Criando cliente - Dados completos:', {
+      padariaIdToUse,
+      cpfLimpo,
+      whatsappValue,
+      formData
+    });
+
+    // Usar a mutation para criar o cliente
+    createClienteMutation.mutate({
+      cliente: {
+        // NÃO incluir campo id - será gerado automaticamente
         nome: formData.nome.trim(),
-        padaria_id: String(padariaIdToUse), // Garantir que seja string UUID
-        // Campos opcionais só se tiverem valor
+        cpf: cpfLimpo,
+        padaria_id: String(padariaIdToUse),
+        // Campos opcionais
         ...(whatsappValue && { whatsapp: whatsappValue }),
         ...(formData.resposta_pergunta && { resposta_pergunta: formData.resposta_pergunta })
-      };
-
-      console.log('🔍 Criando cliente - Dados completos:', {
-        clienteData,
-        padariaIdToUse,
-        cpfLimpo,
-        whatsappValue,
-        formData
-      });
-
-      // Criar cliente SEM definir ID - deixar o Hasura gerar automaticamente
-      console.log('🔍 Criando cliente sem ID (auto-incremento)...');
-      
-      const result = await graphqlClient.mutate(CREATE_CLIENTE, {
-        cliente: {
-          // NÃO incluir campo id - será gerado automaticamente
-          nome: formData.nome.trim(),
-          cpf: cpfLimpo,
-          padaria_id: String(padariaIdToUse),
-          // Campos opcionais
-          ...(whatsappValue && { whatsapp: whatsappValue }),
-          ...(formData.resposta_pergunta && { resposta_pergunta: formData.resposta_pergunta })
-        }
-      });
-
-      console.log('🔍 Cliente criado - Resultado final:', result);
-      
-      toast({
-        title: "Sucesso",
-        description: "Cliente cadastrado com sucesso!"
-      });
-      
-      setFormData({ cpf: "", nome: "", whatsapp: "", resposta_pergunta: "" });
-      onClienteAdded();
-    } catch (error: any) {
-      console.error('🔍 Erro ao criar cliente:', error);
-      
-      let errorMessage = "Erro ao cadastrar cliente";
-      if (error.message?.includes("unique constraint")) {
-        errorMessage = "Este CPF já está cadastrado";
-      } else if (error.message) {
-        errorMessage = error.message;
       }
-      
-      toast({
-        title: "Erro",
-        description: errorMessage,
-        variant: "destructive"
-      });
-    } finally {
-      setIsLoading(false);
-    }
+    });
   };
 
   const handleCancel = () => {
@@ -301,8 +293,8 @@ export function NovoClienteModal({ open, onOpenChange, onClienteAdded }: NovoCli
             <Button type="button" variant="outline" onClick={handleCancel}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={isLoading}>
-              {isLoading ? "Salvando..." : "Salvar"}
+            <Button type="submit" disabled={createClienteMutation.isPending}>
+              {createClienteMutation.isPending ? "Salvando..." : "Salvar"}
             </Button>
           </DialogFooter>
         </form>
