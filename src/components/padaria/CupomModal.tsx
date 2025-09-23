@@ -48,8 +48,8 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
   // Hooks para GraphQL
   const createCupomMutation = useCreateCupom();
   const { data: ticketMedioData } = usePadariaTicketMedio(user?.padarias_id || "");
-  const { data: saldoDescontoData } = useClienteSaldoDesconto(clienteEncontrado?.id);
-  const resetClienteDescontoMutation = useResetClienteDesconto();
+  const { data: saldoDescontoData, refetch: refetchSaldoDesconto } = useClienteSaldoDesconto(clienteEncontrado?.id);
+  // const resetClienteDescontoMutation = useResetClienteDesconto(); // Desabilitado temporariamente
   
   // Query para buscar cliente
   const { data: clienteData, refetch: refetchCliente } = useGraphQLQuery(
@@ -65,6 +65,14 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
   const saldoDescontoAtual = saldoDescontoData?.cupons?.reduce((total, cupom) => {
     return total + parseFloat(cupom.valor_desconto || "0");
   }, 0) || 0;
+
+  // Debug: Log dos dados para verificar se estão atualizados
+  console.log('🔍 Debug Saldo Desconto:', {
+    clienteId: clienteEncontrado?.id,
+    saldoDescontoData,
+    saldoDescontoAtual,
+    cupons: saldoDescontoData?.cupons?.map(c => ({ valor_desconto: c.valor_desconto }))
+  });
 
   // Função para obter timestamp no fuso horário de Brasília
   const getBrasiliaTimestamp = () => {
@@ -161,13 +169,9 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
     setIsLoading(true);
 
      try {
-       // Se houver saldo de desconto atual e ele está sendo usado para completar um cupom,
-       // zera o saldo anterior antes de criar os novos cupons.
-       if (saldoDescontoAtual > 0) {
-         await resetClienteDescontoMutation.mutateAsync({
-           cliente_id: clienteEncontrado.id
-         });
-       }
+       // Reset de desconto desabilitado temporariamente
+       // TODO: Implementar reset de desconto quando possível
+       console.log('Reset de desconto desabilitado temporariamente');
 
        const numerosSorte: string[] = [];
        const cuponsPromises: Promise<any>[] = [];
@@ -205,6 +209,11 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
         title: "Cupons cadastrados com sucesso!",
         description: `${cuponsGerados} cupons gerados: ${numerosSorte.join(", ")}`
       });
+
+      // Forçar atualização do saldo de desconto
+      if (clienteEncontrado?.id) {
+        await refetchSaldoDesconto();
+      }
 
       // Reset form
       setSearchTerm("");

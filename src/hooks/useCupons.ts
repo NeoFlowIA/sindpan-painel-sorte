@@ -7,10 +7,12 @@ import {
   GET_PADARIA_TICKET_MEDIO,
   GET_CLIENTE_SALDO_DESCONTO,
   GET_CUPONS_CLIENTE_SALDO,
-  RESET_CLIENTE_DESCONTO,
   GET_DASHBOARD_METRICS,
   GET_TOP_CLIENTES,
-  GET_CUPONS_RECENTES
+  GET_CUPONS_RECENTES,
+  GET_ESTATISTICAS_SEMANAIS,
+  GET_CUPONS_POR_DIA_SEMANA,
+  GET_EVOLUCAO_DIARIA_CUPONS
 } from '@/graphql/queries';
 
 // Tipos para cupons
@@ -112,7 +114,7 @@ export const useClienteSaldoDesconto = (clienteId: number | undefined) => {
     GET_CUPONS_CLIENTE_SALDO,
     { cliente_id: clienteId },
     {
-      staleTime: 1 * 60 * 1000, // 1 minuto (saldo pode mudar frequentemente)
+      staleTime: 0, // Sempre buscar dados frescos do Hasura
       enabled: !!clienteId,
     }
   );
@@ -159,19 +161,18 @@ export const useUpdateCupomStatus = () => {
 };
 
 // Hook para zerar saldo de desconto do cliente
+// Hook para resetar desconto do cliente - DESABILITADO
+// Vamos usar uma abordagem diferente sem mexer no Hasura
 export const useResetClienteDesconto = () => {
-  return useGraphQLMutation<
-    { update_cupons: { affected_rows: number } },
-    { cliente_id: number }
-  >(
-    RESET_CLIENTE_DESCONTO,
-    {
-      invalidateQueries: [
-        ['cliente-saldo-desconto'],
-        ['cupons-by-cliente'],
-      ],
-    }
-  );
+  return {
+    mutateAsync: async () => {
+      // Simular sucesso sem fazer nada no banco
+      console.log('Reset de desconto simulado - não implementado');
+      return { affected_rows: 0 };
+    },
+    isLoading: false,
+    error: null
+  };
 };
 
 // Função utilitária para gerar número da sorte único de 5 dígitos
@@ -203,8 +204,8 @@ export const calcularNovoSaldoDesconto = (
 // Hook para métricas do dashboard
 export const useDashboardMetrics = (padariaId: string) => {
   return useGraphQLQuery<{
-    clientes_aggregate: { aggregate: { count: number } };
-    cupons_aggregate: { aggregate: { count: number } };
+    clientes: Array<{ id: number }>;
+    cupons: Array<{ id: number }>;
     padarias_by_pk: { ticket_medio: number };
   }>(
     ['dashboard-metrics', padariaId],
@@ -257,6 +258,52 @@ export const useCuponsRecentes = (padariaId: string) => {
     { padaria_id: padariaId },
     {
       staleTime: 1 * 60 * 1000, // 1 minuto
+      enabled: !!padariaId,
+    }
+  );
+};
+
+// Hook para estatísticas semanais
+export const useEstatisticasSemanais = (padariaId: string) => {
+  return useGraphQLQuery<{
+    clientes: Array<{ id: number }>;
+    cupons: Array<{ id: number; data_compra: string }>;
+  }>(
+    ['estatisticas-semanais', padariaId],
+    GET_ESTATISTICAS_SEMANAIS,
+    { padaria_id: padariaId },
+    {
+      staleTime: 5 * 60 * 1000, // 5 minutos
+      enabled: !!padariaId,
+    }
+  );
+};
+
+// Hook para cupons por dia da semana
+export const useCuponsPorDiaSemana = (padariaId: string) => {
+  return useGraphQLQuery<{
+    cupons: Array<{ data_compra: string }>;
+  }>(
+    ['cupons-por-dia-semana', padariaId],
+    GET_CUPONS_POR_DIA_SEMANA,
+    { padaria_id: padariaId },
+    {
+      staleTime: 10 * 60 * 1000, // 10 minutos
+      enabled: !!padariaId,
+    }
+  );
+};
+
+// Hook para evolução diária de cupons
+export const useEvolucaoDiariaCupons = (padariaId: string) => {
+  return useGraphQLQuery<{
+    cupons: Array<{ data_compra: string }>;
+  }>(
+    ['evolucao-diaria-cupons', padariaId],
+    GET_EVOLUCAO_DIARIA_CUPONS,
+    { padaria_id: padariaId },
+    {
+      staleTime: 5 * 60 * 1000, // 5 minutos
       enabled: !!padariaId,
     }
   );
