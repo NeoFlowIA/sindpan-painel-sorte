@@ -68,20 +68,14 @@ export const INTROSPECTION_QUERY = `
 // Queries para dashboard (exemplo)
 export const GET_DASHBOARD_STATS = `
   query GetDashboardStats {
-    padarias: padarias_aggregate {
-      aggregate {
-        count
-      }
+    padarias {
+      id
     }
-    cupons: cupons_aggregate {
-      aggregate {
-        count
-      }
+    cupons {
+      id
     }
-    participantes: participantes_aggregate {
-      aggregate {
-        count
-      }
+    participantes {
+      id
     }
   }
 `;
@@ -224,18 +218,12 @@ export const GET_USERS = `
 // Query para listar participantes
 export const GET_PARTICIPANTES = `
   query GetParticipantes($limit: Int, $offset: Int) {
-    participantes(limit: $limit, offset: $offset, order_by: {created_at: desc}) {
+    participantes(limit: $limit, offset: $offset) {
       id
       nome
       email
       telefone
       cpf
-      created_at
-      cupons_aggregate {
-        aggregate {
-          count
-        }
-      }
     }
   }
 `;
@@ -369,6 +357,15 @@ export const GET_CLIENTES = `
       whatsapp
       resposta_pergunta
       padaria_id
+      padaria {
+        id
+        nome
+      }
+        cupons {
+        cliente_id
+        data_compra
+        id
+      }
       
     }
     clientes_aggregate(where: {padaria_id: {_eq: $padaria_id}}) {
@@ -398,7 +395,7 @@ export const GET_ALL_CLIENTES_WITH_CUPONS = `
   }
 `;
 
-// Query para buscar um cliente específico
+// Query para buscar um cliente específico - SIMPLIFICADA
 export const GET_CLIENTE_BY_ID = `
   query GetClienteById($id: Int!) {
     clientes_by_pk(id: $id) {
@@ -408,12 +405,6 @@ export const GET_CLIENTE_BY_ID = `
       whatsapp
       resposta_pergunta
       padaria_id
-      created_at
-      cupons_aggregate {
-        aggregate {
-          count
-        }
-      }
     }
   }
 `;
@@ -559,6 +550,213 @@ export const DELETE_CLIENTE = `
     delete_clientes_by_pk(id: $id) {
       id
       nome
+    }
+  }
+`;
+
+// ===== QUERIES E MUTATIONS PARA CUPONS =====
+
+// Query para listar cupons de uma padaria
+export const GET_CUPONS_BY_PADARIA = `
+  query GetCuponsByPadaria($padaria_id: uuid!, $limit: Int, $offset: Int) {
+    cupons(
+      where: {padaria_id: {_eq: $padaria_id}}, 
+      limit: $limit, 
+      offset: $offset,
+      order_by: {data_compra: desc}
+    ) {
+      id
+      numero_sorte
+      valor_compra
+      data_compra
+      status
+      cliente_id
+      padaria_id
+      valor_desconto
+      cliente {
+        id
+        nome
+        cpf
+        whatsapp
+      }
+    }
+  }
+`;
+
+// Query para buscar cupons de um cliente específico
+export const GET_CUPONS_BY_CLIENTE = `
+  query GetCuponsByCliente($cliente_id: uuid!) {
+    cupons(where: {cliente_id: {_eq: $cliente_id}}, order_by: {data_compra: desc}) {
+      id
+      numero_sorte
+      valor_compra
+      data_compra
+      status
+      cliente_id
+      padaria_id
+      valor_desconto
+    }
+  }
+`;
+
+// Mutation para criar novo cupom
+export const CREATE_CUPOM = `
+  mutation CreateCupom($cupom: cupons_insert_input!) {
+    insert_cupons_one(object: $cupom) {
+      id
+      numero_sorte
+      valor_compra
+      data_compra
+      status
+      cliente_id
+      padaria_id
+      valor_desconto
+      cliente {
+        id
+        nome
+        cpf
+        whatsapp
+      }
+    }
+  }
+`;
+
+// Mutation para atualizar status do cupom
+export const UPDATE_CUPOM_STATUS = `
+  mutation UpdateCupomStatus($id: uuid!, $status: String!) {
+    update_cupons_by_pk(pk_columns: {id: $id}, _set: {status: $status}) {
+      id
+      numero_sorte
+      status
+    }
+  }
+`;
+
+// Query para obter valor mínimo da padaria (ticket médio)
+export const GET_PADARIA_TICKET_MEDIO = `
+  query GetPadariaTicketMedio($padaria_id: uuid!) {
+    padarias_by_pk(id: $padaria_id) {
+      id
+      ticket_medio
+      nome
+    }
+  }
+`;
+
+// Mutation para zerar valor_desconto de todos os cupons ativos do cliente
+// Removendo a mutation que não funciona
+// Vamos usar uma abordagem diferente sem mexer no Hasura
+
+// Query para métricas do dashboard - SIMPLIFICADA
+export const GET_DASHBOARD_METRICS = `
+  query GetDashboardMetrics($padaria_id: uuid!) {
+    clientes(where: {padaria_id: {_eq: $padaria_id}}) {
+      id
+    }
+    cupons(where: {padaria_id: {_eq: $padaria_id}}) {
+      id
+    }
+    padarias_by_pk(id: $padaria_id) {
+      ticket_medio
+    }
+  }
+`;
+
+// Query para top 5 clientes com mais cupons
+export const GET_TOP_CLIENTES = `
+  query GetTopClientes($padaria_id: uuid!) {
+    clientes(
+      where: {padaria_id: {_eq: $padaria_id}}
+      limit: 50
+    ) {
+      id
+      nome
+      cpf
+      cupons(
+        where: {status: {_eq: "ativo"}}
+        order_by: {data_compra: desc}
+      ) {
+        id
+        data_compra
+      }
+    }
+  }
+`;
+
+// Query para cupons recentes
+export const GET_CUPONS_RECENTES = `
+  query GetCuponsRecentes($padaria_id: uuid!) {
+    cupons(
+      where: {padaria_id: {_eq: $padaria_id}}
+      order_by: {data_compra: desc}
+      limit: 5
+    ) {
+      id
+      numero_sorte
+      valor_compra
+      data_compra
+      cliente {
+        id
+        nome
+        cpf
+      }
+    }
+  }
+`;
+
+// Query para estatísticas semanais - SIMPLIFICADA
+export const GET_ESTATISTICAS_SEMANAIS = `
+  query GetEstatisticasSemanais($padaria_id: uuid!) {
+    clientes(
+      where: {padaria_id: {_eq: $padaria_id}}
+    ) {
+      id
+    }
+    cupons(
+      where: {padaria_id: {_eq: $padaria_id}}
+    ) {
+      id
+      data_compra
+    }
+  }
+`;
+
+// Query para cupons por dia da semana - SIMPLIFICADA
+export const GET_CUPONS_POR_DIA_SEMANA = `
+  query GetCuponsPorDiaSemana($padaria_id: uuid!) {
+    cupons(
+      where: {padaria_id: {_eq: $padaria_id}}
+    ) {
+      data_compra
+    }
+  }
+`;
+
+// Query para evolução diária de cupons - SIMPLIFICADA
+export const GET_EVOLUCAO_DIARIA_CUPONS = `
+  query GetEvolucaoDiariaCupons($padaria_id: uuid!) {
+    cupons(
+      where: {padaria_id: {_eq: $padaria_id}}
+    ) {
+      data_compra
+    }
+  }
+`;
+
+// Query para obter saldo acumulado de desconto do cliente - SIMPLIFICADA
+export const GET_CLIENTE_SALDO_DESCONTO = `
+  query GetClienteSaldoDesconto($cliente_id: uuid!) {
+    cupons(where: {cliente_id: {_eq: $cliente_id}, status: {_eq: "ativo"}}) {
+      valor_desconto
+    }
+  }
+`;
+
+// Query alternativa para obter cupons do cliente e calcular saldo manualmente
+export const GET_CUPONS_CLIENTE_SALDO = `
+  query GetCuponsClienteSaldo($cliente_id: uuid!) {
+    cupons(where: {cliente_id: {_eq: $cliente_id}, status: {_eq: "ativo"}}) {
+      valor_desconto
     }
   }
 `;

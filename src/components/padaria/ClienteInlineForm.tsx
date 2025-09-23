@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useGraphQLQuery, useGraphQLMutation } from "@/hooks/useGraphQL";
 import { useAuth } from "@/contexts/AuthContext";
 import { GET_CLIENTE_BY_CPF_OR_WHATSAPP, CREATE_CLIENTE } from "@/graphql/queries";
+import { formatCPF, formatPhone, unformatCPF, unformatPhone, maskCPF } from "@/utils/formatters";
 
 interface Cliente {
   id?: number;
@@ -83,7 +84,7 @@ export function ClienteInlineForm({ onClienteEncontrado, onClienteCriado, search
         if (isSearchValueCPF(searchValue)) {
           setFormData(prev => ({ ...prev, cpf: formatCPF(searchValue) }));
         } else if (isSearchValueWhatsApp(searchValue)) {
-          setFormData(prev => ({ ...prev, whatsapp: formatWhatsApp(searchValue) }));
+          setFormData(prev => ({ ...prev, whatsapp: formatPhone(searchValue) }));
         }
       }
     }
@@ -126,37 +127,6 @@ export function ClienteInlineForm({ onClienteEncontrado, onClienteCriado, search
     ]
   });
 
-  const formatCPF = (value: string) => {
-    const digits = value.replace(/\D/g, "");
-    return digits
-      .replace(/(\d{3})(\d)/, "$1.$2")
-      .replace(/(\d{3})(\d)/, "$1.$2")
-      .replace(/(\d{3})(\d{1,2})/, "$1-$2");
-  };
-
-  const formatWhatsApp = (value: string) => {
-    const digits = value.replace(/\D/g, "");
-    let formatted = "(+55) ";
-    
-    if (digits.length >= 2) {
-      formatted += `(${digits.slice(0, 2)}) `;
-    }
-    
-    if (digits.length >= 7) {
-      const localNumber = digits.slice(2);
-      if (localNumber.length === 9) {
-        formatted += `${localNumber.slice(0, 5)}-${localNumber.slice(5)}`;
-      } else if (localNumber.length === 8) {
-        formatted += `${localNumber.slice(0, 4)}-${localNumber.slice(4)}`;
-      } else {
-        formatted += localNumber;
-      }
-    } else if (digits.length > 2) {
-      formatted += digits.slice(2);
-    }
-    
-    return formatted;
-  };
 
   const validateCPF = (cpf: string) => {
     const digits = cpf.replace(/\D/g, "");
@@ -174,7 +144,7 @@ export function ClienteInlineForm({ onClienteEncontrado, onClienteCriado, search
     if (field === "cpf") {
       formattedValue = formatCPF(value);
     } else if (field === "whatsapp") {
-      formattedValue = formatWhatsApp(value);
+      formattedValue = formatPhone(value);
     }
     
     setFormData(prev => ({
@@ -192,7 +162,7 @@ export function ClienteInlineForm({ onClienteEncontrado, onClienteCriado, search
         setFormData(prev => ({ ...prev, cpf: formatCPF(searchTerm) }));
       } else if (digits.length >= 10) {
         // Looks like WhatsApp
-        setFormData(prev => ({ ...prev, whatsapp: formatWhatsApp(searchTerm) }));
+        setFormData(prev => ({ ...prev, whatsapp: formatPhone(searchTerm) }));
       }
     }
   });
@@ -316,7 +286,7 @@ export function ClienteInlineForm({ onClienteEncontrado, onClienteCriado, search
           <CardContent>
             <div className="space-y-2">
               <p><strong>Nome:</strong> {clienteEncontrado.nome}</p>
-              <p><strong>CPF:</strong> {formatCPF(clienteEncontrado.cpf)}</p>
+              <p><strong>CPF:</strong> {maskCPF(clienteEncontrado.cpf)}</p>
               {clienteEncontrado.whatsapp && (
                 <p><strong>WhatsApp:</strong> {clienteEncontrado.whatsapp}</p>
               )}
