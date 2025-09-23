@@ -6,7 +6,7 @@ import { Plus, Search, Loader2 } from "lucide-react";
 import { NovoClienteModal } from "./NovoClienteModal";
 // import { useClientesByBakeryName } from "@/hooks/useClientes"; // Removido temporariamente para debug
 import { useAuth } from "@/contexts/AuthContext";
-import { formatCPF } from "@/utils/formatters";
+import { maskCPF, formatPhone } from "@/utils/formatters";
 import { useGraphQLQuery } from "@/hooks/useGraphQL";
 import { GET_CLIENTES, GET_ALL_CLIENTES_WITH_CUPONS } from "@/graphql/queries";
 
@@ -206,10 +206,10 @@ export function ClientesTable() {
               <tbody>
                 {currentClientes.map((cliente) => (
                   <tr key={cliente.id} className="border-b border-border/50 hover:bg-muted/50 transition-colors duration-200">
-                    <td className="p-3 font-mono text-sm">{formatCPF(cliente.cpf)}</td>
+                    <td className="p-3 font-mono text-sm">{maskCPF(cliente.cpf)}</td>
                     <td className="p-3 font-medium">{cliente.nome}</td>
                     <td className="p-3 text-muted-foreground">{cliente.padaria?.nome || '-'}</td>
-                    <td className="p-3 text-muted-foreground">{cliente.whatsapp || '-'}</td>
+                    <td className="p-3 text-muted-foreground">{cliente.whatsapp ? formatPhone(cliente.whatsapp) : '-'}</td>
                     <td className="p-3 text-center">
                       <span className="bg-primary/10 text-primary px-2 py-1 rounded-full text-sm font-medium">
                         {cliente.cupons?.length || 0}

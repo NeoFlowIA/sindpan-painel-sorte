@@ -8,6 +8,11 @@ import { Separator } from "@/components/ui/separator";
 import { Search, User, Calculator, Receipt } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { ClienteInlineForm } from "./ClienteInlineForm";
+import { useAuth } from "@/contexts/AuthContext";
+import { useCreateCupom, usePadariaTicketMedio, useClienteSaldoDesconto, useResetClienteDesconto, gerarNumeroSorte } from "@/hooks/useCupons";
+import { useGraphQLQuery } from "@/hooks/useGraphQL";
+import { GET_CLIENTE_BY_CPF_OR_WHATSAPP } from "@/graphql/queries";
+import { formatCPF, formatPhone, maskCPF } from "@/utils/formatters";
 
 interface CupomModalProps {
   open: boolean;
@@ -16,29 +21,18 @@ interface CupomModalProps {
 }
 
 interface Cliente {
+  id?: number;
   cpf: string;
   nome: string;
-  whatsapp: string;
-  saldoAcumulado: number;
+  whatsapp?: string;
+  padaria_id?: string;
+  resposta_pergunta?: string;
+  saldoAcumulado?: string; // Calculado dinamicamente se necessário
+  padaria?: {
+    id: string;
+    nome: string;
+  };
 }
-
-const TICKET_MEDIO = 28.65;
-
-// Mock clientes
-const mockClientes: Cliente[] = [
-  {
-    cpf: "123.456.789-00",
-    nome: "Ana Souza",
-    whatsapp: "(+55) (85) 98888-1111",
-    saldoAcumulado: 15.50
-  },
-  {
-    cpf: "987.654.321-99", 
-    nome: "Carlos Silva",
-    whatsapp: "(+55) (85) 97777-2222",
-    saldoAcumulado: 8.30
-  }
-];
 
 export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModalProps) {
   const [searchTerm, setSearchTerm] = useState("");
@@ -46,103 +40,108 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
   const [showClienteForm, setShowClienteForm] = useState(false);
   const [valorCompra, setValorCompra] = useState("");
   const [dataHora, setDataHora] = useState("");
+  const [statusCupom, setStatusCupom] = useState<'ativo' | 'inativo'>('ativo');
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  const { user } = useAuth();
+
+  // Hooks para GraphQL
+  const createCupomMutation = useCreateCupom();
+  const { data: ticketMedioData } = usePadariaTicketMedio(user?.padarias_id || "");
+  const { data: saldoDescontoData } = useClienteSaldoDesconto(clienteEncontrado?.id);
+  const resetClienteDescontoMutation = useResetClienteDesconto();
+  
+  // Query para buscar cliente
+  const { data: clienteData, refetch: refetchCliente } = useGraphQLQuery(
+    ['search-cliente', searchTerm],
+    GET_CLIENTE_BY_CPF_OR_WHATSAPP,
+    { cpf: searchTerm.replace(/\D/g, ""), whatsapp: searchTerm },
+    { enabled: false } // Só executa quando chamamos refetch
+  );
+
+  const ticketMedio = ticketMedioData?.padarias_by_pk?.ticket_medio || 28.65;
+  
+  // Calcular saldo de desconto manualmente somando todos os valores
+  const saldoDescontoAtual = saldoDescontoData?.cupons?.reduce((total, cupom) => {
+    return total + parseFloat(cupom.valor_desconto || "0");
+  }, 0) || 0;
+
+  // Função para obter timestamp no fuso horário de Brasília
+  const getBrasiliaTimestamp = () => {
+    const now = new Date();
+    // Brasília está sempre UTC-3 (não há mais horário de verão)
+    const brasiliaTime = new Date(now.getTime() - (3 * 60 * 60 * 1000));
+    return brasiliaTime.toISOString();
+  };
 
   useEffect(() => {
     if (open) {
-      // Set current date/time
+      // Set current date/time in Brasília timezone (UTC-3)
       const now = new Date();
-      const formatted = now.toISOString().slice(0, 16);
+      const brasiliaTime = new Date(now.getTime() - (3 * 60 * 60 * 1000)); // UTC-3
+      const formatted = brasiliaTime.toISOString().slice(0, 16);
       setDataHora(formatted);
     }
   }, [open]);
 
-  const formatCPF = (value: string) => {
-    const digits = value.replace(/\D/g, "");
-    return digits
-      .replace(/(\d{3})(\d)/, "$1.$2")
-      .replace(/(\d{3})(\d)/, "$1.$2")
-      .replace(/(\d{3})(\d{1,2})/, "$1-$2");
-  };
 
-  const formatWhatsApp = (value: string) => {
-    const digits = value.replace(/\D/g, "");
-    let formatted = "(+55) ";
-    
-    if (digits.length >= 2) {
-      formatted += `(${digits.slice(0, 2)}) `;
-    }
-    
-    if (digits.length >= 7) {
-      const localNumber = digits.slice(2);
-      if (localNumber.length === 9) {
-        formatted += `${localNumber.slice(0, 5)}-${localNumber.slice(5)}`;
-      } else if (localNumber.length === 8) {
-        formatted += `${localNumber.slice(0, 4)}-${localNumber.slice(4)}`;
-      } else {
-        formatted += localNumber;
-      }
-    } else if (digits.length > 2) {
-      formatted += digits.slice(2);
-    }
-    
-    return formatted;
-  };
-
-  const handleSearch = () => {
+  const handleSearch = async () => {
     if (!searchTerm.trim()) return;
 
-    // Search by CPF or WhatsApp
-    const cliente = mockClientes.find(c => 
-      c.cpf.includes(searchTerm) || 
-      c.whatsapp.includes(searchTerm)
-    );
-
-    if (cliente) {
-      setClienteEncontrado(cliente);
-      setShowClienteForm(false);
-    } else {
-      setClienteEncontrado(null);
-      setShowClienteForm(true);
+    try {
+      const result = await refetchCliente();
+      const clientes = (result.data as any)?.clientes || [];
+      
+      if (clientes.length > 0) {
+        const cliente = clientes[0];
+        setClienteEncontrado({
+          ...cliente,
+          saldoAcumulado: "0" // Por enquanto, podemos calcular isso depois se necessário
+        });
+        setShowClienteForm(false);
+      } else {
+        setClienteEncontrado(null);
+        setShowClienteForm(true);
+      }
+    } catch (error) {
+      console.error("Erro ao buscar cliente:", error);
+      toast({
+        title: "Erro",
+        description: "Erro ao buscar cliente",
+        variant: "destructive"
+      });
     }
   };
 
-  const handleClienteCriado = (cliente: Cliente) => {
-    setClienteEncontrado(cliente);
-    setShowClienteForm(false);
-  };
 
   const calcularCupons = () => {
     const valor = parseFloat(valorCompra) || 0;
-    const saldoAtual = clienteEncontrado?.saldoAcumulado || 0;
-    const valorTotal = valor + saldoAtual;
-    return Math.floor(valorTotal / TICKET_MEDIO);
+    const valorTotal = valor + saldoDescontoAtual;
+    return Math.floor(valorTotal / ticketMedio);
   };
 
-  const calcularNovoSaldo = () => {
+  const calcularNovoSaldoDesconto = () => {
     const valor = parseFloat(valorCompra) || 0;
-    const saldoAtual = clienteEncontrado?.saldoAcumulado || 0;
-    const valorTotal = valor + saldoAtual;
-    const cuponsGerados = Math.floor(valorTotal / TICKET_MEDIO);
-    return valorTotal - (cuponsGerados * TICKET_MEDIO);
-  };
-
-  const gerarNumerosSorte = (quantidade: number): string[] => {
-    const numeros: string[] = [];
-    for (let i = 0; i < quantidade; i++) {
-      // Generate unique 5-digit numbers
-      const numero = Math.floor(10000 + Math.random() * 90000).toString();
-      numeros.push(numero);
-    }
-    return numeros;
+    const valorTotal = valor + saldoDescontoAtual;
+    const cuponsGerados = Math.floor(valorTotal / ticketMedio);
+    return valorTotal - (cuponsGerados * ticketMedio);
   };
 
   const handleSubmit = async () => {
-    if (!clienteEncontrado || !valorCompra) {
+    if (!clienteEncontrado || !clienteEncontrado.id || !valorCompra || !user?.padarias_id) {
       toast({
         title: "Erro",
-        description: "Cliente e valor da compra são obrigatórios",
+        description: "Cliente, valor da compra e padaria são obrigatórios",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const valor = parseFloat(valorCompra);
+    if (valor <= 0) {
+      toast({
+        title: "Erro",
+        description: "Valor da compra deve ser maior que zero",
         variant: "destructive"
       });
       return;
@@ -153,7 +152,7 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
     if (cuponsGerados === 0) {
       toast({
         title: "Erro", 
-        description: "Valor insuficiente para gerar cupons",
+        description: `Valor insuficiente para gerar cupons. Valor mínimo: R$ ${ticketMedio.toFixed(2)}`,
         variant: "destructive"
       });
       return;
@@ -161,14 +160,50 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
 
     setIsLoading(true);
 
-    try {
-      // Mock API call
-      const numerosSorte = gerarNumerosSorte(cuponsGerados);
-      await new Promise(resolve => setTimeout(resolve, 1500));
+     try {
+       // Se houver saldo de desconto atual e ele está sendo usado para completar um cupom,
+       // zera o saldo anterior antes de criar os novos cupons.
+       if (saldoDescontoAtual > 0) {
+         await resetClienteDescontoMutation.mutateAsync({
+           cliente_id: clienteEncontrado.id
+         });
+       }
+
+       const numerosSorte: string[] = [];
+       const cuponsPromises: Promise<any>[] = [];
+       const novoSaldoDesconto = calcularNovoSaldoDesconto();
+
+      // Criar múltiplos cupons se necessário
+      for (let i = 0; i < cuponsGerados; i++) {
+        const numeroSorte = gerarNumeroSorte();
+        numerosSorte.push(numeroSorte);
+
+        // Preparar data no fuso horário de Brasília
+        const dataCompra = dataHora ? 
+          new Date(dataHora).toISOString() : 
+          getBrasiliaTimestamp();
+
+        const cupomPromise = createCupomMutation.mutateAsync({
+          cupom: {
+            numero_sorte: numeroSorte,
+            valor_compra: String(i === 0 ? valor : 0), // Só o primeiro cupom tem o valor da compra
+            data_compra: dataCompra,
+            status: statusCupom,
+            cliente_id: clienteEncontrado.id,
+            padaria_id: user?.padarias_id, // Adicionar padaria_id obrigatório
+            valor_desconto: String(i === cuponsGerados - 1 ? novoSaldoDesconto : 0), // Só o último cupom tem o saldo restante
+          }
+        });
+
+        cuponsPromises.push(cupomPromise);
+      }
+
+      // Executar todas as mutations em paralelo
+      await Promise.all(cuponsPromises);
 
       toast({
-        title: "Cupom cadastrado com sucesso",
-        description: `${cuponsGerados} números gerados: ${numerosSorte.join(", ")}`
+        title: "Cupons cadastrados com sucesso!",
+        description: `${cuponsGerados} cupons gerados: ${numerosSorte.join(", ")}`
       });
 
       // Reset form
@@ -176,12 +211,14 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
       setClienteEncontrado(null);
       setShowClienteForm(false);
       setValorCompra("");
+      setStatusCupom('ativo');
       
       onCupomCadastrado();
     } catch (error) {
+      console.error("Erro ao cadastrar cupons:", error);
       toast({
         title: "Erro",
-        description: "Erro ao cadastrar cupom",
+        description: "Erro ao cadastrar cupons. Tente novamente.",
         variant: "destructive"
       });
     } finally {
@@ -190,7 +227,7 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
   };
 
   const cuponsGerados = calcularCupons();
-  const novoSaldo = calcularNovoSaldo();
+  const novoSaldoDesconto = calcularNovoSaldoDesconto();
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -224,23 +261,29 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
                 </Button>
               </div>
 
-              {/* Cliente encontrado */}
-              {clienteEncontrado && (
-                <div className="mt-4 p-4 bg-muted/50 rounded-lg">
-                  <h4 className="font-medium text-foreground">{clienteEncontrado.nome}</h4>
-                  <p className="text-sm text-muted-foreground">CPF: {clienteEncontrado.cpf}</p>
-                  <p className="text-sm text-muted-foreground">WhatsApp: {clienteEncontrado.whatsapp}</p>
-                  <p className="text-sm text-muted-foreground">
-                    Saldo acumulado: R$ {clienteEncontrado.saldoAcumulado.toFixed(2)}
-                  </p>
-                </div>
-              )}
+               {/* Cliente encontrado */}
+               {clienteEncontrado && (
+                 <div className="mt-4 p-4 bg-muted/50 rounded-lg">
+                   <h4 className="font-medium text-foreground">{clienteEncontrado.nome}</h4>
+                   <p className="text-sm text-muted-foreground">CPF: {maskCPF(clienteEncontrado.cpf)}</p>
+                   <p className="text-sm text-muted-foreground">WhatsApp: {formatPhone(clienteEncontrado.whatsapp || '')}</p>
+                   <p className="text-sm text-muted-foreground">
+                     Saldo de desconto: R$ {saldoDescontoAtual.toFixed(2)}
+                   </p>
+                 </div>
+               )}
 
               {/* Formulário inline para novo cliente */}
               {showClienteForm && (
                 <div className="mt-4">
                   <ClienteInlineForm
-                    onClienteCriado={handleClienteCriado}
+                    onClienteCriado={(cliente) => {
+                      setClienteEncontrado({
+                        ...cliente,
+                        saldoAcumulado: "0" // Converter para string
+                      });
+                      setShowClienteForm(false);
+                    }}
                     searchTerm={searchTerm}
                   />
                 </div>
@@ -280,6 +323,21 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
                     />
                   </div>
                 </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="status">Status do Cupom</Label>
+                    <select
+                      id="status"
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      value={statusCupom}
+                      onChange={(e) => setStatusCupom(e.target.value as 'ativo' | 'inativo')}
+                    >
+                      <option value="ativo">Ativo</option>
+                      <option value="inativo">Inativo</option>
+                    </select>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           )}
@@ -297,15 +355,15 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
                 <div className="space-y-3">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Ticket Médio:</span>
-                    <span className="font-medium">R$ {TICKET_MEDIO.toFixed(2)}</span>
+                    <span className="font-medium">R$ {ticketMedio.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Valor da Compra:</span>
                     <span className="font-medium">R$ {parseFloat(valorCompra || "0").toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Saldo Anterior:</span>
-                    <span className="font-medium">R$ {clienteEncontrado.saldoAcumulado.toFixed(2)}</span>
+                    <span className="text-muted-foreground">Saldo de Desconto Atual:</span>
+                    <span className="font-medium">R$ {saldoDescontoAtual.toFixed(2)}</span>
                   </div>
                   <Separator />
                   <div className="flex justify-between text-primary font-medium">
@@ -313,8 +371,8 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
                     <span>{cuponsGerados}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Novo Saldo:</span>
-                    <span className="font-medium">R$ {novoSaldo.toFixed(2)}</span>
+                    <span className="text-muted-foreground">Novo Saldo de Desconto:</span>
+                    <span className="font-medium">R$ {novoSaldoDesconto.toFixed(2)}</span>
                   </div>
                 </div>
               </CardContent>

@@ -10,7 +10,7 @@ import { ExcluirPadariaModal } from "@/components/padaria/ExcluirPadariaModal";
 import { PaymentDropdown } from "@/components/padaria/PaymentDropdown";
 import { usePadarias, usePadariasStats } from "@/hooks/usePadarias";
 import { useState } from "react";
-import { formatCNPJ, formatPhone, formatStatus, formatStatusPagamento, formatCurrency } from "@/utils/formatters";
+import { formatCNPJ, formatPhone, formatStatus, formatStatusPagamento, formatCurrency } from "@/utils";
 
 // const bakeries = [
 //   {

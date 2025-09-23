@@ -6,6 +6,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ClientesTable } from "@/components/padaria/ClientesTable";
 import { CadastrarCupomButton } from "@/components/padaria/CadastrarCupomButton";
 import { CuponsRecentesTable } from "@/components/padaria/CuponsRecentesTable";
+import { useAuth } from "@/contexts/AuthContext";
+import { useDashboardMetrics, useTopClientes, useCuponsRecentes } from "@/hooks/useCupons";
+import { maskCPF } from "@/utils/formatters";
 import { 
   Users, 
   Receipt, 
@@ -25,14 +28,7 @@ import {
   Line
 } from "recharts";
 
-// Mock data
-const mockMetrics = {
-  clientesTotal: 96,
-  cuponsTotal: 243,
-  mediaCuponsPorCliente: 2.5,
-  ticketMedio: 28.65
-};
-
+// Mock data para gráficos (ainda não implementados)
 const cuponsSemanais = [
   { dia: "Seg", cupons: 34 },
   { dia: "Ter", cupons: 28 },
@@ -53,31 +49,35 @@ const evolucaoDiaria = [
   { data: "07/08", cupons: 35 },
 ];
 
-const topClientes = [
-  { nome: "Ana Lima", cpf: "123.456.789-**1", cupons: 8, ultimaCompra: "04/08/2025" },
-  { nome: "Carlos Sousa", cpf: "987.654.321-**9", cupons: 6, ultimaCompra: "03/08/2025" },
-  { nome: "Maria Santos", cpf: "456.789.123-**5", cupons: 5, ultimaCompra: "04/08/2025" },
-  { nome: "João Silva", cpf: "789.123.456-**3", cupons: 4, ultimaCompra: "02/08/2025" },
-  { nome: "Paula Costa", cpf: "321.654.987-**7", cupons: 4, ultimaCompra: "04/08/2025" },
-];
-
 export function PadariaDashboard() {
   const [isLoading, setIsLoading] = useState(false);
   const [lastUpdate, setLastUpdate] = useState(new Date());
   const [activeTab, setActiveTab] = useState("dashboard");
+  const { user } = useAuth();
 
-  const refreshData = () => {
+  // Hooks para dados reais
+  const { data: metricsData, isLoading: metricsLoading, refetch: refetchMetrics } = useDashboardMetrics(user?.padarias_id || "");
+  const { data: topClientesData, isLoading: topClientesLoading, refetch: refetchTopClientes } = useTopClientes(user?.padarias_id || "");
+  const { data: cuponsRecentesData, isLoading: cuponsRecentesLoading, refetch: refetchCuponsRecentes } = useCuponsRecentes(user?.padarias_id || "");
+
+  const refreshData = async () => {
     setIsLoading(true);
-    // Mock API call
-    setTimeout(() => {
+    try {
+      await Promise.all([
+        refetchMetrics(),
+        refetchTopClientes(),
+        refetchCuponsRecentes()
+      ]);
       setLastUpdate(new Date());
+    } catch (error) {
+      console.error("Erro ao atualizar dados:", error);
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   const handleCupomCadastrado = () => {
     refreshData();
-    // In real implementation, update metrics and recent coupons
   };
 
   useEffect(() => {
@@ -85,6 +85,34 @@ export function PadariaDashboard() {
     const interval = setInterval(refreshData, 60000);
     return () => clearInterval(interval);
   }, []);
+
+  // Calcular métricas
+  const clientesTotal = metricsData?.clientes_aggregate?.aggregate?.count || 0;
+  const cuponsTotal = metricsData?.cupons_aggregate?.aggregate?.count || 0;
+  const ticketMedio = metricsData?.padarias_by_pk?.ticket_medio || 0;
+  const mediaCuponsPorCliente = clientesTotal > 0 ? cuponsTotal / clientesTotal : 0;
+
+  // Formatar dados dos top clientes
+  const topClientes = topClientesData?.clientes
+    ?.map(cliente => ({
+      nome: cliente.nome,
+      cpf: maskCPF(cliente.cpf), // ✅ CPF mascarado para proteção de dados
+      cupons: cliente.cupons?.length || 0,
+      ultimaCompra: cliente.cupons?.[0]?.data_compra 
+        ? new Date(cliente.cupons[0].data_compra).toLocaleDateString('pt-BR')
+        : 'N/A'
+    }))
+    ?.sort((a, b) => b.cupons - a.cupons) // Ordenar por quantidade de cupons (maior para menor)
+    ?.slice(0, 5) || []; // Pegar apenas os top 5
+
+  // Formatar dados dos cupons recentes
+  const cuponsRecentes = cuponsRecentesData?.cupons?.map(cupom => ({
+    numeroSorte: cupom.numero_sorte,
+    cliente: cupom.cliente.nome,
+    cpf: maskCPF(cupom.cliente.cpf), // ✅ CPF mascarado para proteção de dados
+    valor: parseFloat(cupom.valor_compra || '0'),
+    dataHora: new Date(cupom.data_compra).toLocaleString('pt-BR')
+  })) || [];
 
   return (
     <div className="space-y-4 lg:space-y-5">
@@ -122,28 +150,28 @@ export function PadariaDashboard() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
           <KPICard
             title="Clientes Cadastrados"
-            value={mockMetrics.clientesTotal}
+            value={clientesTotal}
             icon={Users}
             variant="primary"
             trend={{ value: 12, isPositive: true }}
           />
           <KPICard
             title="Cupons Recebidos"
-            value={mockMetrics.cuponsTotal}
+            value={cuponsTotal}
             icon={Receipt}
             variant="secondary"
             trend={{ value: 8, isPositive: true }}
           />
           <KPICard
             title="Média Cupons/Cliente"
-            value={mockMetrics.mediaCuponsPorCliente.toFixed(1)}
+            value={mediaCuponsPorCliente.toFixed(1)}
             icon={TrendingUp}
             variant="accent"
             trend={{ value: 3, isPositive: true }}
           />
           <KPICard
             title="Ticket Médio"
-            value={`R$ ${mockMetrics.ticketMedio.toFixed(2)}`}
+            value={`R$ ${ticketMedio.toFixed(2)}`}
             icon={DollarSign}
             variant="default"
             trend={{ value: 5, isPositive: true }}
@@ -235,37 +263,51 @@ export function PadariaDashboard() {
             <CardDescription>Clientes com mais cupons cadastrados</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-border">
-                    <th className="text-left p-2 font-medium text-muted-foreground">Nome</th>
-                    <th className="text-left p-2 font-medium text-muted-foreground">CPF</th>
-                    <th className="text-center p-2 font-medium text-muted-foreground">Cupons</th>
-                    <th className="text-left p-2 font-medium text-muted-foreground">Última Compra</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {topClientes.map((cliente, index) => (
-                    <tr key={index} className="border-b border-border/50 hover:bg-muted/50 transition-colors duration-200">
-                      <td className="p-2 font-medium">{cliente.nome}</td>
-                      <td className="p-2 text-muted-foreground font-mono text-sm">{cliente.cpf}</td>
-                      <td className="p-2 text-center">
-                        <span className="bg-primary/10 text-primary px-2 py-1 rounded-full text-sm font-medium">
-                          {cliente.cupons}
-                        </span>
-                      </td>
-                      <td className="p-2 text-muted-foreground">{cliente.ultimaCompra}</td>
+            {topClientesLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-border">
+                      <th className="text-left p-2 font-medium text-muted-foreground">Nome</th>
+                      <th className="text-left p-2 font-medium text-muted-foreground">CPF</th>
+                      <th className="text-center p-2 font-medium text-muted-foreground">Cupons</th>
+                      <th className="text-left p-2 font-medium text-muted-foreground">Última Compra</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {topClientes.length > 0 ? (
+                      topClientes.map((cliente, index) => (
+                        <tr key={index} className="border-b border-border/50 hover:bg-muted/50 transition-colors duration-200">
+                          <td className="p-2 font-medium">{cliente.nome}</td>
+                          <td className="p-2 text-muted-foreground font-mono text-sm">{cliente.cpf}</td>
+                          <td className="p-2 text-center">
+                            <span className="bg-primary/10 text-primary px-2 py-1 rounded-full text-sm font-medium">
+                              {cliente.cupons}
+                            </span>
+                          </td>
+                          <td className="p-2 text-muted-foreground">{cliente.ultimaCompra}</td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={4} className="p-8 text-center text-muted-foreground">
+                          Nenhum cliente encontrado
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </CardContent>
         </Card>
 
         {/* Cupons Recentes Section */}
-        <CuponsRecentesTable />
+        <CuponsRecentesTable cuponsRecentes={cuponsRecentes} isLoading={cuponsRecentesLoading} />
           </TabsContent>
 
           <TabsContent value="clientes" className="mt-6">
