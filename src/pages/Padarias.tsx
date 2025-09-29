@@ -706,8 +706,8 @@ export default function Padarias() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-7xl space-y-6 px-2 sm:px-0">
-        <div className="flex items-center justify-between">
+    <div className="space-y-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-3xl font-bold text-primary">Padarias Participantes</h1>
             <p className="text-muted-foreground">Gerencie as padarias cadastradas na campanha</p>
@@ -771,8 +771,8 @@ export default function Padarias() {
         </div>
 
         {/* Search and export */}
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div className="relative w-full md:max-w-sm">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="relative w-full max-w-xl lg:max-w-sm">
             <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Buscar por nome ou CNPJ..."
@@ -828,12 +828,12 @@ export default function Padarias() {
         </div>
 
         {/* Bakeries Table */}
-        <Card>
+        <Card className="overflow-hidden">
           <CardHeader>
             <CardTitle>Lista de Padarias</CardTitle>
           </CardHeader>
-          <CardContent className="overflow-x-auto">
-            <Table className="w-full min-w-[960px]">
+          <CardContent className="max-w-full overflow-x-auto p-0">
+            <Table className="w-full min-w-[56rem]">
               <TableHeader>
                 <TableRow>
                   <TableHead>Nome</TableHead>
