@@ -706,7 +706,7 @@ export default function Padarias() {
   }
 
   return (
-      <div className="space-y-6">
+    <div className="mx-auto w-full max-w-7xl space-y-6 px-2 sm:px-0">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-primary">Padarias Participantes</h1>
@@ -832,8 +832,8 @@ export default function Padarias() {
           <CardHeader>
             <CardTitle>Lista de Padarias</CardTitle>
           </CardHeader>
-          <CardContent>
-            <Table>
+          <CardContent className="overflow-x-auto">
+            <Table className="w-full min-w-[960px]">
               <TableHeader>
                 <TableRow>
                   <TableHead>Nome</TableHead>
@@ -921,6 +921,6 @@ export default function Padarias() {
             </Table>
           </CardContent>
         </Card>
-      </div>
+    </div>
   );
 }
