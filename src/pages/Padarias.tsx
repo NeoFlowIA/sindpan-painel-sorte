@@ -3,14 +3,78 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Store, Plus, Edit, QrCode, Trash2, Search, Loader2 } from "lucide-react";
+import { Store, Plus, Edit, QrCode, Trash2, Search, Loader2, FileSpreadsheet } from "lucide-react";
 import { CriarPadariaModal } from "@/components/padaria/CriarPadariaModal";
 import { EditarPadariaModal } from "@/components/padaria/EditarPadariaModal";
 import { ExcluirPadariaModal } from "@/components/padaria/ExcluirPadariaModal";
 import { PaymentDropdown } from "@/components/padaria/PaymentDropdown";
 import { usePadarias, usePadariasStats } from "@/hooks/usePadarias";
+import type { Padaria } from "@/hooks/usePadarias";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useState } from "react";
 import { formatCNPJ, formatPhone, formatStatus, formatStatusPagamento, formatCurrency } from "@/utils";
+import { exportToXLSX } from "@/utils/xlsx";
+
+type ColumnKey =
+  | "nome"
+  | "cnpj"
+  | "endereco"
+  | "email"
+  | "telefone"
+  | "ticket_medio"
+  | "status"
+  | "status_pagamento";
+
+interface ColumnConfig {
+  key: ColumnKey;
+  label: string;
+  formatter: (padaria: Padaria) => string;
+}
+
+const AVAILABLE_COLUMNS: ColumnConfig[] = [
+  {
+    key: "nome",
+    label: "Nome",
+    formatter: (padaria) => padaria.nome
+  },
+  {
+    key: "cnpj",
+    label: "CNPJ",
+    formatter: (padaria) => formatCNPJ(padaria.cnpj)
+  },
+  {
+    key: "endereco",
+    label: "Endereço",
+    formatter: (padaria) => padaria.endereco
+  },
+  {
+    key: "email",
+    label: "Email",
+    formatter: (padaria) => padaria.email || ""
+  },
+  {
+    key: "telefone",
+    label: "Telefone",
+    formatter: (padaria) => formatPhone(padaria.telefone || "")
+  },
+  {
+    key: "ticket_medio",
+    label: "Ticket Médio",
+    formatter: (padaria) => formatCurrency(padaria.ticket_medio || 0)
+  },
+  {
+    key: "status",
+    label: "Status",
+    formatter: (padaria) => formatStatus(padaria.status)
+  },
+  {
+    key: "status_pagamento",
+    label: "Status do Pagamento",
+    formatter: (padaria) =>
+      formatStatusPagamento((padaria.status_pagamento as string | undefined) || "em_aberto")
+  }
+];
 
 // const bakeries = [
 //   {
@@ -507,16 +571,55 @@ import { formatCNPJ, formatPhone, formatStatus, formatStatusPagamento, formatCur
 
 export default function Padarias() {
   const [searchTerm, setSearchTerm] = useState('');
-  
+  const [selectedColumns, setSelectedColumns] = useState<ColumnKey[]>(
+    AVAILABLE_COLUMNS.map((column) => column.key)
+  );
+  const [isExportOpen, setIsExportOpen] = useState(false);
+
   // Buscar dados das padarias
   const { data: padariasData, isLoading: loadingPadarias, error: errorPadarias } = usePadarias();
   const { data: statsData, isLoading: loadingStats, error: errorStats } = usePadariasStats();
 
   // Filtrar padarias baseado na busca
-  const filteredPadarias = padariasData?.padarias?.filter(padaria =>
+  const padarias = padariasData?.padarias ?? [];
+  const filteredPadarias = padarias.filter(padaria =>
     padaria.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
     padaria.cnpj.includes(searchTerm)
-  ) || [];
+  );
+
+  const toggleColumn = (columnKey: ColumnKey, checked: boolean) => {
+    setSelectedColumns(prev => {
+      const nextSelection = new Set(prev);
+
+      if (checked) {
+        nextSelection.add(columnKey);
+      } else {
+        nextSelection.delete(columnKey);
+      }
+
+      return AVAILABLE_COLUMNS.filter(column => nextSelection.has(column.key)).map(
+        column => column.key
+      );
+    });
+  };
+
+  const handleExport = () => {
+    const columnsToExport = AVAILABLE_COLUMNS.filter(column => selectedColumns.includes(column.key));
+
+    if (columnsToExport.length === 0 || filteredPadarias.length === 0) {
+      return;
+    }
+
+    const headerRow = columnsToExport.map(column => column.label);
+    const dataRows = filteredPadarias.map(padaria =>
+      columnsToExport.map(column => column.formatter(padaria))
+    );
+    const formattedDate = new Date().toISOString().split("T")[0];
+    exportToXLSX(`padarias-${formattedDate}.xlsx`, "Padarias", [headerRow, ...dataRows]);
+    setIsExportOpen(false);
+  };
+
+  const canExport = selectedColumns.length > 0 && filteredPadarias.length > 0;
 
   // Calcular estatísticas
   const totalPadarias = statsData?.padarias_aggregate?.aggregate?.count || 0;
@@ -609,17 +712,61 @@ export default function Padarias() {
           </Card>
         </div>
 
-        {/* Search */}
-        <div className="flex gap-4 items-center">
-          <div className="relative flex-1 max-w-sm">
+        {/* Search and export */}
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="relative w-full md:max-w-sm">
             <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-            <Input 
-              placeholder="Buscar por nome ou CNPJ..." 
+            <Input
+              placeholder="Buscar por nome ou CNPJ..."
               className="pl-10"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
+          <Popover open={isExportOpen} onOpenChange={setIsExportOpen}>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="flex items-center gap-2 self-start md:self-auto">
+                <FileSpreadsheet className="h-4 w-4" />
+                Exportar XLSX
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-72" align="end" sideOffset={8}>
+              <div className="space-y-4">
+                <div>
+                  <h4 className="text-sm font-medium">Colunas do relatório</h4>
+                  <p className="text-xs text-muted-foreground">
+                    Escolha quais informações incluir na exportação.
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 gap-2">
+                  {AVAILABLE_COLUMNS.map((column) => (
+                    <label
+                      key={column.key}
+                      className="flex items-center gap-2 text-sm text-muted-foreground"
+                      htmlFor={`column-${column.key}`}
+                    >
+                      <Checkbox
+                        id={`column-${column.key}`}
+                        checked={selectedColumns.includes(column.key)}
+                        onCheckedChange={(checked) =>
+                          toggleColumn(column.key, checked === true)
+                        }
+                      />
+                      <span className="text-foreground">{column.label}</span>
+                    </label>
+                  ))}
+                </div>
+                <Button onClick={handleExport} disabled={!canExport} className="w-full">
+                  Exportar planilha
+                </Button>
+                {!filteredPadarias.length && (
+                  <p className="text-xs text-muted-foreground text-center">
+                    Não há dados filtrados para exportar.
+                  </p>
+                )}
+              </div>
+            </PopoverContent>
+          </Popover>
         </div>
 
         {/* Bakeries Table */}
