@@ -1,16 +1,14 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { toast } from "sonner";
 import { formatStatusPagamento } from "@/utils";
 
 interface PaymentDropdownProps {
   currentStatus: string;
-  bakeryName: string;
-  onStatusChange?: (newStatus: string) => void;
+  onStatusChange?: (newStatus: PaymentStatus) => Promise<void> | void;
 }
 
-type PaymentStatus = "pago" | "em_aberto" | "atrasado";
+export type PaymentStatus = "pago" | "em_aberto" | "atrasado";
 
 const PAYMENT_STATUS_OPTIONS: Record<PaymentStatus, { label: string; className: string; variant: "default" | "outline" }> = {
   pago: {
@@ -46,9 +44,16 @@ const normalizeStatus = (value: string): PaymentStatus => {
   return "em_aberto";
 };
 
-export function PaymentDropdown({ currentStatus, bakeryName, onStatusChange }: PaymentDropdownProps) {
+export function PaymentDropdown({ currentStatus, onStatusChange }: PaymentDropdownProps) {
   const [status, setStatus] = useState<PaymentStatus>(() => normalizeStatus(currentStatus));
   const [isUpdating, setIsUpdating] = useState(false);
+
+  useEffect(() => {
+    setStatus((previous) => {
+      const normalized = normalizeStatus(currentStatus);
+      return previous === normalized ? previous : normalized;
+    });
+  }, [currentStatus]);
 
   const handleStatusChange = async (newStatus: string) => {
     const normalizedStatus = normalizeStatus(newStatus);
@@ -58,22 +63,13 @@ export function PaymentDropdown({ currentStatus, bakeryName, onStatusChange }: P
     try {
       setIsUpdating(true);
 
-      // Simular delay de API
-      await new Promise(resolve => setTimeout(resolve, 800));
+      if (onStatusChange) {
+        await onStatusChange(normalizedStatus);
+      }
 
       setStatus(normalizedStatus);
-
-      toast.success("Status atualizado!", {
-        description: `${bakeryName} - Pagamento: ${PAYMENT_STATUS_OPTIONS[normalizedStatus].label}`,
-      });
-
-      if (onStatusChange) {
-        onStatusChange(normalizedStatus);
-      }
     } catch (error) {
-      toast.error("Erro ao atualizar status", {
-        description: "Tente novamente.",
-      });
+      console.error(`Failed to update payment status to ${normalizedStatus}`, error);
     } finally {
       setIsUpdating(false);
     }

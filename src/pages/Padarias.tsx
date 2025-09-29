@@ -7,13 +7,15 @@ import { Store, Plus, Edit, QrCode, Trash2, Search, Loader2, FileSpreadsheet } f
 import { CriarPadariaModal } from "@/components/padaria/CriarPadariaModal";
 import { EditarPadariaModal } from "@/components/padaria/EditarPadariaModal";
 import { ExcluirPadariaModal } from "@/components/padaria/ExcluirPadariaModal";
-import { PaymentDropdown } from "@/components/padaria/PaymentDropdown";
-import { usePadarias, usePadariasStats } from "@/hooks/usePadarias";
-import type { Padaria } from "@/hooks/usePadarias";
+import { PaymentDropdown, type PaymentStatus } from "@/components/padaria/PaymentDropdown";
+import { usePadarias, usePadariasStats, useUpdatePadaria } from "@/hooks/usePadarias";
+import type { Padaria, PadariasResponse } from "@/hooks/usePadarias";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useState } from "react";
-import { formatCNPJ, formatPhone, formatStatus, formatStatusPagamento, formatCurrency } from "@/utils";
+import { useCallback, useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { formatCNPJ, formatPhone, formatStatus, formatStatusPagamento, formatCurrency, unformatCNPJ } from "@/utils";
 import { exportToXLSX } from "@/utils/xlsx";
 
 type ColumnKey =
@@ -75,6 +77,8 @@ const AVAILABLE_COLUMNS: ColumnConfig[] = [
       formatStatusPagamento((padaria.status_pagamento as string | undefined) || "em_aberto")
   }
 ];
+
+const EMPTY_PADARIAS: Padaria[] = [];
 
 // const bakeries = [
 //   {
@@ -570,25 +574,42 @@ const AVAILABLE_COLUMNS: ColumnConfig[] = [
 // ];
 
 export default function Padarias() {
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
   const [selectedColumns, setSelectedColumns] = useState<ColumnKey[]>(
     AVAILABLE_COLUMNS.map((column) => column.key)
   );
   const [isExportOpen, setIsExportOpen] = useState(false);
 
+  const queryClient = useQueryClient();
+
   // Buscar dados das padarias
   const { data: padariasData, isLoading: loadingPadarias, error: errorPadarias } = usePadarias();
   const { data: statsData, isLoading: loadingStats, error: errorStats } = usePadariasStats();
+  const updatePadaria = useUpdatePadaria();
 
   // Filtrar padarias baseado na busca
-  const padarias = padariasData?.padarias ?? [];
-  const filteredPadarias = padarias.filter(padaria =>
-    padaria.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    padaria.cnpj.includes(searchTerm)
-  );
+  const padarias = padariasData?.padarias ?? EMPTY_PADARIAS;
+  const filteredPadarias = useMemo(() => {
+    if (!searchTerm.trim()) {
+      return padarias;
+    }
 
-  const toggleColumn = (columnKey: ColumnKey, checked: boolean) => {
-    setSelectedColumns(prev => {
+    const normalizedSearch = searchTerm.trim().toLowerCase();
+    const numericSearch = normalizedSearch.replace(/\D/g, "");
+
+    return padarias.filter((padaria) => {
+      const nomeMatch = padaria.nome.toLowerCase().includes(normalizedSearch);
+      const formattedCnpj = formatCNPJ(padaria.cnpj).toLowerCase();
+      const formattedMatch = formattedCnpj.includes(normalizedSearch);
+      const cnpjDigits = unformatCNPJ(padaria.cnpj);
+      const numericMatch = numericSearch.length > 0 && cnpjDigits.includes(numericSearch);
+
+      return nomeMatch || formattedMatch || numericMatch;
+    });
+  }, [padarias, searchTerm]);
+
+  const toggleColumn = useCallback((columnKey: ColumnKey, checked: boolean) => {
+    setSelectedColumns((prev) => {
       const nextSelection = new Set(prev);
 
       if (checked) {
@@ -597,27 +618,64 @@ export default function Padarias() {
         nextSelection.delete(columnKey);
       }
 
-      return AVAILABLE_COLUMNS.filter(column => nextSelection.has(column.key)).map(
-        column => column.key
+      return AVAILABLE_COLUMNS.filter((column) => nextSelection.has(column.key)).map(
+        (column) => column.key
       );
     });
-  };
+  }, []);
 
-  const handleExport = () => {
-    const columnsToExport = AVAILABLE_COLUMNS.filter(column => selectedColumns.includes(column.key));
+  const handleExport = useCallback(() => {
+    const columnsToExport = AVAILABLE_COLUMNS.filter((column) => selectedColumns.includes(column.key));
 
     if (columnsToExport.length === 0 || filteredPadarias.length === 0) {
       return;
     }
 
-    const headerRow = columnsToExport.map(column => column.label);
-    const dataRows = filteredPadarias.map(padaria =>
-      columnsToExport.map(column => column.formatter(padaria))
+    const headerRow = columnsToExport.map((column) => column.label);
+    const dataRows = filteredPadarias.map((padaria) =>
+      columnsToExport.map((column) => column.formatter(padaria))
     );
     const formattedDate = new Date().toISOString().split("T")[0];
     exportToXLSX(`padarias-${formattedDate}.xlsx`, "Padarias", [headerRow, ...dataRows]);
     setIsExportOpen(false);
-  };
+  }, [filteredPadarias, selectedColumns]);
+
+  const handlePaymentStatusChange = useCallback(
+    async (padaria: Padaria, newStatus: PaymentStatus) => {
+      const cnpjDigits = unformatCNPJ(padaria.cnpj);
+
+      try {
+        await updatePadaria.mutateAsync({
+          cnpj: cnpjDigits,
+          changes: { status_pagamento: newStatus }
+        });
+
+        queryClient.setQueryData<PadariasResponse>(['padarias'], (previous) => {
+          if (!previous) return previous;
+
+          return {
+            ...previous,
+            padarias: previous.padarias.map((item) =>
+              unformatCNPJ(item.cnpj) === cnpjDigits
+                ? { ...item, status_pagamento: newStatus }
+                : item
+            )
+          };
+        });
+
+        toast.success("Status de pagamento atualizado", {
+          description: `${padaria.nome} agora está como ${formatStatusPagamento(newStatus)}.`
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Tente novamente mais tarde.";
+        toast.error("Erro ao atualizar status de pagamento", {
+          description: message
+        });
+        throw error;
+      }
+    },
+    [queryClient, updatePadaria]
+  );
 
   const canExport = selectedColumns.length > 0 && filteredPadarias.length > 0;
 
@@ -820,18 +878,11 @@ export default function Padarias() {
                           {formatStatus(padaria.status)}
                         </Badge>
                       </TableCell>
-                      <TableCell>
-                        <Badge 
-                          variant={padaria.status_pagamento === "pago" ? "default" : "outline"}
-                          className={padaria.status_pagamento === "pago" 
-                            ? "bg-blue-100 text-blue-800 border-blue-200" 
-                            : padaria.status_pagamento === "atrasado"
-                              ? "text-red-600 border-red-600"
-                              : "text-orange-600 border-orange-600"
-                          }
-                        >
-                          {formatStatusPagamento(padaria.status_pagamento || 'em_aberto')}
-                        </Badge>
+                      <TableCell className="min-w-[10rem]">
+                        <PaymentDropdown
+                          currentStatus={padaria.status_pagamento || 'em_aberto'}
+                          onStatusChange={(newStatus) => handlePaymentStatusChange(padaria, newStatus)}
+                        />
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-1">
