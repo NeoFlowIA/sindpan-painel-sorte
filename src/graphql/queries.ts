@@ -760,3 +760,57 @@ export const GET_CUPONS_CLIENTE_SALDO = `
     }
   }
 `;
+
+// ===== QUERIES E MUTATIONS PARA SORTEIO =====
+
+// Query para obter todos os cupons de uma padaria para sorteio
+export const GET_CUPONS_PARA_SORTEIO = `
+  query GetCuponsParaSorteio($padaria_id: uuid!) {
+    cupons(
+      where: {
+        padaria_id: {_eq: $padaria_id}
+        status: {_eq: "ativo"}
+      }
+      order_by: {data_compra: desc}
+    ) {
+      id
+      numero_sorte
+      valor_compra
+      data_compra
+      cliente_id
+      cliente {
+        id
+        nome
+        cpf
+        whatsapp
+      }
+    }
+  }
+`;
+
+// Query para obter histórico de sorteios (simplificada)
+export const GET_HISTORICO_SORTEIOS = `
+  query GetHistoricoSorteios {
+    sorteios(order_by: {data_sorteio: desc}) {
+      id
+      data_sorteio
+      numero_sorteado
+      ganhador_id
+    }
+  }
+`;
+
+// Mutation removida - não existe no Hasura
+// Sistema de sorteio funcionará apenas no frontend
+
+// Query para obter participantes do sorteio (simplificada)
+export const GET_PARTICIPANTES_SORTEIO = `
+  query GetParticipantesSorteio {
+    clientes {
+      id
+      nome
+      cpf
+      whatsapp
+    }
+  }
+`;

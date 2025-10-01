@@ -12,7 +12,10 @@ import {
   GET_CUPONS_RECENTES,
   GET_ESTATISTICAS_SEMANAIS,
   GET_CUPONS_POR_DIA_SEMANA,
-  GET_EVOLUCAO_DIARIA_CUPONS
+  GET_EVOLUCAO_DIARIA_CUPONS,
+  GET_CUPONS_PARA_SORTEIO,
+  GET_HISTORICO_SORTEIOS,
+  GET_PARTICIPANTES_SORTEIO
 } from '@/graphql/queries';
 
 // Tipos para cupons
@@ -322,3 +325,102 @@ export const useCuponsStats = (padariaId: string) => {
     error,
   };
 };
+
+// ===== HOOKS PARA SORTEIO =====
+
+// Tipos para sorteio
+export interface CupomParaSorteio {
+  id: number;
+  numero_sorte: string;
+  valor_compra: string;
+  data_compra: string;
+  cliente_id: number;
+  cliente: {
+    id: number;
+    nome: string;
+    cpf: string;
+    whatsapp: string;
+  };
+}
+
+export interface Sorteio {
+  id: number;
+  data_sorteio: string;
+  numero_sorteado: string;
+  ganhador_id: number;
+  cliente: {
+    id: number;
+    nome: string;
+    cpf: string;
+    whatsapp: string;
+  };
+}
+
+export interface ParticipanteSorteio {
+  id: number;
+  nome: string;
+  cpf: string;
+  whatsapp: string;
+  cupons: Array<{
+    id: number;
+    numero_sorte: string;
+  }>;
+}
+
+// Hook para obter cupons para sorteio
+export const useCuponsParaSorteio = (padariaId: string) => {
+  return useGraphQLQuery<{
+    cupons: Array<CupomParaSorteio>;
+  }>(
+    ['cupons-para-sorteio', padariaId],
+    GET_CUPONS_PARA_SORTEIO,
+    { padaria_id: padariaId },
+    {
+      staleTime: 1 * 60 * 1000, // 1 minuto
+      enabled: !!padariaId,
+    }
+  );
+};
+
+// Hook para obter histórico de sorteios
+export const useHistoricoSorteios = () => {
+  return useGraphQLQuery<{
+    sorteios: Array<{
+      id: string;
+      data_sorteio: string;
+      numero_sorteado: string;
+      ganhador_id: number;
+    }>;
+  }>(
+    ['historico-sorteios'],
+    GET_HISTORICO_SORTEIOS,
+    {},
+    {
+      staleTime: 2 * 60 * 1000, // 2 minutos
+      enabled: true,
+    }
+  );
+};
+
+// Hook para obter participantes do sorteio
+export const useParticipantesSorteio = () => {
+  return useGraphQLQuery<{
+    clientes: Array<{
+      id: number;
+      nome: string;
+      cpf: string;
+      whatsapp: string;
+    }>;
+  }>(
+    ['participantes-sorteio'],
+    GET_PARTICIPANTES_SORTEIO,
+    {},
+    {
+      staleTime: 1 * 60 * 1000, // 1 minuto
+      enabled: true,
+    }
+  );
+};
+
+// Hook removido - mutation não existe no Hasura
+// Sistema de sorteio funcionará apenas no frontend
