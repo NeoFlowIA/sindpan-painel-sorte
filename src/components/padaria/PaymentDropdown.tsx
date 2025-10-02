@@ -1,83 +1,97 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { toast } from "sonner";
+import { formatStatusPagamento } from "@/utils";
 
 interface PaymentDropdownProps {
   currentStatus: string;
-  bakeryName: string;
-  onStatusChange?: (newStatus: string) => void;
+  onStatusChange?: (newStatus: PaymentStatus) => Promise<void> | void;
 }
 
-export function PaymentDropdown({ currentStatus, bakeryName, onStatusChange }: PaymentDropdownProps) {
-  const [status, setStatus] = useState(currentStatus);
+export type PaymentStatus = "pago" | "em_aberto" | "atrasado";
+
+const PAYMENT_STATUS_OPTIONS: Record<PaymentStatus, { label: string; className: string; variant: "default" | "outline" }> = {
+  pago: {
+    label: formatStatusPagamento("pago"),
+    className: "border border-blue-200 bg-blue-100 text-blue-800",
+    variant: "default"
+  },
+  em_aberto: {
+    label: formatStatusPagamento("em_aberto"),
+    className: "border border-orange-200 bg-orange-50 text-orange-600",
+    variant: "outline"
+  },
+  atrasado: {
+    label: formatStatusPagamento("atrasado"),
+    className: "border border-red-200 bg-red-50 text-red-600",
+    variant: "outline"
+  }
+};
+
+const normalizeStatus = (value: string): PaymentStatus => {
+  const normalized = value
+    .toLowerCase()
+    .replace(/\s+/g, "_");
+
+  if (normalized === "pago") {
+    return "pago";
+  }
+
+  if (normalized === "atrasado" || normalized === "cancelado" || normalized === "vencido") {
+    return "atrasado";
+  }
+
+  return "em_aberto";
+};
+
+export function PaymentDropdown({ currentStatus, onStatusChange }: PaymentDropdownProps) {
+  const [status, setStatus] = useState<PaymentStatus>(() => normalizeStatus(currentStatus));
   const [isUpdating, setIsUpdating] = useState(false);
 
+  useEffect(() => {
+    setStatus((previous) => {
+      const normalized = normalizeStatus(currentStatus);
+      return previous === normalized ? previous : normalized;
+    });
+  }, [currentStatus]);
+
   const handleStatusChange = async (newStatus: string) => {
-    if (newStatus === status) return;
-    
+    const normalizedStatus = normalizeStatus(newStatus);
+
+    if (normalizedStatus === status) return;
+
     try {
       setIsUpdating(true);
-      
-      // Simular delay de API
-      await new Promise(resolve => setTimeout(resolve, 800));
-      
-      setStatus(newStatus);
-      
-      toast.success("Status atualizado!", {
-        description: `${bakeryName} - Pagamento: ${newStatus}`,
-      });
 
       if (onStatusChange) {
-        onStatusChange(newStatus);
+        await onStatusChange(normalizedStatus);
       }
+
+      setStatus(normalizedStatus);
     } catch (error) {
-      toast.error("Erro ao atualizar status", {
-        description: "Tente novamente.",
-      });
+      console.error(`Failed to update payment status to ${normalizedStatus}`, error);
     } finally {
       setIsUpdating(false);
     }
   };
 
   const getStatusBadge = (statusValue: string) => {
-    switch (statusValue) {
-      case "pago":
-        return (
-          <Badge variant="concluido" className="cursor-pointer">
-            pago
-          </Badge>
-        );
-      case "pendente":
-        return (
-          <Badge variant="agendado" className="cursor-pointer">
-            pendente
-          </Badge>
-        );
-      case "cancelado":
-        return (
-          <Badge variant="nao-informado" className="cursor-pointer">
-            cancelado
-          </Badge>
-        );
-      case "em aberto":
-        return (
-          <Badge variant="agendado" className="cursor-pointer">
-            pendente
-          </Badge>
-        );
-      default:
-        return (
-          <Badge variant="outline" className="cursor-pointer">
-            {statusValue}
-          </Badge>
-        );
-    }
+    const normalizedStatus = normalizeStatus(statusValue);
+    const { label, className, variant } = PAYMENT_STATUS_OPTIONS[normalizedStatus];
+
+    return (
+      <Badge
+        variant={variant}
+        className={`cursor-pointer ${className}`.trim()}
+      >
+        {label}
+      </Badge>
+    );
   };
 
   return (
-    <Select 
-      value={status} 
+    <Select
+      value={status}
       onValueChange={handleStatusChange}
       disabled={isUpdating}
     >
@@ -87,15 +101,13 @@ export function PaymentDropdown({ currentStatus, bakeryName, onStatusChange }: P
         </SelectValue>
       </SelectTrigger>
       <SelectContent>
-        <SelectItem value="pago">
-          <Badge variant="concluido">pago</Badge>
-        </SelectItem>
-        <SelectItem value="pendente">
-          <Badge variant="agendado">pendente</Badge>
-        </SelectItem>
-        <SelectItem value="cancelado">
-          <Badge variant="nao-informado">cancelado</Badge>
-        </SelectItem>
+        {Object.entries(PAYMENT_STATUS_OPTIONS).map(([value, option]) => (
+          <SelectItem key={value} value={value}>
+            <Badge variant={option.variant} className={option.className}>
+              {option.label}
+            </Badge>
+          </SelectItem>
+        ))}
       </SelectContent>
     </Select>
   );

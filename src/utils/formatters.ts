@@ -176,12 +176,18 @@ export const formatStatus = (status: string): string => {
  * Formata status de pagamento
  */
 export const formatStatusPagamento = (status: string): string => {
+  const normalizedStatus = status
+    .toLowerCase()
+    .replace(/\s+/g, '_');
+
   const statusMap: Record<string, string> = {
     'pago': 'Pago',
+    'em_aberto': 'Pendente',
     'pendente': 'Pendente',
+    'atrasado': 'Atrasado',
     'vencido': 'Vencido',
     'cancelado': 'Cancelado'
   };
-  
-  return statusMap[status] || status;
+
+  return statusMap[normalizedStatus] || status;
 };
