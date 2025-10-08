@@ -1,5 +1,5 @@
 // SINDPAN Auth API Service
-// Base URL: https://neotalks-sindpan-auth.t2wird.easypanel.host
+// Base URL: https://infra-hasura-sindpan.k3p3ex.easypanel.host
 
 // Base URL configuration with environment support
 const getBaseUrl = () => {
@@ -14,7 +14,7 @@ const getBaseUrl = () => {
   }
   
   // Production: direct API URL
-  return 'https://neotalks-sindpan-auth.t2wird.easypanel.host';
+  return 'https://infra-hasura-sindpan.k3p3ex.easypanel.host';
 };
 
 const BASE_URL = getBaseUrl();
@@ -74,9 +74,20 @@ async function handleResponse<T>(response: Response): Promise<T> {
     try {
       const errorData = await response.json();
       errorMessage = errorData.message || errorData.error || errorMessage;
+      console.error('🔍 SINDPAN API Error Details:', {
+        status: response.status,
+        statusText: response.statusText,
+        url: response.url,
+        errorData
+      });
     } catch {
       // If can't parse JSON, use status text
       errorMessage = response.statusText || errorMessage;
+      console.error('🔍 SINDPAN API Error (no JSON):', {
+        status: response.status,
+        statusText: response.statusText,
+        url: response.url
+      });
     }
     
     throw new SindpanApiError(errorMessage, response.status, response.statusText);
@@ -87,6 +98,12 @@ async function handleResponse<T>(response: Response): Promise<T> {
 
 // Helper to make requests with CORS handling
 async function makeRequest(url: string, options: RequestInit = {}): Promise<Response> {
+  console.log('🔍 SINDPAN API Request:', {
+    url,
+    method: options.method || 'GET',
+    hasBody: !!options.body
+  });
+  
   try {
     // First try with normal fetch
     const response = await fetch(url, {
@@ -96,8 +113,21 @@ async function makeRequest(url: string, options: RequestInit = {}): Promise<Resp
         ...options.headers,
       },
     });
+    
+    console.log('🔍 SINDPAN API Response:', {
+      url,
+      status: response.status,
+      statusText: response.statusText,
+      ok: response.ok
+    });
+    
     return response;
   } catch (error) {
+    console.error('🔍 SINDPAN API Fetch Error:', {
+      url,
+      error: error instanceof Error ? error.message : String(error)
+    });
+    
     // If CORS error and we're in development, suggest proxy usage
     if (error instanceof TypeError && error.message.includes('fetch')) {
       console.error('🚨 CORS Error Detected!');
