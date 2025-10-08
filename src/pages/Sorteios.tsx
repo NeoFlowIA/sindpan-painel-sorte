@@ -7,54 +7,36 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Calendar as DatePicker } from "@/components/ui/calendar";
 import { useGraphQLQuery, useGraphQLMutation } from "@/hooks/useGraphQL";
-import { GET_NEXT_SORTEIO, SCHEDULE_SORTEIO, UPDATE_SORTEIO } from "@/graphql/queries";
+import { GET_NEXT_SORTEIO, SCHEDULE_SORTEIO, UPDATE_SORTEIO, GET_ALL_CUPONS_FOR_GLOBAL_SORTEIO, GET_GANHADORES_COM_DADOS_COMPLETOS, SALVAR_GANHADOR, REATIVAR_CUPOM, GET_PADARIAS } from "@/graphql/queries";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { Trophy, Calendar as CalendarIcon, Monitor, X, Save, RotateCcw, Sparkles, Eye, Clock, Pencil } from "lucide-react";
+import { Trophy, Calendar as CalendarIcon, X, Save, RotateCcw, Sparkles, Clock, Pencil } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
-import { CinematicPresentation } from "@/components/CinematicPresentation";
-import { PreviewModal } from "@/components/PreviewModal";
 
-const raffles = [
-  {
-    date: "15/01/2024",
-    number: "07349",
-    winner: "Maria Silva Santos",
-    cpf: "***456",
-    bakery: "Padaria Central"
-  },
-  {
-    date: "08/01/2024", 
-    number: "02841",
-    winner: "João Pereira Lima",
-    cpf: "***789",
-    bakery: "Pão Dourado"
-  },
-  {
-    date: "01/01/2024",
-    number: "09673", 
-    winner: "Ana Costa Oliveira",
-    cpf: "***123",
-    bakery: "Delícias do Forno"
-  }
-];
-
-// Mock data for participants
-const participants = [
-  { name: "Maria Silva Santos", cpf: "***456", bakery: "Padaria Central", answer: "Na padaria" },
-  { name: "João Pereira Lima", cpf: "***789", bakery: "Pão Dourado", answer: "Outro lugar" },
-  { name: "Ana Costa Oliveira", cpf: "***123", bakery: "Delícias do Forno", answer: "Na padaria" },
-  { name: "Carlos Eduardo", cpf: "***234", bakery: "Padaria Central", answer: null },
-  { name: "Fernanda Santos", cpf: "***567", bakery: "Pão Dourado", answer: "Outro lugar" },
-  { name: "Roberto Silva", cpf: "***890", bakery: "Delícias do Forno", answer: "Na padaria" }
-];
+// Interface para cupom do sorteio
+interface CupomSorteio {
+  id: string;
+  numero_sorte: string;
+  valor_compra: number;
+  data_compra: string;
+  status: string;
+  cliente: {
+    id: string;
+    nome: string;
+    cpf: string;
+    whatsapp: string;
+    resposta_pergunta: string;
+    padaria: {
+      id: string;
+      nome: string;
+    };
+  };
+}
 
 export default function Sorteios() {
   const navigate = useNavigate();
   const [showRaffleModal, setShowRaffleModal] = useState(false);
-  const [presentationMode, setPresentationMode] = useState(false);
-  const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [showWinnerDetails, setShowWinnerDetails] = useState(false);
   const [selectedWinner, setSelectedWinner] = useState<typeof participants[0] | null>(null);
   const [isAnimating, setIsAnimating] = useState(false);
@@ -68,9 +50,81 @@ export default function Sorteios() {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
   const [selectedTime, setSelectedTime] = useState("");
   const [editingSorteioId, setEditingSorteioId] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedPadaria, setSelectedPadaria] = useState<string>("all");
+  const [cupomSorteadoId, setCupomSorteadoId] = useState<string | null>(null);
+  const [numeroDigitado, setNumeroDigitado] = useState<string>("");
 
+  // Query para buscar próximo sorteio
   const { data: nextSorteioData } = useGraphQLQuery<{ sorteios: { id: string; data_sorteio: string }[] }>(['next-sorteio'], GET_NEXT_SORTEIO);
   const nextSorteio = nextSorteioData?.sorteios[0];
+
+  // Query para buscar todos os cupons ativos
+  const { data: cuponsData, isLoading: cuponsLoading } = useGraphQLQuery<{ cupons: CupomSorteio[] }>(
+    ['all-cupons-global-sorteio'],
+    GET_ALL_CUPONS_FOR_GLOBAL_SORTEIO
+  );
+
+  // Query para buscar ganhadores salvos (da tabela sorteios)
+  const { data: ganhadoresData, isLoading: ganhadoresLoading, refetch: refetchGanhadores } = useGraphQLQuery<{ 
+    sorteios: Array<{
+      id: string;
+      numero_sorteado: string;
+      data_sorteio: string;
+      status: string;
+      ganhador_id: string;
+      cupom_vencedor_id: string;
+      ganhador: {
+        id: string;
+        nome: string;
+        cpf: string;
+        telefone: string;
+        email: string;
+      };
+      cupom_vencedor: {
+        id: string;
+        numero_sorte: string;
+        numero_cupom: string;
+        padaria: {
+          id: string;
+          nome: string;
+        };
+      };
+    }>
+  }>(
+    ['ganhadores-salvos'],
+    GET_GANHADORES_COM_DADOS_COMPLETOS
+  );
+
+  // Query para buscar padarias
+  const { data: padariasData } = useGraphQLQuery<{ padarias: { id: string; nome: string }[] }>(
+    ['padarias-sorteio'],
+    GET_PADARIAS
+  );
+
+  // Debug logs
+  console.log('🔍 Cupons carregados:', cuponsData?.cupons);
+  console.log('🔍 Loading state:', cuponsLoading);
+
+  // Converter cupons para formato de participantes
+  const participants = (cuponsData?.cupons || [])
+    .filter(cupom => 
+      cupom && 
+      cupom.cliente && 
+      cupom.cliente.padaria && 
+      cupom.cliente.nome && 
+      cupom.cliente.cpf &&
+      cupom.numero_sorte
+    ) // Filtrar cupons com dados completos
+    .map(cupom => ({
+      name: cupom.cliente.nome || 'Nome não informado',
+      cpf: `***${(cupom.cliente.cpf || '').slice(-3)}`,
+      bakery: cupom.cliente.padaria.nome || 'Padaria não informada',
+      answer: cupom.cliente.resposta_pergunta || null,
+      numero_sorte: cupom.numero_sorte || '00000',
+      valor_compra: cupom.valor_compra || 0,
+      data_compra: cupom.data_compra || new Date().toISOString()
+    }));
 
   const { mutate: scheduleSorteio, isPending: isScheduling } = useGraphQLMutation(SCHEDULE_SORTEIO, {
     invalidateQueries: [['next-sorteio']],
@@ -99,6 +153,31 @@ export default function Sorteios() {
     }
   });
 
+  // Mutation para salvar ganhador (cupom específico + dados completos)
+  const { mutate: salvarGanhador, isPending: isMarcandoSorteado } = useGraphQLMutation(SALVAR_GANHADOR, {
+    invalidateQueries: [['all-cupons-global-sorteio'], ['ganhadores-salvos']],
+    onSuccess: (data) => {
+      console.log('🔍 Ganhador salvo com sucesso:', data);
+      toast.success('Ganhador salvo com todos os dados!');
+      setCupomSorteadoId(null);
+    },
+    onError: (error) => {
+      console.error('🔍 Erro ao salvar ganhador:', error);
+      toast.error('Erro ao salvar ganhador');
+    }
+  });
+
+  // Mutation para reativar cupom
+  const { mutate: reativarCupom, isPending: isReativando } = useGraphQLMutation(REATIVAR_CUPOM, {
+    invalidateQueries: [['all-cupons-global-sorteio'], ['ganhadores-salvos']],
+    onSuccess: () => {
+      toast.success('Cupom reativado!');
+    },
+    onError: () => {
+      toast.error('Erro ao reativar cupom');
+    }
+  });
+
   const isMutating = isScheduling || isUpdating;
 
   const handleSchedule = () => {
@@ -124,10 +203,25 @@ export default function Sorteios() {
   };
 
   const generateRandomNumber = () => {
+    // Usar números de sorte reais dos cupons
+    if (participants.length > 0) {
+      const randomParticipant = participants[Math.floor(Math.random() * participants.length)];
+      return randomParticipant.numero_sorte;
+    }
     return Math.floor(Math.random() * 100000).toString().padStart(5, '0');
   };
 
   const startRaffle = () => {
+    if (participants.length === 0) {
+      toast.error('Não há participantes para o sorteio');
+      return;
+    }
+
+    if (!numeroDigitado || numeroDigitado.trim() === '') {
+      toast.error('Digite um número para o sorteio');
+      return;
+    }
+
     setIsAnimating(true);
     setShowResult(false);
     setShowConfetti(false);
@@ -157,13 +251,49 @@ export default function Sorteios() {
       
       if (iterations >= maxIterations) {
         clearInterval(numberInterval);
-        // Generate final result
-        const finalNum = generateRandomNumber();
-        const randomWinner = participants[Math.floor(Math.random() * participants.length)];
         
-        setFinalNumber(finalNum);
-        setCurrentNumber(finalNum);
-        setWinner(randomWinner);
+        // Encontrar o número mais próximo do digitado
+        const numeroAlvo = parseInt(numeroDigitado);
+        
+        // Primeiro, tentar encontrar número exato
+        let winnerParticipant = participants.find(p => parseInt(p.numero_sorte) === numeroAlvo);
+        
+        // Se não encontrar exato, buscar o mais próximo
+        if (!winnerParticipant && participants.length > 0) {
+          let menorDiferenca = Infinity;
+          let indexMaisProximo = 0;
+          
+          participants.forEach((participant, index) => {
+            const diferenca = Math.abs(parseInt(participant.numero_sorte) - numeroAlvo);
+            if (diferenca < menorDiferenca) {
+              menorDiferenca = diferenca;
+              indexMaisProximo = index;
+            }
+          });
+          
+          winnerParticipant = participants[indexMaisProximo];
+          
+          if (menorDiferenca > 0) {
+            toast.info(`Número exato não encontrado. Selecionado o mais próximo: ${winnerParticipant.numero_sorte}`);
+          }
+        }
+        
+        if (!winnerParticipant) {
+          toast.error('Nenhum participante encontrado');
+          setIsAnimating(false);
+          return;
+        }
+        
+        // Encontrar o cupom original para salvar o ID
+        const cupomOriginal = (cuponsData?.cupons || []).find(cupom => 
+          cupom.numero_sorte === winnerParticipant!.numero_sorte &&
+          cupom.cliente.nome === winnerParticipant!.name
+        );
+        
+        setFinalNumber(winnerParticipant.numero_sorte);
+        setCurrentNumber(winnerParticipant.numero_sorte);
+        setWinner(winnerParticipant);
+        setCupomSorteadoId(cupomOriginal?.id || null);
         setIsAnimating(false);
         setShowResult(true);
         setShowConfetti(true);
@@ -175,8 +305,37 @@ export default function Sorteios() {
   };
 
   const saveResult = () => {
-    // Here you would save to database/state
-    console.log("Saving raffle result:", { number: finalNumber, winner });
+    if (!winner || !cupomSorteadoId || !numeroDigitado) return;
+    
+    console.log('🔍 Salvando ganhador:', { 
+      cupomId: cupomSorteadoId, 
+      numeroSorteado: numeroDigitado,
+      winner 
+    });
+    
+    // Encontrar o cupom específico que ganhou
+    const cupomGanhador = cuponsData?.cupons.find(cupom => cupom.id === cupomSorteadoId);
+    if (!cupomGanhador || !cupomGanhador.cliente?.id) {
+      toast.error("Erro: Cupom ou cliente não encontrado");
+      return;
+    }
+    
+    console.log('🔍 Dados do cupom ganhador:', {
+      cupom_vencedor_id: cupomSorteadoId,
+      ganhador_id: cupomGanhador.cliente.id,
+      numero_sorteado: numeroDigitado,
+      numero_sorte: cupomGanhador.numero_sorte
+    });
+    
+    // Salvar o ganhador na tabela sorteios
+    salvarGanhador({
+      numero_sorteado: numeroDigitado,
+      data_sorteio: new Date().toISOString(),
+      ganhador_id: cupomGanhador.cliente.id,
+      cupom_vencedor_id: cupomSorteadoId,
+      cliente_id: cupomGanhador.cliente.id
+    });
+    
     setShowRaffleModal(false);
     resetRaffle();
   };
@@ -189,17 +348,22 @@ export default function Sorteios() {
     setWinner(null);
     setShowResult(false);
     setShowConfetti(false);
+    setCupomSorteadoId(null);
+    setNumeroDigitado("");
+  };
+
+  const continuarSorteio = () => {
+    setShowRaffleModal(true);
+    resetRaffle();
+  };
+
+  const reativarCupomGanhador = (clienteId: string) => {
+    reativarCupom({ cliente_id: clienteId });
   };
 
   const cancelRaffle = () => {
     setShowRaffleModal(false);
     resetRaffle();
-  };
-
-  const handleRaffleComplete = (result: { number: string; winner: typeof participants[0] }) => {
-    console.log("Raffle completed:", result);
-    setPresentationMode(false);
-    // Here you would save to database/state
   };
 
   const showWinnerInfo = (winner: typeof participants[0]) => {
@@ -212,7 +376,9 @@ export default function Sorteios() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-primary">Sorteios Digitais</h1>
-            <p className="text-muted-foreground">Gerencie e execute sorteios da campanha</p>
+            <p className="text-muted-foreground">
+              Gerencie e execute sorteios da campanha • {participants.length} participantes cadastrados
+            </p>
           </div>
           <div className="flex gap-2">
             <Button
@@ -227,21 +393,13 @@ export default function Sorteios() {
               <CalendarIcon className="w-4 h-4 mr-2" />
               Agendar novo sorteio
             </Button>
-            <Button
-              variant="outline"
-              onClick={() => window.open('/sorteios/live', '_blank')}
-              className="border-primary text-primary hover:bg-primary/10"
-            >
-              <Monitor className="w-4 h-4 mr-2" />
-              Modo apresentação
-            </Button>
             <Button 
-              variant="outline" 
-              onClick={() => window.open('/sorteios/live?preview=1', '_blank')}
-              className="border-secondary text-secondary hover:bg-secondary/10"
+              onClick={() => setShowRaffleModal(true)}
+              disabled={participants.length === 0}
+              className="bg-green-600 hover:bg-green-700 text-white"
             >
-              <Eye className="w-4 h-4 mr-2" />
-              Pré-visualizar
+              <Trophy className="w-4 h-4 mr-2" />
+              Iniciar Sorteio
             </Button>
           </div>
         </div>
@@ -284,32 +442,147 @@ export default function Sorteios() {
           </CardContent>
         </Card>
 
-        {/* Filters */}
-        <div className="flex gap-4 items-center">
-          <Input 
-            placeholder="Buscar por ganhador..." 
-            className="max-w-sm"
-          />
-          <Select>
-            <SelectTrigger className="w-[200px]">
-              <SelectValue placeholder="Filtrar por padaria" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas as padarias</SelectItem>
-              <SelectItem value="central">Padaria Central</SelectItem>
-              <SelectItem value="dourado">Pão Dourado</SelectItem>
-              <SelectItem value="delicias">Delícias do Forno</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button 
-            variant="outline" 
-            onClick={() => navigate('/relatorios/sorteios')}
-            className="ml-auto"
-          >
-            <Clock className="w-4 h-4 mr-2" />
-            Ver histórico completo
-          </Button>
-        </div>
+        {/* Participants Info Card */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Trophy className="w-5 h-5 text-primary" />
+              Participantes do Sorteio
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {cuponsLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              </div>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-3">
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-primary">{participants.length}</div>
+                  <div className="text-sm text-muted-foreground">Total de Cupons Participantes</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-secondary">
+                    {participants.filter(p => p.answer === "Na padaria").length}
+                  </div>
+                  <div className="text-sm text-muted-foreground">Resposta: Na padaria</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-accent">
+                    {participants.filter(p => p.answer === "Outro lugar").length}
+                  </div>
+                  <div className="text-sm text-muted-foreground">Resposta: Outro lugar</div>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Ganhadores List */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Trophy className="w-5 h-5 text-primary" />
+              Ganhadores Salvos
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {/* Filters */}
+            <div className="flex gap-4 items-center mb-4">
+              <Input 
+                placeholder="Buscar por ganhador..." 
+                className="max-w-sm"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+              <Select value={selectedPadaria} onValueChange={setSelectedPadaria}>
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="Filtrar por padaria" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas as padarias</SelectItem>
+                  {padariasData?.padarias?.map((padaria: any) => (
+                    <SelectItem key={padaria.id} value={padaria.id}>
+                      {padaria.nome}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Ganhadores Table */}
+            {ganhadoresLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nome</TableHead>
+                    <TableHead>CPF</TableHead>
+                    <TableHead>Telefone</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Nº Sorteado</TableHead>
+                    <TableHead>Nº da Sorte</TableHead>
+                    <TableHead>Data do Sorteio</TableHead>
+                    <TableHead>Padaria</TableHead>
+                    <TableHead>Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(ganhadoresData?.sorteios || [])
+                    .filter(sorteio => {
+                      const matchesSearch = !searchTerm || 
+                        sorteio?.ganhador?.nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                        sorteio?.ganhador?.cpf?.includes(searchTerm) ||
+                        sorteio?.ganhador?.telefone?.includes(searchTerm);
+                      
+                      const matchesPadaria = selectedPadaria === "all" || 
+                        sorteio?.cupom_vencedor?.padaria?.id === selectedPadaria;
+                      
+                      return matchesSearch && matchesPadaria;
+                    })
+                    .map((sorteio) => (
+                      <TableRow key={sorteio.id}>
+                        <TableCell className="font-medium">{sorteio.ganhador?.nome || 'N/A'}</TableCell>
+                        <TableCell>{sorteio.ganhador?.cpf || 'N/A'}</TableCell>
+                        <TableCell>{sorteio.ganhador?.telefone || 'N/A'}</TableCell>
+                        <TableCell className="text-xs">{sorteio.ganhador?.email || 'N/A'}</TableCell>
+                        <TableCell>
+                          <Badge variant="default" className="bg-green-600">
+                            {sorteio.numero_sorteado || 'N/A'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="text-primary border-primary">
+                            {sorteio.cupom_vencedor?.numero_sorte || 'N/A'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {sorteio.data_sorteio ? 
+                            format(new Date(sorteio.data_sorteio), 'dd/MM/yyyy HH:mm') : 
+                            'N/A'
+                          }
+                        </TableCell>
+                        <TableCell>{sorteio.cupom_vencedor?.padaria?.nome || 'N/A'}</TableCell>
+                        <TableCell>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => reativarCupomGanhador(sorteio.ganhador_id)}
+                            disabled={isReativando}
+                          >
+                            {isReativando ? "Reativando..." : "Reativar"}
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
         <Dialog
           open={showScheduleModal}
           onOpenChange={(open) => {
@@ -381,6 +654,26 @@ export default function Sorteios() {
               {/* Title */}
               <h2 className="text-3xl font-bold text-primary mb-8">Sorteio Digital SINDPAN</h2>
 
+              {/* Input para número do sorteio */}
+              {!isAnimating && !showResult && countdown === 0 && (
+                <div className="mb-8 w-full max-w-md">
+                  <label className="block text-sm font-medium text-center mb-2">
+                    Digite o número do sorteio
+                  </label>
+                  <Input 
+                    type="number"
+                    placeholder="Ex: 12345"
+                    value={numeroDigitado}
+                    onChange={(e) => setNumeroDigitado(e.target.value)}
+                    className="text-center text-2xl font-mono h-14"
+                    maxLength={5}
+                  />
+                  <p className="text-xs text-muted-foreground text-center mt-2">
+                    O sistema buscará o número exato ou o mais próximo
+                  </p>
+                </div>
+              )}
+
               {/* Countdown */}
               {countdown > 0 && (
                 <div className="text-8xl font-bold text-primary animate-pulse mb-8">
@@ -447,9 +740,17 @@ export default function Sorteios() {
               {/* Action Buttons */}
               {showResult && (
                 <div className="flex gap-4 mt-8">
-                  <Button onClick={saveResult} className="bg-green-600 hover:bg-green-700 text-white">
+                  <Button 
+                    onClick={saveResult} 
+                    className="bg-green-600 hover:bg-green-700 text-white"
+                    disabled={isMarcandoSorteado}
+                  >
                     <Save className="w-4 h-4 mr-2" />
-                    Salvar resultado
+                    {isMarcandoSorteado ? "Salvando..." : "Salvar resultado"}
+                  </Button>
+                  <Button onClick={continuarSorteio} className="bg-blue-600 hover:bg-blue-700 text-white">
+                    <Trophy className="w-4 h-4 mr-2" />
+                    Continuar sorteio
                   </Button>
                   <Button onClick={resetRaffle} variant="outline">
                     <RotateCcw className="w-4 h-4 mr-2" />
@@ -463,20 +764,6 @@ export default function Sorteios() {
             </div>
           </DialogContent>
         </Dialog>
-
-        {/* Cinematic Presentation Mode */}
-        <CinematicPresentation
-          isOpen={presentationMode}
-          onClose={() => setPresentationMode(false)}
-          participants={participants}
-          onRaffleComplete={handleRaffleComplete}
-        />
-
-        {/* Preview Modal */}
-        <PreviewModal
-          isOpen={showPreviewModal}
-          onClose={() => setShowPreviewModal(false)}
-        />
 
         {/* Winner Details Modal */}
         <Dialog open={showWinnerDetails} onOpenChange={setShowWinnerDetails}>

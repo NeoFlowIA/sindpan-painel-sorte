@@ -59,6 +59,7 @@ class GraphQLClient {
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
+      'x-hasura-admin-secret': 'mysecretkey',
     };
 
     // Adicionar token se disponível e válido
@@ -70,7 +71,9 @@ class GraphQLClient {
       method: 'POST',
       headers,
       body: JSON.stringify(body),
-      mode: 'cors',
+      // Em desenvolvimento, o proxy cuida do CORS
+      // Em produção, usamos CORS direto
+      credentials: 'same-origin',
     });
 
     if (!response.ok) {
