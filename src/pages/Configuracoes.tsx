@@ -175,7 +175,7 @@ export default function Configuracoes() {
                 <div>
                   <label className="text-sm font-medium">Base URL</label>
                   <Input 
-                    value="https://neotalks-sindpan-auth.t2wird.easypanel.host" 
+                    value="https://infra-hasura-sindpan.k3p3ex.easypanel.host" 
                     readOnly 
                     className="bg-muted"
                   />

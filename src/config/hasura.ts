@@ -1,11 +1,9 @@
 // Configurações do Hasura
-// O endpoint é lido exclusivamente da variável de ambiente HASURA_ENDPOINT
-// Em desenvolvimento, se a variável não estiver definida, caímos no proxy local
+// Em desenvolvimento, SEMPRE usa o proxy /graphql para evitar problemas de CORS
+// Em produção, usa a URL completa do Hasura
 export const hasuraConfig = {
-  endpoint:
-    // valor injetado pelo build (define em `vite.config.ts`)
-    import.meta.env.HASURA_ENDPOINT ||
-    // fallback apenas para desenvolvimento
-    (import.meta.env.DEV ? '/graphql' : ''),
+  endpoint: import.meta.env.DEV 
+    ? '/graphql' // Proxy local em desenvolvimento
+    : (import.meta.env.HASURA_ENDPOINT || 'https://infra-hasura-sindpan.k3p3ex.easypanel.host/v1/graphql'),
 };
 

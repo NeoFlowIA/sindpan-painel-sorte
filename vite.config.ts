@@ -4,7 +4,7 @@ import path from "path";
 import { componentTagger } from "lovable-tagger";
 
 // Obter endpoint do Hasura do ambiente com fallback para desenvolvimento
-const hasuraEndpoint = process.env.HASURA_ENDPOINT || 'https://neotalks-hasura.t2wird.easypanel.host/v1/graphql';
+const hasuraEndpoint = process.env.HASURA_ENDPOINT || 'https://infra-hasura-sindpan.k3p3ex.easypanel.host/v1/graphql';
 
 // Log da configuração em desenvolvimento
 if (process.env.NODE_ENV === 'development' || !process.env.NODE_ENV) {
@@ -27,16 +27,35 @@ export default defineConfig(({ mode }) => ({
     },
     proxy: {
       '/api': {
-        target: 'https://neotalks-sindpan-auth.t2wird.easypanel.host',
+        target: 'https://infra-hasura-sindpan.k3p3ex.easypanel.host',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, ''),
         secure: true,
+        configure: (proxy, _options) => {
+          proxy.on('error', (err, _req, _res) => {
+            console.log('❌ Proxy /api error:', err);
+          });
+          proxy.on('proxyReq', (proxyReq, req, _res) => {
+            console.log('📤 Proxying /api request:', req.method, req.url);
+          });
+        },
       },
       '/graphql': {
         target: hasuraUrl.origin,
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/graphql/, hasuraUrl.pathname),
         secure: true,
+        configure: (proxy, _options) => {
+          proxy.on('error', (err, _req, _res) => {
+            console.log('❌ Proxy /graphql error:', err);
+          });
+          proxy.on('proxyReq', (proxyReq, req, _res) => {
+            console.log('📤 Proxying GraphQL request:', req.method, hasuraUrl.origin + hasuraUrl.pathname);
+          });
+          proxy.on('proxyRes', (proxyRes, req, _res) => {
+            console.log('📥 GraphQL response status:', proxyRes.statusCode);
+          });
+        },
       },
     },
   },
