@@ -119,7 +119,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           }>;
         }>(
           `
-          query GetUserById($id: String!) {
+          query GetUserById($id: uuid!) {
             users(where: {id: {_eq: $id}}) {
               id
               email

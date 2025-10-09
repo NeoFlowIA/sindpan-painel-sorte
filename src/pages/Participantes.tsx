@@ -11,6 +11,14 @@ import { GET_ALL_CLIENTES_ADMIN_SIMPLE, GET_PADARIAS, GET_ADMIN_DASHBOARD_METRIC
 import { formatPhone, maskCPF } from "@/utils/formatters";
 import { AdminNovoClienteModal } from "@/components/admin/AdminNovoClienteModal";
 import { AdminCupomModal } from "@/components/admin/AdminCupomModal";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
+import { Trash2, Save, X } from "lucide-react";
+import { useGraphQLMutation } from "@/hooks/useGraphQL";
+import { UPDATE_CLIENTE, DELETE_CLIENTE } from "@/graphql/queries";
+import { toast } from "sonner";
+import { format } from "date-fns";
 
 export default function Participantes() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -20,23 +28,63 @@ export default function Participantes() {
   const [lastUpdate, setLastUpdate] = useState(new Date());
   const [showNovoClienteModal, setShowNovoClienteModal] = useState(false);
   const [showCupomModal, setShowCupomModal] = useState(false);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [selectedCliente, setSelectedCliente] = useState<any>(null);
+  const [editedCliente, setEditedCliente] = useState<any>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const itemsPerPage = 10;
 
+  // Mutation para atualizar cliente
+  const { mutate: updateCliente, isPending: isUpdating } = useGraphQLMutation(UPDATE_CLIENTE, {
+    invalidateQueries: [['clientes-admin']],
+    onSuccess: () => {
+      toast.success('Cliente atualizado com sucesso!');
+      setShowDetailsModal(false);
+      refetchClientes();
+    },
+    onError: () => {
+      toast.error('Erro ao atualizar cliente');
+    }
+  });
+
+  // Mutation para deletar cliente
+  const { mutate: deleteCliente, isPending: isDeleting } = useGraphQLMutation(DELETE_CLIENTE, {
+    invalidateQueries: [['clientes-admin'], ['admin-metrics']],
+    onSuccess: () => {
+      toast.success('Cliente excluído com sucesso!');
+      setShowDetailsModal(false);
+      setShowDeleteConfirm(false);
+      refetchClientes();
+      refetchMetrics();
+    },
+    onError: () => {
+      toast.error('Erro ao excluir cliente');
+    }
+  });
+
   // Buscar dados dos clientes
-  const { data: clientesData, isLoading: clientesLoading, refetch: refetchClientes } = useGraphQLQuery(
+  const { data: clientesData, isLoading: clientesLoading, refetch: refetchClientes } = useGraphQLQuery<{
+    clientes: any[]
+  }>(
     ['clientes-admin'],
     GET_ALL_CLIENTES_ADMIN_SIMPLE
   );
 
   // Buscar lista de padarias para o filtro
-  const { data: padariasData, isLoading: padariasLoading } = useGraphQLQuery(
+  const { data: padariasData, isLoading: padariasLoading } = useGraphQLQuery<{
+    padarias: any[]
+  }>(
     ['padarias-list'],
     GET_PADARIAS
   );
 
   // Buscar métricas do dashboard
-  const { data: metricsData, isLoading: metricsLoading, refetch: refetchMetrics } = useGraphQLQuery(
+  const { data: metricsData, isLoading: metricsLoading, refetch: refetchMetrics } = useGraphQLQuery<{
+    clientes_aggregate: { aggregate: { count: number } };
+    cupons_aggregate: { aggregate: { count: number } };
+    cupons: any[];
+  }>(
     ['admin-metrics'],
     GET_ADMIN_DASHBOARD_METRICS
   );
@@ -88,12 +136,12 @@ export default function Participantes() {
 
   // Calcular métricas no frontend
   const totalParticipantes = metricsData?.clientes_aggregate?.aggregate?.count || 0;
-  const totalCupons = metricsData?.cupons?.length || 0;
+  const totalCupons = metricsData?.cupons_aggregate?.aggregate?.count || 0;
   
   // Calcular cupons de hoje
   const hoje = new Date();
   hoje.setHours(0, 0, 0, 0);
-  const cuponsHoje = metricsData?.cupons?.filter((cupom: any) => {
+  const cuponsHoje = (metricsData?.cupons || []).filter((cupom: any) => {
     const dataCupom = new Date(cupom.data_compra);
     return dataCupom >= hoje;
   }).length || 0;
@@ -105,6 +153,66 @@ export default function Participantes() {
     if (!cupons || cupons.length === 0) return "N/A";
     const ultimoCupom = cupons.sort((a, b) => new Date(b.data_compra).getTime() - new Date(a.data_compra).getTime())[0];
     return new Date(ultimoCupom.data_compra).toLocaleDateString('pt-BR');
+  };
+
+  // Função para exportar CSV
+  const exportarCSV = () => {
+    const headers = [
+      "Nome",
+      "CPF",
+      "WhatsApp",
+      "Padaria",
+      "Total de Cupons",
+      "Última Submissão"
+    ];
+
+    const rows = clientesFiltrados.map((cliente: any) => [
+      `"${cliente.nome}"`,
+      cliente.cpf,
+      cliente.whatsapp,
+      `"${cliente.padaria?.nome || 'N/A'}"`,
+      cliente.cupons?.length || 0,
+      getUltimaSubmissao(cliente.cupons)
+    ].join(","));
+
+    const csvContent = [headers.join(","), ...rows].join("\n");
+    const BOM = "\uFEFF";
+    const blob = new Blob([BOM + csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `participantes_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Função para abrir detalhes do cliente
+  const verDetalhes = (cliente: any) => {
+    setSelectedCliente(cliente);
+    setEditedCliente({ ...cliente });
+    setShowDetailsModal(true);
+  };
+
+  // Função para salvar alterações
+  const salvarAlteracoes = () => {
+    if (!editedCliente) return;
+
+    updateCliente({
+      id: editedCliente.id,
+      changes: {
+        nome: editedCliente.nome,
+        cpf: editedCliente.cpf,
+        whatsapp: editedCliente.whatsapp
+      }
+    });
+  };
+
+  // Função para confirmar exclusão
+  const confirmarExclusao = () => {
+    if (!selectedCliente) return;
+    deleteCliente({ id: selectedCliente.id });
   };
 
   return (
@@ -140,7 +248,7 @@ export default function Participantes() {
             <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
             Atualizar
           </Button>
-          <Button variant="outline">
+          <Button variant="outline" onClick={exportarCSV}>
             <Download className="w-4 h-4 mr-2" />
             Exportar lista (.CSV)
           </Button>
@@ -259,7 +367,11 @@ export default function Participantes() {
                       </TableCell>
                       <TableCell>{getUltimaSubmissao(cliente.cupons)}</TableCell>
                       <TableCell>
-                        <Button variant="ghost" size="sm">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => verDetalhes(cliente)}
+                        >
                           Ver detalhes
                         </Button>
                       </TableCell>
@@ -317,8 +429,172 @@ export default function Participantes() {
           refetchClientes();
           refetchMetrics();
           setLastUpdate(new Date());
+          setShowCupomModal(false);
         }}
       />
+
+      {/* Modal de Detalhes do Cliente */}
+      <Dialog open={showDetailsModal} onOpenChange={setShowDetailsModal}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-2xl flex items-center gap-2">
+              <Users className="w-6 h-6 text-primary" />
+              Detalhes do Participante
+            </DialogTitle>
+            <DialogDescription>
+              Visualize e edite as informações do cliente
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedCliente && editedCliente && (
+            <div className="space-y-6 py-4">
+              {/* Informações Básicas */}
+              <div className="space-y-4">
+                <h3 className="font-semibold text-lg">Informações Básicas</h3>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="nome">Nome Completo</Label>
+                    <Input
+                      id="nome"
+                      value={editedCliente.nome || ''}
+                      onChange={(e) => setEditedCliente({ ...editedCliente, nome: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="cpf">CPF</Label>
+                    <Input
+                      id="cpf"
+                      value={editedCliente.cpf || ''}
+                      onChange={(e) => setEditedCliente({ ...editedCliente, cpf: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="whatsapp">WhatsApp</Label>
+                    <Input
+                      id="whatsapp"
+                      value={editedCliente.whatsapp || ''}
+                      onChange={(e) => setEditedCliente({ ...editedCliente, whatsapp: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Padaria</Label>
+                    <Input
+                      value={selectedCliente.padaria?.nome || 'N/A'}
+                      disabled
+                      className="bg-muted"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Lista de Cupons */}
+              <div className="space-y-4">
+                <h3 className="font-semibold text-lg">Cupons do Cliente ({selectedCliente.cupons?.length || 0})</h3>
+                {selectedCliente.cupons && selectedCliente.cupons.length > 0 ? (
+                  <div className="max-h-[200px] overflow-y-auto border rounded-lg">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Nº da Sorte</TableHead>
+                          <TableHead>Valor</TableHead>
+                          <TableHead>Data</TableHead>
+                          <TableHead>Status</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {selectedCliente.cupons.map((cupom: any) => (
+                          <TableRow key={cupom.id}>
+                            <TableCell className="font-mono">{cupom.numero_sorte}</TableCell>
+                            <TableCell>R$ {cupom.valor_compra}</TableCell>
+                            <TableCell>
+                              {cupom.data_compra ? format(new Date(cupom.data_compra), 'dd/MM/yyyy HH:mm') : 'N/A'}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant={cupom.valor_compra === "0" ? "outline" : "default"}>
+                                {cupom.valor_compra === "0" ? "Inativo" : "Ativo"}
+                              </Badge>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    Nenhum cupom cadastrado
+                  </p>
+                )}
+              </div>
+
+              <Separator />
+
+              {/* Zona de Perigo */}
+              <div className="space-y-4">
+                <h3 className="font-semibold text-lg text-destructive">Zona de Perigo</h3>
+                {!showDeleteConfirm ? (
+                  <Button
+                    variant="destructive"
+                    onClick={() => setShowDeleteConfirm(true)}
+                    className="w-full"
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Excluir Cliente
+                  </Button>
+                ) : (
+                  <div className="border border-destructive rounded-lg p-4 space-y-3">
+                    <p className="text-sm font-semibold text-destructive">
+                      ⚠️ Tem certeza que deseja excluir este cliente?
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Isso também excluirá todos os {selectedCliente.cupons?.length || 0} cupons associados. Esta ação não pode ser desfeita.
+                    </p>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="destructive"
+                        onClick={confirmarExclusao}
+                        disabled={isDeleting}
+                        className="flex-1"
+                      >
+                        {isDeleting ? "Excluindo..." : "Sim, excluir permanentemente"}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => setShowDeleteConfirm(false)}
+                        className="flex-1"
+                      >
+                        Cancelar
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowDetailsModal(false);
+                setShowDeleteConfirm(false);
+              }}
+            >
+              <X className="w-4 h-4 mr-2" />
+              Fechar
+            </Button>
+            <Button
+              onClick={salvarAlteracoes}
+              disabled={isUpdating}
+              className="bg-primary"
+            >
+              <Save className="w-4 h-4 mr-2" />
+              {isUpdating ? "Salvando..." : "Salvar Alterações"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
