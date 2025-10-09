@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { CampaignCard, type Campaign } from "./CampaignCard";
 import { Skeleton } from "@/components/ui/skeleton";
+import { parseCampaignDate } from "./CampaignStatusBadge";
 
 interface CampaignListProps {
   campaigns: Campaign[];
@@ -13,9 +14,11 @@ export const CampaignList = ({ campaigns, isLoading, onEdit }: CampaignListProps
 
   const orderedCampaigns = useMemo(
     () =>
-      [...campaigns].sort((a, b) =>
-        new Date(`${b.data_inicio}T00:00:00`).getTime() - new Date(`${a.data_inicio}T00:00:00`).getTime()
-      ),
+      [...campaigns].sort((a, b) => {
+        const startA = parseCampaignDate(a.data_inicio)?.getTime() ?? 0;
+        const startB = parseCampaignDate(b.data_inicio)?.getTime() ?? 0;
+        return startB - startA;
+      }),
     [campaigns]
   );
 

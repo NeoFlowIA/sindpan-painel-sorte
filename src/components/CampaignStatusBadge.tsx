@@ -1,18 +1,32 @@
 import { Badge } from "@/components/ui/badge";
+import { isValid, parseISO } from "date-fns";
 
 export type CampaignStatus = "Agendada" | "Ativa" | "Encerrada";
 
 export interface CampaignStatusBadgeProps {
-  dataInicio: string;
-  dataFim: string;
+  dataInicio?: string | null;
+  dataFim?: string | null;
   className?: string;
 }
 
-const parseCampaignDate = (value: string) => new Date(`${value}T00:00:00`);
+export const parseCampaignDate = (value?: string | null) => {
+  if (!value) return null;
 
-export const getCampaignStatus = (dataInicio: string, dataFim: string, referenceDate = new Date()): CampaignStatus => {
+  const parsed = parseISO(value);
+  return isValid(parsed) ? parsed : null;
+};
+
+export const getCampaignStatus = (
+  dataInicio?: string | null,
+  dataFim?: string | null,
+  referenceDate = new Date()
+): CampaignStatus => {
   const start = parseCampaignDate(dataInicio);
   const end = parseCampaignDate(dataFim);
+
+  if (!start || !end) {
+    return "Agendada";
+  }
 
   if (referenceDate < start) {
     return "Agendada";

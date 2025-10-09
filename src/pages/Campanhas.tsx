@@ -5,7 +5,7 @@ import { CampaignList } from "@/components/CampaignList";
 import { CampaignFormDialog, type CampaignFormValues } from "@/components/CampaignFormDialog";
 import type { Campaign } from "@/components/CampaignCard";
 import { useGraphQLMutation, useGraphQLQuery } from "@/hooks/useGraphQL";
-import { CREATE_CAMPANHA, LIST_CAMPANHAS, UPDATE_CAMPANHA } from "@/graphql/queries";
+import { CREATE_CAMPANHA, DEACTIVATE_CAMPANHAS, LIST_CAMPANHAS, UPDATE_CAMPANHA } from "@/graphql/queries";
 import { toast } from "sonner";
 
 interface ListCampanhasResponse {
@@ -33,6 +33,19 @@ export default function Campanhas() {
   });
 
   const {
+    mutateAsync: deactivateCampaigns,
+    isPending: isDeactivating,
+  } = useGraphQLMutation(DEACTIVATE_CAMPANHAS, {
+    invalidateQueries: [['campanhas']],
+    onSuccess: () => {
+      toast.success('Campanha anterior desativada.');
+    },
+    onError: (error) => {
+      toast.error('Não foi possível desativar a campanha anterior', { description: error.message });
+    }
+  });
+
+  const {
     mutateAsync: updateCampanha,
     isPending: isUpdating,
   } = useGraphQLMutation(UPDATE_CAMPANHA, {
@@ -45,7 +58,7 @@ export default function Campanhas() {
     }
   });
 
-  const isSubmitting = isCreating || isUpdating;
+  const isSubmitting = isCreating || isUpdating || isDeactivating;
 
   const handleCreateClick = () => {
     setEditingCampaign(null);
@@ -73,9 +86,28 @@ export default function Campanhas() {
           Nome: values.Nome,
           data_inicio: values.data_inicio,
           data_fim: values.data_fim,
+          ativo: true,
         }
       });
     }
+  };
+
+  const handleResolveConflicts = async ({
+    conflicts,
+  }: {
+    values: CampaignFormValues;
+    conflicts: { overlaps: Campaign[]; duplicates: Campaign[] };
+  }) => {
+    const activeCampaignIds = conflicts.overlaps
+      .filter((campaign) => campaign.ativo)
+      .map((campaign) => campaign.id);
+
+    if (activeCampaignIds.length === 0) {
+      return true;
+    }
+
+    await deactivateCampaigns({ ids: activeCampaignIds });
+    return true;
   };
 
   return (
@@ -103,8 +135,18 @@ export default function Campanhas() {
         }}
         onSubmit={handleSubmit}
         existingCampaigns={campaigns}
-        initialData={editingCampaign ? { ...editingCampaign } : null}
+        initialData={
+          editingCampaign
+            ? {
+                id: editingCampaign.id,
+                Nome: editingCampaign.Nome,
+                data_inicio: editingCampaign.data_inicio ?? "",
+                data_fim: editingCampaign.data_fim ?? "",
+              }
+            : null
+        }
         isSubmitting={isSubmitting}
+        onResolveConflicts={handleResolveConflicts}
       />
     </div>
   );

@@ -1,7 +1,7 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { Campaign } from "./CampaignCard";
-import { CampaignStatusBadge, getCampaignStatus } from "./CampaignStatusBadge";
-import { format } from "date-fns";
+import { CampaignStatusBadge, getCampaignStatus, parseCampaignDate } from "./CampaignStatusBadge";
+import { format as formatDateFns } from "date-fns";
 
 interface CampaignSelectProps {
   campaigns: Campaign[];
@@ -12,7 +12,10 @@ interface CampaignSelectProps {
   ariaLabel?: string;
 }
 
-const formatDate = (value: string) => format(new Date(`${value}T00:00:00`), "dd/MM/yyyy");
+const formatDate = (value?: string | null) => {
+  const parsed = parseCampaignDate(value);
+  return parsed ? formatDateFns(parsed, "dd/MM/yyyy") : "--";
+};
 
 export const CampaignSelect = ({
   campaigns,

@@ -1,23 +1,32 @@
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { CalendarRange, Pencil } from "lucide-react";
-import { format } from "date-fns";
-import { CampaignStatusBadge } from "./CampaignStatusBadge";
+import { format as formatDateFns } from "date-fns";
+import { CampaignStatusBadge, getCampaignStatus, parseCampaignDate } from "./CampaignStatusBadge";
 
 export interface Campaign {
   id: string;
   Nome: string;
-  data_inicio: string;
-  data_fim: string;
+  data_inicio?: string | null;
+  data_fim?: string | null;
+  ativo?: boolean | null;
   cupomCount?: number;
 }
 
-const formatDate = (value: string) => {
+const formatDate = (value?: string | null) => {
   try {
-    return format(new Date(`${value}T00:00:00`), "dd/MM/yyyy");
+    if (!value) return "--";
+
+    const parsed = parseCampaignDate(value);
+    if (!parsed) {
+      return "--";
+    }
+
+    return formatDateFns(parsed, "dd/MM/yyyy");
   } catch (error) {
     console.error("Erro ao formatar data da campanha", error);
-    return value;
+    return "--";
   }
 };
 
@@ -28,6 +37,8 @@ interface CampaignCardProps {
 }
 
 export const CampaignCard = ({ campaign, onEdit, onArchive }: CampaignCardProps) => {
+  const status = getCampaignStatus(campaign.data_inicio, campaign.data_fim);
+
   return (
     <Card className="border-primary/10 hover:border-primary/40 transition-colors">
       <CardHeader className="flex-row items-start justify-between gap-3">
@@ -36,7 +47,17 @@ export const CampaignCard = ({ campaign, onEdit, onArchive }: CampaignCardProps)
             <CalendarRange className="w-5 h-5" />
             {campaign.Nome}
           </CardTitle>
-          <CampaignStatusBadge dataInicio={campaign.data_inicio} dataFim={campaign.data_fim} />
+          <div className="flex flex-wrap items-center gap-2">
+            <CampaignStatusBadge dataInicio={campaign.data_inicio} dataFim={campaign.data_fim} />
+            {campaign.ativo === false && status !== "Encerrada" && (
+              <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-700">
+                Desativada
+              </Badge>
+            )}
+            {campaign.ativo && status === "Ativa" && (
+              <Badge className="bg-primary text-primary-foreground">Campanha atual</Badge>
+            )}
+          </div>
         </div>
 
         {onEdit && (

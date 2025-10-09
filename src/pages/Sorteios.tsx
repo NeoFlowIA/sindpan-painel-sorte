@@ -18,6 +18,7 @@ import {
   GET_PADARIAS,
   LIST_CAMPANHAS,
   CREATE_CAMPANHA,
+  DEACTIVATE_CAMPANHAS,
 } from "@/graphql/queries";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -96,13 +97,22 @@ export default function Sorteios() {
     ['campanhas'],
     LIST_CAMPANHAS
   );
-  const campaigns = campaignsData?.campanha ?? [];
+  const campaigns = useMemo(() => campaignsData?.campanha ?? [], [campaignsData]);
 
   const scheduleableCampaigns = useMemo(
     () =>
       campaigns.filter((campaign) => {
         const status = getCampaignStatus(campaign.data_inicio, campaign.data_fim);
-        return status === "Ativa" || status === "Encerrada";
+
+        if (status === "Ativa") {
+          return campaign.ativo !== false;
+        }
+
+        if (status === "Encerrada") {
+          return true;
+        }
+
+        return false;
       }),
     [campaigns]
   );
@@ -304,6 +314,19 @@ export default function Sorteios() {
     }
   });
 
+  const {
+    mutateAsync: deactivateCampaigns,
+    isPending: isDeactivatingCampaign,
+  } = useGraphQLMutation(DEACTIVATE_CAMPANHAS, {
+    invalidateQueries: [['campanhas']],
+    onSuccess: () => {
+      toast.success('Campanha anterior desativada.');
+    },
+    onError: (error) => {
+      toast.error('Não foi possível desativar a campanha anterior', { description: error.message });
+    }
+  });
+
   const isMutating = isScheduling || isUpdating;
 
   const handleCampaignDialogSubmit = async (values: CampaignFormValues) => {
@@ -312,6 +335,7 @@ export default function Sorteios() {
         Nome: values.Nome,
         data_inicio: values.data_inicio,
         data_fim: values.data_fim,
+        ativo: true,
       }
     });
 
@@ -862,7 +886,19 @@ export default function Sorteios() {
           onSubmit={handleCampaignDialogSubmit}
           existingCampaigns={campaigns}
           initialData={null}
-          isSubmitting={isCreatingCampaign}
+          isSubmitting={isCreatingCampaign || isDeactivatingCampaign}
+          onResolveConflicts={async ({ conflicts }) => {
+            const activeCampaignIds = conflicts.overlaps
+              .filter((campaign) => campaign.ativo)
+              .map((campaign) => campaign.id);
+
+            if (activeCampaignIds.length === 0) {
+              return true;
+            }
+
+            await deactivateCampaigns({ ids: activeCampaignIds });
+            return true;
+          }}
         />
 
         {/* Raffle Animation Modal */}

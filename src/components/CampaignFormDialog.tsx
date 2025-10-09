@@ -57,6 +57,10 @@ interface CampaignFormDialogProps {
   initialData?: (CampaignFormValues & { id?: string }) | null;
   existingCampaigns?: Campaign[];
   isSubmitting?: boolean;
+  onResolveConflicts?: (args: {
+    values: CampaignFormValues;
+    conflicts: { overlaps: Campaign[]; duplicates: Campaign[] };
+  }) => Promise<boolean | void> | boolean | void;
 }
 
 const defaultValues: CampaignFormValues = {
@@ -65,7 +69,12 @@ const defaultValues: CampaignFormValues = {
   data_fim: "",
 };
 
-const normalizeDate = (value: string) => `${value}T00:00:00`;
+const toDate = (value?: string | null) => {
+  if (!value) return null;
+
+  const date = new Date(`${value}T00:00:00`);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
 
 export const CampaignFormDialog = ({
   open,
@@ -74,6 +83,7 @@ export const CampaignFormDialog = ({
   initialData,
   existingCampaigns = [],
   isSubmitting,
+  onResolveConflicts,
 }: CampaignFormDialogProps) => {
   const form = useForm<CampaignFormValues>({
     resolver: zodResolver(campaignFormSchema),
@@ -111,20 +121,41 @@ export const CampaignFormDialog = ({
   );
 
   const checkConflicts = (values: CampaignFormValues) => {
-    const overlaps = sanitizedCampaigns.filter((campaign) => {
-      const existingStart = new Date(normalizeDate(campaign.data_inicio));
-      const existingEnd = new Date(normalizeDate(campaign.data_fim));
-      const newStart = new Date(normalizeDate(values.data_inicio));
-      const newEnd = new Date(normalizeDate(values.data_fim));
+    const newStart = toDate(values.data_inicio);
+    const newEnd = toDate(values.data_fim);
+
+    if (!newStart || !newEnd) {
+      return { overlaps: [], duplicates: [] };
+    }
+
+    const overlappingByDate = sanitizedCampaigns.filter((campaign) => {
+      const existingStart = toDate(campaign.data_inicio);
+      const existingEnd = toDate(campaign.data_fim);
+
+      if (!existingStart || !existingEnd) {
+        return false;
+      }
 
       return newStart <= existingEnd && newEnd >= existingStart;
     });
 
+    const activeCampaigns = sanitizedCampaigns.filter((campaign) => campaign.ativo);
+
+    const overlapMap = new Map<string, Campaign>();
+    overlappingByDate.forEach((campaign) => overlapMap.set(campaign.id, campaign));
+    activeCampaigns.forEach((campaign) => overlapMap.set(campaign.id, campaign));
+
+    const overlaps = Array.from(overlapMap.values());
+
     const targetName = values.Nome.trim().toLowerCase();
-    const targetYear = new Date(normalizeDate(values.data_inicio)).getFullYear();
+    const targetYear = newStart.getFullYear();
 
     const duplicates = sanitizedCampaigns.filter((campaign) => {
-      const campaignYear = new Date(normalizeDate(campaign.data_inicio)).getFullYear();
+      const campaignStart = toDate(campaign.data_inicio);
+      if (!campaignStart) {
+        return false;
+      }
+      const campaignYear = campaignStart.getFullYear();
       return campaign.Nome.trim().toLowerCase() === targetName && campaignYear === targetYear;
     });
 
@@ -161,10 +192,25 @@ export const CampaignFormDialog = ({
   const handleConfirm = async () => {
     if (!pendingValues) return;
 
-    await submitValues(pendingValues);
-    setPendingValues(null);
-    setConflictCampaigns(null);
-    setConfirming(false);
+    try {
+      if (conflictCampaigns && onResolveConflicts) {
+        const shouldContinue = await onResolveConflicts({
+          values: pendingValues,
+          conflicts: conflictCampaigns,
+        });
+
+        if (shouldContinue === false) {
+          return;
+        }
+      }
+
+      await submitValues(pendingValues);
+      setPendingValues(null);
+      setConflictCampaigns(null);
+      setConfirming(false);
+    } catch (error) {
+      console.error("Erro ao resolver conflitos antes de salvar campanha", error);
+    }
   };
 
   return (
@@ -261,13 +307,24 @@ export const CampaignFormDialog = ({
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={confirming} onOpenChange={setConfirming}>
+      <AlertDialog
+        open={confirming}
+        onOpenChange={(next) => {
+          setConfirming(next);
+          if (!next) {
+            setPendingValues(null);
+            setConflictCampaigns(null);
+          }
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar criação da campanha?</AlertDialogTitle>
             <AlertDialogDescription>
               {conflictCampaigns?.overlaps.length
-                ? "Existe sobreposição de datas com outra campanha ativa."
+                ? conflictCampaigns.overlaps.some((campaign) => campaign.ativo)
+                  ? "Existe uma campanha marcada como ativa no mesmo período. Você pode editar a existente ou confirmar para desativá-la automaticamente antes de criar a nova."
+                  : "Existe sobreposição de datas com outra campanha. Confirme apenas se deseja manter ambas registradas."
                 : "Já existe uma campanha com este nome neste ano."}
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -299,7 +356,14 @@ export const CampaignFormDialog = ({
           )}
 
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setPendingValues(null)}>Voltar</AlertDialogCancel>
+            <AlertDialogCancel
+              onClick={() => {
+                setPendingValues(null);
+                setConflictCampaigns(null);
+              }}
+            >
+              Voltar
+            </AlertDialogCancel>
             <AlertDialogAction onClick={handleConfirm} disabled={isSubmitting}>
               Confirmar mesmo assim
             </AlertDialogAction>

@@ -274,6 +274,7 @@ export const LIST_CAMPANHAS = `
       Nome
       data_inicio
       data_fim
+      ativo
     }
   }
 `;
@@ -290,6 +291,14 @@ export const UPDATE_CAMPANHA = `
   mutation UpdateCampanha($id: uuid!, $set: campanha_set_input!) {
     update_campanha_by_pk(pk_columns: {id: $id}, _set: $set) {
       id
+    }
+  }
+`;
+
+export const DEACTIVATE_CAMPANHAS = `
+  mutation DeactivateCampanhas($ids: [uuid!]!) {
+    update_campanha(where: {id: {_in: $ids}}, _set: {ativo: false}) {
+      affected_rows
     }
   }
 `;
