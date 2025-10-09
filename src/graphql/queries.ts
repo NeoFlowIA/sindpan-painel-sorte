@@ -97,6 +97,29 @@ export const GET_PADARIAS = `
   }
 `;
 
+// Query para ranking de padarias (leaderboard)
+export const GET_PADARIAS_RANKING = `
+  query GetPadariasRanking {
+    padarias(
+      limit: 10,
+      order_by: {cupons_aggregate: {count: desc}}
+    ) {
+      id
+      nome
+      status
+      cupons_aggregate {
+        aggregate {
+          count
+        }
+      }
+      cupons(order_by: {data_compra: desc}, limit: 1) {
+        numero_sorte
+        data_compra
+      }
+    }
+  }
+`;
+
 // Query para estatísticas das padarias
 export const GET_PADARIAS_STATS = `
   query GetPadariasStats {
@@ -219,11 +242,11 @@ export const GET_USERS = `
 // Query para listar participantes
 export const GET_PARTICIPANTES = `
   query GetParticipantes($limit: Int, $offset: Int) {
-    participantes(limit: $limit, offset: $offset) {
+    cliente(limit: $limit, offset: $offset) {
       id
       nome
-      email
-      telefone
+      
+      whatsapp
       cpf
     }
   }
@@ -532,7 +555,7 @@ export const GET_CLIENTE_BY_CPF_OR_WHATSAPP = `
 
 // Mutation para atualizar cliente
 export const UPDATE_CLIENTE = `
-  mutation UpdateCliente($id: Int!, $changes: clientes_set_input!) {
+  mutation UpdateCliente($id: uuid!, $changes: clientes_set_input!) {
     update_clientes_by_pk(pk_columns: {id: $id}, _set: $changes) {
       id
       nome
@@ -547,7 +570,7 @@ export const UPDATE_CLIENTE = `
 
 // Mutation para deletar cliente
 export const DELETE_CLIENTE = `
-  mutation DeleteCliente($id: Int!) {
+  mutation DeleteCliente($id: uuid!) {
     delete_clientes_by_pk(id: $id) {
       id
       nome
@@ -906,14 +929,34 @@ export const GET_ADMIN_DASHBOARD_METRICS = `
         count
       }
     }
-    cupons {
+    cupons_aggregate {
+      aggregate {
+        count
+      }
+    }
+    cupons(order_by: {data_compra: desc}, limit: 100) {
       id
       data_compra
+      valor_compra
     }
     padarias_aggregate {
       aggregate {
         count
       }
+    }
+    sorteios_aggregate {
+      aggregate {
+        count
+      }
+    }
+    proximo_sorteio: sorteios(
+      where: {data_sorteio: {_gte: "now()"}}
+      order_by: {data_sorteio: asc}
+      limit: 1
+    ) {
+      id
+      data_sorteio
+      numero_sorteado
     }
   }
 `;
@@ -949,7 +992,6 @@ export const GET_ALL_CUPONS_FOR_GLOBAL_SORTEIO = `
 export const GET_GANHADORES_SALVOS = `
   query GetGanhadoresSalvos {
     cupons(
-      where: {valor_compra: {_eq: "0"}}
       order_by: {id: desc}
     ) {
       id
@@ -975,37 +1017,32 @@ export const GET_GANHADORES_SALVOS = `
 // Mutation para marcar TODOS os cupons de um cliente como sorteado
 // Mutation para salvar ganhador
 // Cria registro na tabela sorteios e marca cupons do cliente
+// Esta mutation irá fazer upsert no sorteios ao invés de apenas insert, evitando o erro de unique constraint.
+// Se já existe um sorteio com ganhador_id igual, atualiza o numero_sorteado e data_sorteio.
+// Utiliza on_conflict na tabela sorteios (assumindo constraint sorteios_ganhador_id_key).
+
 export const SALVAR_GANHADOR = `
   mutation SalvarGanhador(
     $numero_sorteado: String!,
     $data_sorteio: timestamptz!,
     $ganhador_id: uuid!,
-    $cupom_vencedor_id: uuid!,
     $cliente_id: uuid!
   ) {
-    sorteio: insert_sorteios_one(object: {
-      numero_sorteado: $numero_sorteado
-      data_sorteio: $data_sorteio
-      ganhador_id: $ganhador_id
-      cupom_vencedor_id: $cupom_vencedor_id
-      status: "realizado"
-      nome: "Sorteio Digital"
-    }) {
+    sorteio: insert_sorteios_one(
+      object: {
+        numero_sorteado: $numero_sorteado,
+        data_sorteio: $data_sorteio,
+        ganhador_id: $ganhador_id
+      },
+      on_conflict: {
+        constraint: sorteios_ganhador_id_key,
+        update_columns: [numero_sorteado, data_sorteio]
+      }
+    ) {
       id
       numero_sorteado
       data_sorteio
       ganhador_id
-      cupom_vencedor_id
-      status
-    }
-    marcar_cupom_vencedor: update_cupons_by_pk(
-      pk_columns: {id: $cupom_vencedor_id}
-      _set: {
-        status: "sorteado"
-      }
-    ) {
-      id
-      status
     }
     outros_cupons: update_cupons(
       where: {
@@ -1030,9 +1067,27 @@ export const MARCAR_CUPOM_SORTEADO = `
   }
 `;
 
-// Mutation para reativar TODOS os cupons de um cliente
+// Mutation para remover cupons do cliente do sorteio
+export const REMOVER_CUPONS_CLIENTE_DO_SORTEIO = `
+  mutation RemoverCuponsCliente($cliente_id: uuid!) {
+    update_cupons(
+      where: {
+        cliente_id: {_eq: $cliente_id}
+        status: {_eq: "ativo"}
+      }
+      _set: {valor_compra: "0"}
+    ) {
+      affected_rows
+    }
+  }
+`;
+
+// Mutation para reativar cliente (deleta sorteio e restaura cupons)
 export const REATIVAR_CUPOM = `
   mutation ReativarCupom($cliente_id: uuid!) {
+    delete_sorteios(where: {ganhador_id: {_eq: $cliente_id}}) {
+      affected_rows
+    }
     update_cupons(
       where: {cliente_id: {_eq: $cliente_id}, valor_compra: {_eq: "0"}}
       _set: {valor_compra: "50"}
@@ -1043,29 +1098,19 @@ export const REATIVAR_CUPOM = `
 `;
 
 // Query para buscar ganhadores salvos (da tabela sorteios)
+// Query para buscar ganhadores (tabela sorteios com join em clientes)
 export const GET_GANHADORES_COM_DADOS_COMPLETOS = `
   query GetGanhadoresCompletos {
-    sorteios(
-      where: {status: {_eq: "realizado"}}
-      order_by: {data_sorteio: desc}
-    ) {
+    sorteios(order_by: {data_sorteio: desc}) {
       id
       numero_sorteado
       data_sorteio
-      status
       ganhador_id
-      cupom_vencedor_id
-      ganhador {
+      cliente {
         id
         nome
         cpf
-        telefone
-        email
-      }
-      cupom_vencedor {
-        id
-        numero_sorte
-        numero_cupom
+        whatsapp
         padaria {
           id
           nome
