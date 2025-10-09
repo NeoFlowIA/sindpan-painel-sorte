@@ -1,11 +1,12 @@
 import { 
-  BarChart3, 
-  Users, 
-  Store, 
-  Trophy, 
-  FileText, 
+  BarChart3,
+  Users,
+  Store,
+  Trophy,
+  FileText,
   Settings,
-  Home
+  Home,
+  CalendarRange
 } from "lucide-react";
 import sindpanLogo from "@/assets/sindpan-logo.png";
 import { NavLink } from "react-router-dom";
@@ -26,6 +27,7 @@ const navigation = [
   { title: "Dashboard", url: "/", icon: Home },
   { title: "Participantes", url: "/participantes", icon: Users },
   { title: "Padarias", url: "/padarias", icon: Store },
+  { title: "Campanhas", url: "/campanhas", icon: CalendarRange },
   { title: "Sorteios", url: "/sorteios", icon: Trophy },
   { title: "Relatórios", url: "/relatorios", icon: FileText },
   { title: "Configurações", url: "/configuracoes", icon: Settings },

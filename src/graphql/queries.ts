@@ -238,24 +238,58 @@ export const GET_NEXT_SORTEIO = `
     ) {
       id
       data_sorteio
+      campanha_id
+      campanha {
+        id
+        Nome
+      }
     }
   }
 `;
 
 export const SCHEDULE_SORTEIO = `
-  mutation ScheduleSorteio($id: uuid!, $data: timestamptz!) {
-    insert_sorteios_one(object: {id: $id, data_sorteio: $data}) {
+  mutation ScheduleSorteio($id: uuid!, $data: timestamptz!, $campanhaId: uuid!) {
+    insert_sorteios_one(object: {id: $id, data_sorteio: $data, campanha_id: $campanhaId}) {
       id
       data_sorteio
+      campanha_id
     }
   }
 `;
 
 export const UPDATE_SORTEIO = `
-  mutation UpdateSorteio($id: uuid!, $data: timestamptz!) {
-    update_sorteios_by_pk(pk_columns: {id: $id}, _set: {data_sorteio: $data}) {
+  mutation UpdateSorteio($id: uuid!, $data: timestamptz!, $campanhaId: uuid!) {
+    update_sorteios_by_pk(pk_columns: {id: $id}, _set: {data_sorteio: $data, campanha_id: $campanhaId}) {
       id
       data_sorteio
+      campanha_id
+    }
+  }
+`;
+
+export const LIST_CAMPANHAS = `
+  query ListCampanhas {
+    campanha(order_by: {data_inicio: desc}) {
+      id
+      Nome
+      data_inicio
+      data_fim
+    }
+  }
+`;
+
+export const CREATE_CAMPANHA = `
+  mutation CreateCampanha($obj: campanha_insert_input!) {
+    insert_campanha_one(object: $obj) {
+      id
+    }
+  }
+`;
+
+export const UPDATE_CAMPANHA = `
+  mutation UpdateCampanha($id: uuid!, $set: campanha_set_input!) {
+    update_campanha_by_pk(pk_columns: {id: $id}, _set: $set) {
+      id
     }
   }
 `;
@@ -920,9 +954,13 @@ export const GET_ADMIN_DASHBOARD_METRICS = `
 
 // Query para buscar todos os cupons ativos para sorteio global
 export const GET_ALL_CUPONS_FOR_GLOBAL_SORTEIO = `
-  query GetAllCuponsForGlobalSorteio {
+  query GetAllCuponsForGlobalSorteio($campanhaId: uuid!) {
     cupons(
-      where: {status: {_eq: "ativo"}, valor_compra: {_neq: "0"}}
+      where: {
+        status: {_eq: "ativo"},
+        valor_compra: {_neq: "0"},
+        campanha_id: {_eq: $campanhaId}
+      }
       order_by: {data_compra: desc}
     ) {
       id
@@ -930,6 +968,7 @@ export const GET_ALL_CUPONS_FOR_GLOBAL_SORTEIO = `
       valor_compra
       data_compra
       status
+      campanha_id
       cliente {
         id
         nome
@@ -1055,6 +1094,11 @@ export const GET_GANHADORES_COM_DADOS_COMPLETOS = `
       status
       ganhador_id
       cupom_vencedor_id
+      campanha_id
+      campanha {
+        id
+        Nome
+      }
       ganhador {
         id
         nome
