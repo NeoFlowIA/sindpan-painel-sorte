@@ -1,5 +1,5 @@
 import { useGraphQLQuery } from './useGraphQL';
-import { GET_USER, GET_USERS } from '@/graphql/queries';
+import { GET_USER, GET_USERS, GET_USER_BY_EMAIL_WITH_PADARIA } from '@/graphql/queries';
 
 // Tipos baseados no schema Hasura
 export interface User {
@@ -9,7 +9,6 @@ export interface User {
   bakery_name: string;
   role: 'admin' | 'bakery';
   padarias_id?: string; // UUID da padaria
-  cnpj?: string;
   padarias?: {
     nome: string;
     id: string;
@@ -26,10 +25,16 @@ export const useUser = (
   enabled: boolean = true
 ) => {
   const key = identifier.email || identifier.cnpj || 'unknown';
+  const hasCnpj = !!identifier.cnpj;
+  const query = hasCnpj ? GET_USER : GET_USER_BY_EMAIL_WITH_PADARIA;
+  const variables = hasCnpj
+    ? identifier
+    : { email: identifier.email! };
+
   return useGraphQLQuery<UserResponse>(
     ['user', key],
-    GET_USER,
-    identifier,
+    query,
+    variables,
     {
       enabled: enabled && (!!identifier.email || !!identifier.cnpj),
       staleTime: 5 * 60 * 1000, // 5 minutos
