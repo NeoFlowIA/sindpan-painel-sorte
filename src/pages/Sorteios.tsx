@@ -7,12 +7,30 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Calendar as DatePicker } from "@/components/ui/calendar";
 import { useGraphQLQuery, useGraphQLMutation } from "@/hooks/useGraphQL";
-import { GET_NEXT_SORTEIO, SCHEDULE_SORTEIO, UPDATE_SORTEIO, GET_ALL_CUPONS_FOR_GLOBAL_SORTEIO, GET_GANHADORES_COM_DADOS_COMPLETOS, SALVAR_GANHADOR, REATIVAR_CUPOM, GET_PADARIAS } from "@/graphql/queries";
+import {
+  GET_NEXT_SORTEIO,
+  SCHEDULE_SORTEIO,
+  UPDATE_SORTEIO,
+  GET_ALL_CUPONS_FOR_GLOBAL_SORTEIO,
+  GET_GANHADORES_COM_DADOS_COMPLETOS,
+  SALVAR_GANHADOR,
+  REATIVAR_CUPOM,
+  GET_PADARIAS,
+  LIST_CAMPANHAS,
+  CREATE_CAMPANHA,
+  DEACTIVATE_CAMPANHAS,
+} from "@/graphql/queries";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { Trophy, Calendar as CalendarIcon, X, Save, RotateCcw, Sparkles, Clock, Pencil } from "lucide-react";
-import { useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { Trophy, Calendar as CalendarIcon, X, Save, RotateCcw, Sparkles, Clock, Pencil, PlusCircle } from "lucide-react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { CampaignSelect } from "@/components/CampaignSelect";
+import { CampaignFormDialog, type CampaignFormValues } from "@/components/CampaignFormDialog";
+import type { Campaign } from "@/components/CampaignCard";
+import { getCampaignStatus } from "@/components/CampaignStatusBadge";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Label } from "@/components/ui/label";
 
 // Interface para cupom do sorteio
 interface CupomSorteio {
@@ -34,16 +52,33 @@ interface CupomSorteio {
   };
 }
 
+interface Participant {
+  name: string;
+  cpf: string;
+  bakery: string;
+  answer: string | null;
+  numero_sorte: string;
+  valor_compra: number;
+  data_compra: string;
+}
+
 export default function Sorteios() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const searchParamsString = searchParams.toString();
+  const urlCampaignId = useMemo(
+    () => new URLSearchParams(searchParamsString).get("campanhaId") ?? undefined,
+    [searchParamsString]
+  );
+
   const [showRaffleModal, setShowRaffleModal] = useState(false);
   const [showWinnerDetails, setShowWinnerDetails] = useState(false);
-  const [selectedWinner, setSelectedWinner] = useState<typeof participants[0] | null>(null);
+  const [selectedWinner, setSelectedWinner] = useState<Participant | null>(null);
   const [isAnimating, setIsAnimating] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const [currentNumber, setCurrentNumber] = useState("00000");
   const [finalNumber, setFinalNumber] = useState("");
-  const [winner, setWinner] = useState<typeof participants[0] | null>(null);
+  const [winner, setWinner] = useState<Participant | null>(null);
   const [showResult, setShowResult] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
@@ -54,19 +89,102 @@ export default function Sorteios() {
   const [selectedPadaria, setSelectedPadaria] = useState<string>("all");
   const [cupomSorteadoId, setCupomSorteadoId] = useState<string | null>(null);
   const [numeroDigitado, setNumeroDigitado] = useState<string>("");
+  const [campaignDialogOpen, setCampaignDialogOpen] = useState(false);
+  const [selectedCampaignId, setSelectedCampaignId] = useState<string | undefined>(() => urlCampaignId);
+  const [selectedScheduleCampaignId, setSelectedScheduleCampaignId] = useState<string | undefined>(urlCampaignId);
+
+  const { data: campaignsData, isLoading: campaignsLoading } = useGraphQLQuery<{ campanha: Campaign[] }>(
+    ['campanhas'],
+    LIST_CAMPANHAS
+  );
+  const campaigns = useMemo(() => campaignsData?.campanha ?? [], [campaignsData]);
+
+  const scheduleableCampaigns = useMemo(
+    () =>
+      campaigns.filter((campaign) => {
+        const status = getCampaignStatus(campaign.data_inicio, campaign.data_fim);
+
+        if (status === "Ativa") {
+          return campaign.ativo !== false;
+        }
+
+        if (status === "Encerrada") {
+          return true;
+        }
+
+        return false;
+      }),
+    [campaigns]
+  );
+
+  const hasCampaigns = scheduleableCampaigns.length > 0;
+
+  useEffect(() => {
+    if (!hasCampaigns) {
+      if (selectedCampaignId) {
+        setSelectedCampaignId(undefined);
+      }
+      if (urlCampaignId) {
+        const params = new URLSearchParams(searchParamsString);
+        params.delete("campanhaId");
+        setSearchParams(params, { replace: true });
+      }
+      return;
+    }
+
+    const isSelectedValid = selectedCampaignId && scheduleableCampaigns.some((campaign) => campaign.id === selectedCampaignId);
+    const isUrlValid = urlCampaignId && scheduleableCampaigns.some((campaign) => campaign.id === urlCampaignId);
+    const nextId = (isSelectedValid && selectedCampaignId) || (isUrlValid && urlCampaignId) || scheduleableCampaigns[0].id;
+
+    if (selectedCampaignId !== nextId) {
+      setSelectedCampaignId(nextId);
+    }
+
+    if (nextId && urlCampaignId !== nextId) {
+      const params = new URLSearchParams(searchParamsString);
+      params.set("campanhaId", nextId);
+      setSearchParams(params, { replace: true });
+    }
+  }, [hasCampaigns, scheduleableCampaigns, selectedCampaignId, urlCampaignId, searchParamsString, setSearchParams]);
+
+  useEffect(() => {
+    if (selectedCampaignId) {
+      setSelectedScheduleCampaignId((current) => current ?? selectedCampaignId);
+    } else {
+      setSelectedScheduleCampaignId(undefined);
+    }
+  }, [selectedCampaignId]);
+
+  const selectedCampaign = selectedCampaignId
+    ? scheduleableCampaigns.find((campaign) => campaign.id === selectedCampaignId) ?? null
+    : null;
+  const selectedCampaignStatus = selectedCampaign
+    ? getCampaignStatus(selectedCampaign.data_inicio, selectedCampaign.data_fim)
+    : null;
 
   // Query para buscar próximo sorteio
-  const { data: nextSorteioData } = useGraphQLQuery<{ sorteios: { id: string; data_sorteio: string }[] }>(['next-sorteio'], GET_NEXT_SORTEIO);
+  const { data: nextSorteioData } = useGraphQLQuery<{
+    sorteios: {
+      id: string;
+      data_sorteio: string;
+      campanha_id: string | null;
+      campanha: { id: string; Nome: string } | null;
+    }[];
+  }>(['next-sorteio'], GET_NEXT_SORTEIO);
   const nextSorteio = nextSorteioData?.sorteios[0];
 
-  // Query para buscar todos os cupons ativos
+  const cuponsQueryEnabled = Boolean(selectedCampaignId);
+
+  // Query para buscar cupons da campanha selecionada
   const { data: cuponsData, isLoading: cuponsLoading } = useGraphQLQuery<{ cupons: CupomSorteio[] }>(
-    ['all-cupons-global-sorteio'],
-    GET_ALL_CUPONS_FOR_GLOBAL_SORTEIO
+    ['campanha-cupons', selectedCampaignId ?? ''],
+    GET_ALL_CUPONS_FOR_GLOBAL_SORTEIO,
+    selectedCampaignId ? { campanhaId: selectedCampaignId } : undefined,
+    { enabled: cuponsQueryEnabled }
   );
 
   // Query para buscar ganhadores salvos (da tabela sorteios)
-  const { data: ganhadoresData, isLoading: ganhadoresLoading, refetch: refetchGanhadores } = useGraphQLQuery<{ 
+  const { data: ganhadoresData, isLoading: ganhadoresLoading, refetch: refetchGanhadores } = useGraphQLQuery<{
     sorteios: Array<{
       id: string;
       numero_sorteado: string;
@@ -74,6 +192,8 @@ export default function Sorteios() {
       status: string;
       ganhador_id: string;
       cupom_vencedor_id: string;
+      campanha_id: string | null;
+      campanha: { id: string; Nome: string } | null;
       ganhador: {
         id: string;
         nome: string;
@@ -133,6 +253,8 @@ export default function Sorteios() {
       setShowScheduleModal(false);
       setSelectedDate(undefined);
       setSelectedTime('');
+      setEditingSorteioId(null);
+      setSelectedScheduleCampaignId(selectedCampaignId ?? undefined);
     },
     onError: () => {
       toast.error('Erro ao agendar sorteio');
@@ -147,6 +269,7 @@ export default function Sorteios() {
       setSelectedDate(undefined);
       setSelectedTime('');
       setEditingSorteioId(null);
+      setSelectedScheduleCampaignId(selectedCampaignId ?? undefined);
     },
     onError: () => {
       toast.error('Erro ao atualizar sorteio');
@@ -155,7 +278,7 @@ export default function Sorteios() {
 
   // Mutation para salvar ganhador (cupom específico + dados completos)
   const { mutate: salvarGanhador, isPending: isMarcandoSorteado } = useGraphQLMutation(SALVAR_GANHADOR, {
-    invalidateQueries: [['all-cupons-global-sorteio'], ['ganhadores-salvos']],
+    invalidateQueries: [['campanha-cupons'], ['ganhadores-salvos']],
     onSuccess: (data) => {
       console.log('🔍 Ganhador salvo com sucesso:', data);
       toast.success('Ganhador salvo com todos os dados!');
@@ -169,7 +292,7 @@ export default function Sorteios() {
 
   // Mutation para reativar cupom
   const { mutate: reativarCupom, isPending: isReativando } = useGraphQLMutation(REATIVAR_CUPOM, {
-    invalidateQueries: [['all-cupons-global-sorteio'], ['ganhadores-salvos']],
+    invalidateQueries: [['campanha-cupons'], ['ganhadores-salvos']],
     onSuccess: () => {
       toast.success('Cupom reativado!');
     },
@@ -178,18 +301,68 @@ export default function Sorteios() {
     }
   });
 
+  const {
+    mutateAsync: createCampanhaSorteio,
+    isPending: isCreatingCampaign,
+  } = useGraphQLMutation(CREATE_CAMPANHA, {
+    invalidateQueries: [['campanhas']],
+    onSuccess: () => {
+      toast.success('Campanha criada com sucesso!');
+    },
+    onError: (error) => {
+      toast.error('Erro ao criar campanha', { description: error.message });
+    }
+  });
+
+  const {
+    mutateAsync: deactivateCampaigns,
+    isPending: isDeactivatingCampaign,
+  } = useGraphQLMutation(DEACTIVATE_CAMPANHAS, {
+    invalidateQueries: [['campanhas']],
+    onSuccess: () => {
+      toast.success('Campanha anterior desativada.');
+    },
+    onError: (error) => {
+      toast.error('Não foi possível desativar a campanha anterior', { description: error.message });
+    }
+  });
+
   const isMutating = isScheduling || isUpdating;
+
+  const handleCampaignDialogSubmit = async (values: CampaignFormValues) => {
+    const result = await createCampanhaSorteio({
+      obj: {
+        Nome: values.Nome,
+        data_inicio: values.data_inicio,
+        data_fim: values.data_fim,
+        ativo: true,
+      }
+    });
+
+    const newId = (result as { insert_campanha_one?: { id: string } } | undefined)?.insert_campanha_one?.id;
+    if (newId) {
+      setSelectedCampaignId(newId);
+      setSelectedScheduleCampaignId(newId);
+      const params = new URLSearchParams(searchParamsString);
+      params.set('campanhaId', newId);
+      setSearchParams(params, { replace: true });
+    }
+  };
 
   const handleSchedule = () => {
     if (!selectedDate || !selectedTime) return;
+    if (!selectedScheduleCampaignId) {
+      toast.error('Selecione uma campanha para o sorteio.');
+      return;
+    }
     const [hours, minutes] = selectedTime.split(':').map(Number);
     const date = new Date(selectedDate);
     date.setHours(hours);
     date.setMinutes(minutes);
     if (editingSorteioId) {
-      updateSorteio({ id: editingSorteioId, data: date.toISOString() });
+      updateSorteio({ id: editingSorteioId, data: date.toISOString(), campanhaId: selectedScheduleCampaignId });
     } else {
-      scheduleSorteio({ id: crypto.randomUUID(), data: date.toISOString() });
+      scheduleSorteio({ id: crypto.randomUUID(), data: date.toISOString(), campanhaId: selectedScheduleCampaignId });
     }
   };
 
@@ -199,7 +372,16 @@ export default function Sorteios() {
     setSelectedDate(date);
     setSelectedTime(format(date, 'HH:mm'));
     setEditingSorteioId(nextSorteio.id);
+    setSelectedScheduleCampaignId(nextSorteio.campanha_id ?? selectedCampaignId ?? undefined);
     setShowScheduleModal(true);
+  };
+
+  const handleCampaignSelectChange = (campaignId: string) => {
+    setSelectedCampaignId(campaignId);
+    setSelectedScheduleCampaignId((current) => current ?? campaignId);
+    const params = new URLSearchParams(searchParamsString);
+    params.set('campanhaId', campaignId);
+    setSearchParams(params, { replace: true });
   };
 
   const generateRandomNumber = () => {
@@ -212,6 +394,10 @@ export default function Sorteios() {
   };
 
   const startRaffle = () => {
+    if (!hasCampaigns) {
+      toast.error('Selecione uma campanha para iniciar o sorteio');
+      return;
+    }
     if (participants.length === 0) {
       toast.error('Não há participantes para o sorteio');
       return;
@@ -366,7 +552,7 @@ export default function Sorteios() {
     resetRaffle();
   };
 
-  const showWinnerInfo = (winner: typeof participants[0]) => {
+  const showWinnerInfo = (winner: Participant) => {
     setSelectedWinner(winner);
     setShowWinnerDetails(true);
   };
@@ -382,20 +568,30 @@ export default function Sorteios() {
           </div>
           <div className="flex gap-2">
             <Button
+              variant="outline"
+              className="gap-2"
+              onClick={() => setCampaignDialogOpen(true)}
+            >
+              <PlusCircle className="w-4 h-4" />
+              Criar campanha
+            </Button>
+            <Button
               onClick={() => {
                 setEditingSorteioId(null);
                 setSelectedDate(undefined);
                 setSelectedTime('');
+                setSelectedScheduleCampaignId(selectedCampaignId ?? scheduleableCampaigns[0]?.id ?? undefined);
                 setShowScheduleModal(true);
               }}
               className="bg-primary text-primary-foreground hover:bg-primary/90"
+              disabled={!hasCampaigns || campaignsLoading}
             >
               <CalendarIcon className="w-4 h-4 mr-2" />
               Agendar novo sorteio
             </Button>
-            <Button 
+            <Button
               onClick={() => setShowRaffleModal(true)}
-              disabled={participants.length === 0}
+              disabled={!hasCampaigns || participants.length === 0}
               className="bg-green-600 hover:bg-green-700 text-white"
             >
               <Trophy className="w-4 h-4 mr-2" />
@@ -403,6 +599,13 @@ export default function Sorteios() {
             </Button>
           </div>
         </div>
+
+        {!campaignsLoading && !hasCampaigns && (
+          <Alert className="border-amber-200 bg-amber-50 text-amber-900">
+            <AlertTitle>Atenção</AlertTitle>
+            <AlertDescription>Para agendar um sorteio, crie ou selecione uma campanha.</AlertDescription>
+          </Alert>
+        )}
 
         {/* Next Raffle Card */}
         <Card className="border-primary/20 bg-gradient-to-r from-primary/5 to-secondary/5">
@@ -416,9 +619,15 @@ export default function Sorteios() {
             <div className="flex items-center gap-4">
               {nextSorteio ? (
                 <>
-                  <div>
+                  <div className="space-y-1">
                     <p className="text-2xl font-bold text-primary">{format(new Date(nextSorteio.data_sorteio), 'dd/MM/yyyy')}</p>
                     <p className="text-sm text-muted-foreground">{format(new Date(nextSorteio.data_sorteio), 'HH:mm')}h</p>
+                    <p className="text-sm text-muted-foreground flex items-center gap-2">
+                      <Badge variant="outline" className="border-primary/30 text-primary">
+                        Campanha
+                      </Badge>
+                      {nextSorteio.campanha?.Nome || 'Campanha não vinculada'}
+                    </p>
                   </div>
                   <div className="ml-auto flex items-center gap-2">
                     <Badge variant="outline" className="text-secondary border-secondary">
@@ -450,12 +659,46 @@ export default function Sorteios() {
               Participantes do Sorteio
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-6">
+            <div className="space-y-2 max-w-sm">
+              <Label className="text-sm font-medium text-muted-foreground">
+                Campanha
+              </Label>
+              <CampaignSelect
+                campaigns={scheduleableCampaigns}
+                value={selectedCampaignId}
+                onChange={handleCampaignSelectChange}
+                placeholder={campaignsLoading ? 'Carregando campanhas...' : 'Selecione uma campanha'}
+                disabled={!hasCampaigns || campaignsLoading}
+                ariaLabel="Selecionar campanha do sorteio"
+              />
+              {!hasCampaigns && !campaignsLoading && (
+                <p className="text-xs text-muted-foreground">
+                  Nenhuma campanha ativa ou encerrada disponível no momento.
+                </p>
+              )}
+            </div>
+
+            {selectedCampaign && (
+              <Badge variant="outline" className="border-primary/20 bg-primary/5 text-primary">
+                {selectedCampaign.Nome} • {selectedCampaignStatus}
+              </Badge>
+            )}
+
+            {selectedCampaignStatus === 'Encerrada' && (
+              <Alert className="border-amber-200 bg-amber-50 text-amber-900">
+                <AlertTitle>Campanha encerrada</AlertTitle>
+                <AlertDescription>
+                  Novos cupons não podem ser emitidos, mas o sorteio pode acontecer normalmente.
+                </AlertDescription>
+              </Alert>
+            )}
+
             {cuponsLoading ? (
               <div className="flex items-center justify-center py-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
               </div>
-            ) : (
+            ) : participants.length > 0 ? (
               <div className="grid gap-4 md:grid-cols-3">
                 <div className="text-center">
                   <div className="text-3xl font-bold text-primary">{participants.length}</div>
@@ -474,6 +717,10 @@ export default function Sorteios() {
                   <div className="text-sm text-muted-foreground">Resposta: Outro lugar</div>
                 </div>
               </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Nenhum cupom encontrado para a campanha selecionada.
+              </p>
             )}
           </CardContent>
         </Card>
@@ -526,6 +773,7 @@ export default function Sorteios() {
                     <TableHead>Nº Sorteado</TableHead>
                     <TableHead>Nº da Sorte</TableHead>
                     <TableHead>Data do Sorteio</TableHead>
+                    <TableHead>Campanha</TableHead>
                     <TableHead>Padaria</TableHead>
                     <TableHead>Ações</TableHead>
                   </TableRow>
@@ -533,15 +781,17 @@ export default function Sorteios() {
                 <TableBody>
                   {(ganhadoresData?.sorteios || [])
                     .filter(sorteio => {
-                      const matchesSearch = !searchTerm || 
+                      const matchesSearch = !searchTerm ||
                         sorteio?.ganhador?.nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                         sorteio?.ganhador?.cpf?.includes(searchTerm) ||
                         sorteio?.ganhador?.telefone?.includes(searchTerm);
-                      
-                      const matchesPadaria = selectedPadaria === "all" || 
+
+                      const matchesPadaria = selectedPadaria === "all" ||
                         sorteio?.cupom_vencedor?.padaria?.id === selectedPadaria;
-                      
-                      return matchesSearch && matchesPadaria;
+
+                      const matchesCampanha = !selectedCampaignId || sorteio?.campanha_id === selectedCampaignId;
+
+                      return matchesSearch && matchesPadaria && matchesCampanha;
                     })
                     .map((sorteio) => (
                       <TableRow key={sorteio.id}>
@@ -560,11 +810,12 @@ export default function Sorteios() {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          {sorteio.data_sorteio ? 
-                            format(new Date(sorteio.data_sorteio), 'dd/MM/yyyy HH:mm') : 
+                          {sorteio.data_sorteio ?
+                            format(new Date(sorteio.data_sorteio), 'dd/MM/yyyy HH:mm') :
                             'N/A'
                           }
                         </TableCell>
+                        <TableCell>{sorteio.campanha?.Nome || 'N/A'}</TableCell>
                         <TableCell>{sorteio.cupom_vencedor?.padaria?.nome || 'N/A'}</TableCell>
                         <TableCell>
                           <Button 
@@ -591,6 +842,7 @@ export default function Sorteios() {
               setEditingSorteioId(null);
               setSelectedDate(undefined);
               setSelectedTime('');
+              setSelectedScheduleCampaignId(selectedCampaignId ?? undefined);
             }
           }}
         >
@@ -599,6 +851,17 @@ export default function Sorteios() {
               <DialogTitle>{editingSorteioId ? 'Editar Sorteio' : 'Agendar Sorteio'}</DialogTitle>
             </DialogHeader>
             <div className="flex flex-col gap-4 py-4">
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-muted-foreground">Campanha</Label>
+                <CampaignSelect
+                  campaigns={scheduleableCampaigns}
+                  value={selectedScheduleCampaignId}
+                  onChange={setSelectedScheduleCampaignId}
+                  placeholder={hasCampaigns ? 'Selecione uma campanha' : 'Nenhuma campanha disponível'}
+                  disabled={!hasCampaigns}
+                  ariaLabel="Selecionar campanha para agendamento"
+                />
+              </div>
               <DatePicker mode="single" selected={selectedDate} onSelect={setSelectedDate} className="rounded-md border" />
               <Input type="time" value={selectedTime} onChange={(e) => setSelectedTime(e.target.value)} />
             </div>
@@ -616,6 +879,27 @@ export default function Sorteios() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        <CampaignFormDialog
+          open={campaignDialogOpen}
+          onOpenChange={(open) => setCampaignDialogOpen(open)}
+          onSubmit={handleCampaignDialogSubmit}
+          existingCampaigns={campaigns}
+          initialData={null}
+          isSubmitting={isCreatingCampaign || isDeactivatingCampaign}
+          onResolveConflicts={async ({ conflicts }) => {
+            const activeCampaignIds = conflicts.overlaps
+              .filter((campaign) => campaign.ativo)
+              .map((campaign) => campaign.id);
+
+            if (activeCampaignIds.length === 0) {
+              return true;
+            }
+
+            await deactivateCampaigns({ ids: activeCampaignIds });
+            return true;
+          }}
+        />
 
         {/* Raffle Animation Modal */}
         <Dialog open={showRaffleModal} onOpenChange={setShowRaffleModal}>
