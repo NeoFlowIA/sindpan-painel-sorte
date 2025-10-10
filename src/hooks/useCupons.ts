@@ -53,6 +53,8 @@ export interface CreateCupomInput {
   cliente_id: number;
   padaria_id: string; // Campo obrigatório
   valor_desconto?: string | null; // Saldo/desconto para próximas compras
+  campanha_id?: string | null; // ID da campanha vinculada
+  sorteio_id?: string | null; // ID do próximo sorteio agendado
 }
 
 export interface PadariaTicketMedio {

@@ -6,13 +6,18 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Calendar as DatePicker } from "@/components/ui/calendar";
+import { Label } from "@/components/ui/label";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { useGraphQLQuery, useGraphQLMutation } from "@/hooks/useGraphQL";
-import { GET_NEXT_SORTEIO, SCHEDULE_SORTEIO, UPDATE_SORTEIO, GET_ALL_CUPONS_FOR_GLOBAL_SORTEIO, GET_GANHADORES_COM_DADOS_COMPLETOS, SALVAR_GANHADOR, MARCAR_CUPOM_SORTEADO, REATIVAR_CUPOM, GET_PADARIAS } from "@/graphql/queries";
+import { GET_NEXT_SORTEIO, SCHEDULE_SORTEIO, UPDATE_SORTEIO, GET_ALL_CUPONS_FOR_GLOBAL_SORTEIO, GET_GANHADORES_COM_DADOS_COMPLETOS, SALVAR_GANHADOR, MARCAR_CUPOM_SORTEADO, REATIVAR_CUPOM, GET_PADARIAS, LIST_CAMPANHAS, CREATE_CAMPANHA, DEACTIVATE_CAMPANHAS } from "@/graphql/queries";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { Trophy, Calendar as CalendarIcon, X, Save, RotateCcw, Sparkles, Clock, Pencil } from "lucide-react";
-import { useNavigate } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { Trophy, Calendar as CalendarIcon, X, Save, RotateCcw, Sparkles, Clock, Pencil, PlusCircle } from "lucide-react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { useState, useEffect, useMemo } from "react";
+import { CampaignSelect } from "@/components/CampaignSelect";
+import { CampaignFormDialog, type CampaignFormValues } from "@/components/CampaignFormDialog";
+import { getCampaignStatus } from "@/components/CampaignStatusBadge";
 
 // Interface para cupom do sorteio
 interface CupomSorteio {
@@ -72,6 +77,9 @@ export default function Sorteios() {
   const [cupomSorteadoId, setCupomSorteadoId] = useState<string | null>(null);
   const [numeroDigitado, setNumeroDigitado] = useState<string>("");
   const [showLiveRaffle, setShowLiveRaffle] = useState(false);
+  const [campaignDialogOpen, setCampaignDialogOpen] = useState(false);
+  const [selectedCampaignId, setSelectedCampaignId] = useState<string | undefined>(urlCampaignId);
+  const [selectedScheduleCampaignId, setSelectedScheduleCampaignId] = useState<string | undefined>(undefined);
   
   // Função para entrar em fullscreen
   const enterFullscreen = () => {
@@ -102,6 +110,30 @@ export default function Sorteios() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [showLiveRaffle]);
 
+  // Query para buscar campanhas
+  const { data: campanhasData, isLoading: campaignsLoading } = useGraphQLQuery<{
+    campanha: Array<{
+      id: string;
+      Nome: string;
+      data_inicio: string;
+      data_fim: string;
+      ativo: boolean;
+    }>;
+  }>(['campanhas'], LIST_CAMPANHAS);
+
+  const campaigns = campanhasData?.campanha || [];
+  // Filtrar campanhas: apenas as que estão ativas OU já encerradas (para permitir sorteios de campanhas antigas)
+  const scheduleableCampaigns = campaigns.filter((c) => {
+    const status = getCampaignStatus(c.data_inicio, c.data_fim);
+    // Mostrar apenas campanhas ativas ou encerradas (não mostrar desativadas manualmente)
+    return c.ativo === true || (c.ativo === false && status === 'Encerrada');
+  });
+  const hasCampaigns = scheduleableCampaigns.length > 0;
+  const selectedCampaign = campaigns.find((c) => c.id === selectedCampaignId);
+  const selectedCampaignStatus = selectedCampaign
+    ? getCampaignStatus(selectedCampaign.data_inicio, selectedCampaign.data_fim)
+    : undefined;
+
   // Query para buscar próximo sorteio
   const { data: nextSorteioData } = useGraphQLQuery<{
     sorteios: {
@@ -130,6 +162,7 @@ export default function Sorteios() {
       numero_sorteado: string;
       data_sorteio: string;
       ganhador_id: string;
+      campanha_id: number;
       cliente: {
         id: string;
         nome: string;
@@ -140,6 +173,10 @@ export default function Sorteios() {
           nome: string;
         };
       };
+      campanha: {
+        id: string;
+        Nome: string;
+      } | null;
     }>
   }>(
     ['ganhadores-salvos'],
@@ -375,29 +412,38 @@ export default function Sorteios() {
       if (iterations >= maxIterations) {
         clearInterval(numberInterval);
         
-        // Encontrar o número mais próximo do digitado
+        // Encontrar o número sorteado com a seguinte lógica:
+        // 1. Número exato
+        // 2. Número mais próximo ACIMA
+        // 3. Número mais próximo ABAIXO (se não houver acima)
         const numeroAlvo = parseInt(numeroDigitado);
+        let winnerParticipant: Participant | undefined;
         
-        // Primeiro, tentar encontrar número exato
-        let winnerParticipant = participants.find(p => parseInt(p.numero_sorte) === numeroAlvo);
+        // 1. Tentar encontrar número exato
+        winnerParticipant = participants.find(p => parseInt(p.numero_sorte) === numeroAlvo);
         
-        // Se não encontrar exato, buscar o mais próximo
+        // 2. Se não encontrar exato, buscar o mais próximo ACIMA
         if (!winnerParticipant && participants.length > 0) {
-          let menorDiferenca = Infinity;
-          let indexMaisProximo = 0;
+          // Buscar números maiores que o alvo
+          const numerosAcima = participants
+            .filter(p => parseInt(p.numero_sorte) > numeroAlvo)
+            .sort((a, b) => parseInt(a.numero_sorte) - parseInt(b.numero_sorte));
           
-          participants.forEach((participant, index) => {
-            const diferenca = Math.abs(parseInt(participant.numero_sorte) - numeroAlvo);
-            if (diferenca < menorDiferenca) {
-              menorDiferenca = diferenca;
-              indexMaisProximo = index;
+          if (numerosAcima.length > 0) {
+            // Pegar o menor número acima
+            winnerParticipant = numerosAcima[0];
+            toast.info(`Número exato não encontrado. Selecionado o mais próximo acima: ${winnerParticipant.numero_sorte}`);
+          } else {
+            // 3. Se não houver números acima, buscar o mais próximo ABAIXO
+            const numerosAbaixo = participants
+              .filter(p => parseInt(p.numero_sorte) < numeroAlvo)
+              .sort((a, b) => parseInt(b.numero_sorte) - parseInt(a.numero_sorte));
+            
+            if (numerosAbaixo.length > 0) {
+              // Pegar o maior número abaixo
+              winnerParticipant = numerosAbaixo[0];
+              toast.info(`Nenhum número acima encontrado. Selecionado o mais próximo abaixo: ${winnerParticipant.numero_sorte}`);
             }
-          });
-          
-          winnerParticipant = participants[indexMaisProximo];
-          
-          if (menorDiferenca > 0) {
-            toast.info(`Número exato não encontrado. Selecionado o mais próximo: ${winnerParticipant.numero_sorte}`);
           }
         }
         
@@ -430,10 +476,17 @@ export default function Sorteios() {
   const saveResult = () => {
     if (!winner || !cupomSorteadoId || !numeroDigitado) return;
     
+    // Validar se há campanha selecionada
+    if (!selectedCampaignId) {
+      toast.error("Erro: Nenhuma campanha selecionada");
+      return;
+    }
+    
     console.log('🔍 Salvando ganhador:', { 
       cupomId: cupomSorteadoId, 
       numeroSorteado: numeroDigitado,
-      winner 
+      winner,
+      campanhaId: selectedCampaignId
     });
     
     // Encontrar o cupom específico que ganhou
@@ -447,7 +500,8 @@ export default function Sorteios() {
       cupom_id: cupomSorteadoId,
       cliente_id: cupomGanhador.cliente.id,
       numero_sorteado: cupomGanhador.numero_sorte,  // Usa numero_sorte do cupom vencedor
-      numero_digitado: numeroDigitado
+      numero_digitado: numeroDigitado,
+      campanha_id: selectedCampaignId
     });
     
     // Salvar o ganhador na tabela sorteios (usa numero_sorte como numero_sorteado)
@@ -455,7 +509,8 @@ export default function Sorteios() {
       numero_sorteado: cupomGanhador.numero_sorte,  // Salva o numero_sorte do cupom vencedor
       data_sorteio: new Date().toISOString(),
       ganhador_id: cupomGanhador.cliente.id,
-      cliente_id: cupomGanhador.cliente.id
+      cliente_id: cupomGanhador.cliente.id,
+      campanha_id: parseInt(selectedCampaignId)
     });
     
     // Remover todos os cupons do cliente dos próximos sorteios
@@ -765,6 +820,11 @@ export default function Sorteios() {
                             format(new Date(sorteio.data_sorteio), 'dd/MM/yyyy HH:mm') : 
                             'N/A'
                           }
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="text-primary border-primary/30">
+                            {sorteio.campanha?.Nome || 'N/A'}
+                          </Badge>
                         </TableCell>
                         <TableCell>{sorteio.cliente?.padaria?.nome || 'N/A'}</TableCell>
                         <TableCell>
