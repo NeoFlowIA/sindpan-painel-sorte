@@ -17,6 +17,7 @@ import Configuracoes from "./pages/Configuracoes";
 import NotFound from "./pages/NotFound";
 import RelatorioSorteios from "./pages/RelatorioSorteios";
 import SorteiosLive from "./pages/SorteiosLive";
+import Campanhas from "./pages/Campanhas";
 import { LoginPadaria } from "./pages/padaria/Login";
 import { RegisterPadaria } from "./pages/padaria/Register";
 import { PadariaDashboard } from "./pages/padaria/Dashboard";
@@ -72,6 +73,16 @@ const App = () => (
               <AdminRoute>
                 <DashboardLayout>
                   <Sorteios />
+                </DashboardLayout>
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/campanhas"
+            element={
+              <AdminRoute>
+                <DashboardLayout>
+                  <Campanhas />
                 </DashboardLayout>
               </AdminRoute>
             }
