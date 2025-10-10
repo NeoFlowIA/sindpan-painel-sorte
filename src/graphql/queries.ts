@@ -271,7 +271,7 @@ export const GET_NEXT_SORTEIO = `
 `;
 
 export const SCHEDULE_SORTEIO = `
-  mutation ScheduleSorteio($id: uuid!, $data: timestamptz!, $campanhaId: uuid!) {
+  mutation ScheduleSorteio($id: uuid!, $data: timestamptz!, $campanhaId: Int!) {
     insert_sorteios_one(object: {id: $id, data_sorteio: $data, campanha_id: $campanhaId}) {
       id
       data_sorteio
@@ -281,7 +281,7 @@ export const SCHEDULE_SORTEIO = `
 `;
 
 export const UPDATE_SORTEIO = `
-  mutation UpdateSorteio($id: uuid!, $data: timestamptz!, $campanhaId: uuid!) {
+  mutation UpdateSorteio($id: uuid!, $data: timestamptz!, $campanhaId: Int!) {
     update_sorteios_by_pk(pk_columns: {id: $id}, _set: {data_sorteio: $data, campanha_id: $campanhaId}) {
       id
       data_sorteio
@@ -302,6 +302,48 @@ export const LIST_CAMPANHAS = `
   }
 `;
 
+// Query para buscar a campanha ativa atual (somente campanhas com ativo = true E dentro do período)
+export const GET_CAMPANHA_ATIVA = `
+  query GetCampanhaAtiva($hoje: timestamptz!) {
+    campanha(
+      where: {
+        ativo: {_eq: true},
+        data_inicio: {_lte: $hoje},
+        data_fim: {_gte: $hoje}
+      },
+      order_by: {data_inicio: desc},
+      limit: 1
+    ) {
+      id
+      Nome
+      data_inicio
+      data_fim
+      ativo
+    }
+  }
+`;
+
+// Query para buscar o próximo sorteio agendado
+export const GET_PROXIMO_SORTEIO_AGENDADO = `
+  query GetProximoSorteioAgendado {
+    sorteios(
+      where: {
+        data_sorteio: {_gte: "now()"}
+      },
+      order_by: {data_sorteio: asc},
+      limit: 1
+    ) {
+      id
+      data_sorteio
+      campanha_id
+      campanha {
+        id
+        Nome
+      }
+    }
+  }
+`;
+
 export const CREATE_CAMPANHA = `
   mutation CreateCampanha($obj: campanha_insert_input!) {
     insert_campanha_one(object: $obj) {
@@ -311,7 +353,7 @@ export const CREATE_CAMPANHA = `
 `;
 
 export const UPDATE_CAMPANHA = `
-  mutation UpdateCampanha($id: uuid!, $set: campanha_set_input!) {
+  mutation UpdateCampanha($id: Int!, $set: campanha_set_input!) {
     update_campanha_by_pk(pk_columns: {id: $id}, _set: $set) {
       id
     }
@@ -319,9 +361,47 @@ export const UPDATE_CAMPANHA = `
 `;
 
 export const DEACTIVATE_CAMPANHAS = `
-  mutation DeactivateCampanhas($ids: [uuid!]!) {
+  mutation DeactivateCampanhas($ids: [Int!]!) {
     update_campanha(where: {id: {_in: $ids}}, _set: {ativo: false}) {
       affected_rows
+    }
+  }
+`;
+
+// Mutation para desativar uma campanha específica
+export const DEACTIVATE_CAMPANHA = `
+  mutation DeactivateCampanha($id: Int!) {
+    update_campanha_by_pk(pk_columns: {id: $id}, _set: {ativo: false}) {
+      id
+      Nome
+      ativo
+    }
+  }
+`;
+
+// Mutation para ativar uma campanha específica
+export const ACTIVATE_CAMPANHA = `
+  mutation ActivateCampanha($id: Int!) {
+    update_campanha_by_pk(pk_columns: {id: $id}, _set: {ativo: true}) {
+      id
+      Nome
+      ativo
+    }
+  }
+`;
+
+// Mutation para excluir uma campanha (primeiro remove sorteios e cupons relacionados)
+export const DELETE_CAMPANHA = `
+  mutation DeleteCampanha($id: Int!) {
+    delete_sorteios: delete_sorteios(where: {campanha_id: {_eq: $id}}) {
+      affected_rows
+    }
+    delete_cupons: delete_cupons(where: {campanha_id: {_eq: $id}}) {
+      affected_rows
+    }
+    delete_campanha: delete_campanha_by_pk(id: $id) {
+      id
+      Nome
     }
   }
 `;
@@ -464,7 +544,7 @@ export const GET_ALL_CLIENTES_WITH_CUPONS = `
 
 // Query para buscar um cliente específico - SIMPLIFICADA
 export const GET_CLIENTE_BY_ID = `
-  query GetClienteById($id: Int!) {
+  query GetClienteById($id: uuid!) {
     clientes_by_pk(id: $id) {
       id
       nome
@@ -675,6 +755,8 @@ export const CREATE_CUPOM = `
       valor_compra
       data_compra
       status
+      campanha_id
+      sorteio_id
       cliente_id
       padaria_id
       valor_desconto
@@ -683,6 +765,14 @@ export const CREATE_CUPOM = `
         nome
         cpf
         whatsapp
+      }
+      campanha {
+        id
+        Nome
+      }
+      sorteio {
+        id
+        data_sorteio
       }
     }
   }
@@ -828,6 +918,41 @@ export const GET_CUPONS_CLIENTE_SALDO = `
   }
 `;
 
+// Query para obter saldo de desconto do cliente em uma padaria específica
+export const GET_CLIENTE_SALDO_POR_PADARIA = `
+  query GetClienteSaldoPorPadaria($cliente_id: uuid!, $padaria_id: uuid!) {
+    cupons(
+      where: {
+        cliente_id: {_eq: $cliente_id}, 
+        padaria_id: {_eq: $padaria_id},
+        status: {_eq: "ativo"}
+      },
+      order_by: {data_compra: desc},
+      limit: 1
+    ) {
+      id
+      valor_desconto
+    }
+  }
+`;
+
+// Mutation para zerar saldo de cupons anteriores (antes de criar novos)
+export const ZERAR_SALDO_CUPONS_ANTERIORES = `
+  mutation ZerarSaldoCuponsAnteriores($cliente_id: uuid!, $padaria_id: uuid!) {
+    update_cupons(
+      where: {
+        cliente_id: {_eq: $cliente_id},
+        padaria_id: {_eq: $padaria_id},
+        status: {_eq: "ativo"},
+        valor_desconto: {_neq: "0"}
+      },
+      _set: {valor_desconto: "0"}
+    ) {
+      affected_rows
+    }
+  }
+`;
+
 // ===== QUERIES E MUTATIONS PARA SORTEIO =====
 
 // Query para obter todos os cupons de uma padaria para sorteio
@@ -950,6 +1075,7 @@ export const GET_ALL_CLIENTES_ADMIN_SIMPLE = `
       cpf
       whatsapp
       padaria_id
+      resposta_pergunta
       padaria {
         id
         nome
@@ -959,6 +1085,9 @@ export const GET_ALL_CLIENTES_ADMIN_SIMPLE = `
         data_compra
         valor_compra
         numero_sorte
+        campanha_id
+        status
+        padaria_id
       }
     }
   }
@@ -1006,12 +1135,15 @@ export const GET_ADMIN_DASHBOARD_METRICS = `
 
 // Query para buscar todos os cupons ativos para sorteio global
 export const GET_ALL_CUPONS_FOR_GLOBAL_SORTEIO = `
-  query GetAllCuponsForGlobalSorteio($campanhaId: uuid!) {
+  query GetAllCuponsForGlobalSorteio($campanhaId: Int!) {
     cupons(
       where: {
         status: {_eq: "ativo"},
+        campanha_id: {_eq: $campanhaId},
         valor_compra: {_neq: "0"},
-        campanha_id: {_eq: $campanhaId}
+        cliente: {
+          resposta_pergunta: {_eq: "Na padaria"}
+        }
       }
       order_by: {data_compra: desc}
     ) {
@@ -1074,28 +1206,36 @@ export const SALVAR_GANHADOR = `
     $numero_sorteado: String!,
     $data_sorteio: timestamptz!,
     $ganhador_id: uuid!,
-    $cliente_id: uuid!
+    $cliente_id: uuid!,
+    $campanha_id: Int!
   ) {
     sorteio: insert_sorteios_one(
       object: {
         numero_sorteado: $numero_sorteado,
         data_sorteio: $data_sorteio,
-        ganhador_id: $ganhador_id
+        ganhador_id: $ganhador_id,
+        campanha_id: $campanha_id
       },
       on_conflict: {
         constraint: sorteios_ganhador_id_key,
-        update_columns: [numero_sorteado, data_sorteio]
+        update_columns: [numero_sorteado, data_sorteio, campanha_id]
       }
     ) {
       id
       numero_sorteado
       data_sorteio
       ganhador_id
+      campanha_id
+      campanha {
+        id
+        Nome
+      }
     }
     outros_cupons: update_cupons(
       where: {
         cliente_id: {_eq: $cliente_id}
         status: {_eq: "ativo"}
+        campanha_id: {_eq: $campanha_id}
       }
       _set: {valor_compra: "0"}
     ) {
@@ -1154,6 +1294,7 @@ export const GET_GANHADORES_COM_DADOS_COMPLETOS = `
       numero_sorteado
       data_sorteio
       ganhador_id
+      campanha_id
       cliente {
         id
         nome
@@ -1163,6 +1304,10 @@ export const GET_GANHADORES_COM_DADOS_COMPLETOS = `
           id
           nome
         }
+      }
+      campanha {
+        id
+        Nome
       }
     }
   }

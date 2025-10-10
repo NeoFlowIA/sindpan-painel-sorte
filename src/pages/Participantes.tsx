@@ -1,9 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Users, Download, Search, RefreshCw, UserPlus, Receipt } from "lucide-react";
 import { useGraphQLQuery } from "@/hooks/useGraphQL";
@@ -19,10 +18,12 @@ import { useGraphQLMutation } from "@/hooks/useGraphQL";
 import { UPDATE_CLIENTE, DELETE_CLIENTE } from "@/graphql/queries";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function Participantes() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedPadaria, setSelectedPadaria] = useState<string>("all");
+  const [padariaSearchTerm, setPadariaSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [lastUpdate, setLastUpdate] = useState(new Date());
@@ -112,24 +113,102 @@ export default function Participantes() {
     setCurrentPage(0);
   };
 
-  // Filtrar clientes no frontend
-  const clientesFiltrados = (clientesData?.clientes || []).filter((cliente: any) => {
-    const matchesSearch = !searchTerm || 
-      cliente.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      cliente.cpf.includes(searchTerm) ||
-      cliente.whatsapp.includes(searchTerm) ||
-      cliente.padaria?.nome.toLowerCase().includes(searchTerm.toLowerCase());
+  // Filtrar padarias pela busca
+  const padariasFiltradas = useMemo(() => {
+    const padarias = padariasData?.padarias || [];
+    if (!padariaSearchTerm) return padarias;
     
-    const matchesPadaria = selectedPadaria === "all" || cliente.padaria_id === selectedPadaria;
+    return padarias.filter((padaria: any) => 
+      padaria.nome?.toLowerCase().includes(padariaSearchTerm.toLowerCase())
+    );
+  }, [padariasData, padariaSearchTerm]);
+
+  // Expandir clientes por padaria - cada cliente+padaria vira uma linha
+  const clientesPorPadaria = useMemo(() => {
+    const resultado: any[] = [];
     
-    return matchesSearch && matchesPadaria;
+    (clientesData?.clientes || []).forEach((cliente: any) => {
+      try {
+        if (!cliente) return;
+        
+        // 1. Verificar se o cliente tem resposta "Na padaria"
+        const respostaValida = cliente.resposta_pergunta === "Na padaria";
+        if (!respostaValida) return;
+        
+        // 2. Agrupar cupons por padaria
+        const cuponsAtivos = (cliente.cupons || []).filter((cupom: any) => 
+          cupom && cupom.valor_compra !== "0" && cupom.status === "ativo"
+        );
+        
+        if (cuponsAtivos.length === 0) return;
+        
+        // Debug: verificar se cupons têm padaria_id
+        console.log('🔍 Cliente:', cliente.nome, 'Cupons ativos:', cuponsAtivos.map((c: any) => ({ 
+          id: c.id, 
+          padaria_id: c.padaria_id,
+          numero_sorte: c.numero_sorte 
+        })));
+        
+        // Agrupar cupons por padaria_id
+        const cuponsPorPadaria = new Map<string, any[]>();
+        cuponsAtivos.forEach((cupom: any) => {
+          const padariaId = cupom.padaria_id || cliente.padaria_id || 'sem_padaria';
+          if (!cuponsPorPadaria.has(padariaId)) {
+            cuponsPorPadaria.set(padariaId, []);
+          }
+          cuponsPorPadaria.get(padariaId)!.push(cupom);
+        });
+        
+        console.log('🔍 Cliente:', cliente.nome, 'Padarias encontradas:', Array.from(cuponsPorPadaria.keys()));
+        
+        // Criar uma entrada para cada padaria
+        cuponsPorPadaria.forEach((cupons, padariaId) => {
+          // Buscar nome da padaria
+          const padaria = (padariasData?.padarias || []).find((p: any) => p.id === padariaId);
+          
+          resultado.push({
+            ...cliente,
+            padariaVinculada: padaria?.nome || cliente.padaria?.nome || 'N/A',
+            padariaVinculadaId: padariaId,
+            cuponsNestaPadaria: cupons,
+            totalCuponsNestaPadaria: cupons.length,
+            ultimaSubmissaoNestaPadaria: cupons.length > 0 
+              ? new Date(cupons.sort((a, b) => new Date(b.data_compra).getTime() - new Date(a.data_compra).getTime())[0].data_compra).toLocaleDateString('pt-BR')
+              : 'N/A'
+          });
+        });
+      } catch (error) {
+        console.error('Erro ao processar cliente:', error, cliente);
+      }
+    });
+    
+    console.log('🔍 Total de linhas geradas:', resultado.length);
+    return resultado;
+  }, [clientesData, padariasData]);
+
+  // Filtrar participantes expandidos
+  const participantesFiltrados = clientesPorPadaria.filter((participante: any) => {
+    try {
+      const matchesSearch = !searchTerm || 
+        (participante.nome && participante.nome.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (participante.cpf && participante.cpf.includes(searchTerm)) ||
+        (participante.whatsapp && participante.whatsapp.includes(searchTerm)) ||
+        (participante.padariaVinculada && participante.padariaVinculada.toLowerCase().includes(searchTerm.toLowerCase()));
+      
+      const matchesPadaria = selectedPadaria === "all" || participante.padariaVinculadaId === selectedPadaria;
+      
+      return matchesSearch && matchesPadaria;
+    } catch (error) {
+      console.error('Erro ao filtrar participante:', error, participante);
+      return false;
+    }
   });
 
-  const totalClientes = clientesFiltrados.length;
+  const totalClientes = participantesFiltrados.length;
   const totalPages = Math.ceil(totalClientes / itemsPerPage);
   
   // Paginar resultados filtrados
-  const clientes = clientesFiltrados.slice(
+  const clientes = participantesFiltrados.slice(
     currentPage * itemsPerPage, 
     (currentPage + 1) * itemsPerPage
   );
@@ -161,18 +240,18 @@ export default function Participantes() {
       "Nome",
       "CPF",
       "WhatsApp",
-      "Padaria",
-      "Total de Cupons",
-      "Última Submissão"
+      "Padaria Vinculada",
+      "Total de Cupons (nesta padaria)",
+      "Última Submissão (nesta padaria)"
     ];
 
-    const rows = clientesFiltrados.map((cliente: any) => [
-      `"${cliente.nome}"`,
-      cliente.cpf,
-      cliente.whatsapp,
-      `"${cliente.padaria?.nome || 'N/A'}"`,
-      cliente.cupons?.length || 0,
-      getUltimaSubmissao(cliente.cupons)
+    const rows = participantesFiltrados.map((participante: any) => [
+      `"${participante.nome}"`,
+      participante.cpf,
+      participante.whatsapp,
+      `"${participante.padariaVinculada}"`,
+      participante.totalCuponsNestaPadaria,
+      participante.ultimaSubmissaoNestaPadaria
     ].join(","));
 
     const csvContent = [headers.join(","), ...rows].join("\n");
@@ -311,19 +390,37 @@ export default function Participantes() {
             onChange={(e) => handleSearch(e.target.value)}
           />
         </div>
-        <Select value={selectedPadaria} onValueChange={handlePadariaFilter}>
-          <SelectTrigger className="w-[200px]">
-            <SelectValue placeholder="Filtrar por padaria" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todas as padarias</SelectItem>
-            {padariasData?.padarias?.map((padaria: any) => (
-              <SelectItem key={padaria.id} value={padaria.id}>
-                {padaria.nome}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        
+        {/* Filtro de Padarias com Busca */}
+        <div className="flex flex-col gap-2 w-[300px]">
+          <div className="relative">
+            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+            <Input 
+              placeholder="Buscar padaria..." 
+              className="pl-10"
+              value={padariaSearchTerm}
+              onChange={(e) => setPadariaSearchTerm(e.target.value)}
+            />
+          </div>
+          <Select value={selectedPadaria} onValueChange={handlePadariaFilter}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Filtrar por padaria" />
+            </SelectTrigger>
+            <SelectContent className="max-h-[300px]">
+              <SelectItem value="all">Todas as padarias</SelectItem>
+              {padariasFiltradas.map((padaria: any) => (
+                <SelectItem key={padaria.id} value={padaria.id}>
+                  {padaria.nome}
+                </SelectItem>
+              ))}
+              {padariasFiltradas.length === 0 && padariaSearchTerm && (
+                <div className="py-6 text-center text-sm text-muted-foreground">
+                  Nenhuma padaria encontrada
+                </div>
+              )}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {/* Participants Table */}
@@ -354,23 +451,27 @@ export default function Participantes() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {clientes.map((cliente: any) => (
-                    <TableRow key={cliente.id}>
-                      <TableCell className="font-medium">{cliente.nome}</TableCell>
-                      <TableCell>{maskCPF(cliente.cpf)}</TableCell>
-                      <TableCell>{formatPhone(cliente.whatsapp)}</TableCell>
-                      <TableCell>{cliente.padaria?.nome || "N/A"}</TableCell>
+                  {clientes.map((participante: any) => (
+                    <TableRow key={`${participante.id}-${participante.padariaVinculadaId}`}>
+                      <TableCell className="font-medium">{participante.nome}</TableCell>
+                      <TableCell>{maskCPF(participante.cpf)}</TableCell>
+                      <TableCell>{formatPhone(participante.whatsapp)}</TableCell>
                       <TableCell>
-                        <Badge variant="outline" className="text-secondary border-secondary">
-                          {cliente.cupons?.length || 0}
+                        <Badge variant="outline" className="border-blue-200 text-blue-700">
+                          {participante.padariaVinculada}
                         </Badge>
                       </TableCell>
-                      <TableCell>{getUltimaSubmissao(cliente.cupons)}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="text-secondary border-secondary">
+                          {participante.totalCuponsNestaPadaria}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{participante.ultimaSubmissaoNestaPadaria}</TableCell>
                       <TableCell>
                         <Button 
                           variant="ghost" 
                           size="sm"
-                          onClick={() => verDetalhes(cliente)}
+                          onClick={() => verDetalhes(participante)}
                         >
                           Ver detalhes
                         </Button>

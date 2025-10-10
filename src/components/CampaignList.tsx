@@ -7,9 +7,12 @@ interface CampaignListProps {
   campaigns: Campaign[];
   isLoading?: boolean;
   onEdit?: (campaign: Campaign) => void;
+  onDeactivate?: (campaign: Campaign) => void;
+  onActivate?: (campaign: Campaign) => void;
+  onDelete?: (campaign: Campaign) => void;
 }
 
-export const CampaignList = ({ campaigns, isLoading, onEdit }: CampaignListProps) => {
+export const CampaignList = ({ campaigns, isLoading, onEdit, onDeactivate, onActivate, onDelete }: CampaignListProps) => {
   const hasCampaigns = campaigns.length > 0;
 
   const orderedCampaigns = useMemo(
@@ -44,7 +47,14 @@ export const CampaignList = ({ campaigns, isLoading, onEdit }: CampaignListProps
   return (
     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
       {orderedCampaigns.map((campaign) => (
-        <CampaignCard key={campaign.id} campaign={campaign} onEdit={onEdit} />
+        <CampaignCard 
+          key={campaign.id} 
+          campaign={campaign} 
+          onEdit={onEdit}
+          onDeactivate={onDeactivate}
+          onActivate={onActivate}
+          onDelete={onDelete}
+        />
       ))}
     </div>
   );

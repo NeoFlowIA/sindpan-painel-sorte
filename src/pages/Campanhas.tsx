@@ -5,8 +5,18 @@ import { CampaignList } from "@/components/CampaignList";
 import { CampaignFormDialog, type CampaignFormValues } from "@/components/CampaignFormDialog";
 import type { Campaign } from "@/components/CampaignCard";
 import { useGraphQLMutation, useGraphQLQuery } from "@/hooks/useGraphQL";
-import { CREATE_CAMPANHA, DEACTIVATE_CAMPANHAS, LIST_CAMPANHAS, UPDATE_CAMPANHA } from "@/graphql/queries";
+import { CREATE_CAMPANHA, DEACTIVATE_CAMPANHAS, DEACTIVATE_CAMPANHA, ACTIVATE_CAMPANHA, DELETE_CAMPANHA, LIST_CAMPANHAS, UPDATE_CAMPANHA } from "@/graphql/queries";
 import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface ListCampanhasResponse {
   campanha: Campaign[];
@@ -15,6 +25,12 @@ interface ListCampanhasResponse {
 export default function Campanhas() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingCampaign, setEditingCampaign] = useState<Campaign | null>(null);
+  const [deactivateDialogOpen, setDeactivateDialogOpen] = useState(false);
+  const [activateDialogOpen, setActivateDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [campaignToDeactivate, setCampaignToDeactivate] = useState<Campaign | null>(null);
+  const [campaignToActivate, setCampaignToActivate] = useState<Campaign | null>(null);
+  const [campaignToDelete, setCampaignToDelete] = useState<Campaign | null>(null);
 
   const { data, isLoading } = useGraphQLQuery<ListCampanhasResponse>(['campanhas'], LIST_CAMPANHAS);
   const campaigns = data?.campanha ?? [];
@@ -58,7 +74,46 @@ export default function Campanhas() {
     }
   });
 
-  const isSubmitting = isCreating || isUpdating || isDeactivating;
+  const {
+    mutateAsync: deactivateCampanha,
+    isPending: isDeactivatingSingle,
+  } = useGraphQLMutation(DEACTIVATE_CAMPANHA, {
+    invalidateQueries: [['campanhas'], ['campanha-ativa']],
+    onSuccess: () => {
+      toast.success('Campanha desativada com sucesso!');
+    },
+    onError: (error) => {
+      toast.error('Erro ao desativar campanha', { description: error.message });
+    }
+  });
+
+  const {
+    mutateAsync: activateCampanha,
+    isPending: isActivatingSingle,
+  } = useGraphQLMutation(ACTIVATE_CAMPANHA, {
+    invalidateQueries: [['campanhas'], ['campanha-ativa']],
+    onSuccess: () => {
+      toast.success('Campanha ativada com sucesso!');
+    },
+    onError: (error) => {
+      toast.error('Erro ao ativar campanha', { description: error.message });
+    }
+  });
+
+  const {
+    mutateAsync: deleteCampanha,
+    isPending: isDeleting,
+  } = useGraphQLMutation(DELETE_CAMPANHA, {
+    invalidateQueries: [['campanhas'], ['campanha-ativa']],
+    onSuccess: () => {
+      toast.success('Campanha excluída com sucesso!');
+    },
+    onError: (error) => {
+      toast.error('Erro ao excluir campanha', { description: error.message });
+    }
+  });
+
+  const isSubmitting = isCreating || isUpdating || isDeactivating || isDeactivatingSingle || isActivatingSingle || isDeleting;
 
   const handleCreateClick = () => {
     setEditingCampaign(null);
@@ -92,6 +147,53 @@ export default function Campanhas() {
     }
   };
 
+  const handleDeactivate = (campaign: Campaign) => {
+    setCampaignToDeactivate(campaign);
+    setDeactivateDialogOpen(true);
+  };
+
+  const confirmDeactivate = async () => {
+    if (!campaignToDeactivate) return;
+    await deactivateCampanha({ id: parseInt(campaignToDeactivate.id) });
+    setDeactivateDialogOpen(false);
+    setCampaignToDeactivate(null);
+  };
+
+  const handleActivate = (campaign: Campaign) => {
+    setCampaignToActivate(campaign);
+    setActivateDialogOpen(true);
+  };
+
+  const confirmActivate = async () => {
+    if (!campaignToActivate) return;
+    
+    // Primeiro, desativar todas as campanhas ativas
+    const activeCampaignIds = campaigns
+      .filter((c) => c.ativo && c.id !== campaignToActivate.id)
+      .map((c) => parseInt(c.id));
+    
+    if (activeCampaignIds.length > 0) {
+      await deactivateCampaigns({ ids: activeCampaignIds });
+    }
+    
+    // Depois, ativar a campanha selecionada
+    await activateCampanha({ id: parseInt(campaignToActivate.id) });
+    setActivateDialogOpen(false);
+    setCampaignToActivate(null);
+  };
+
+  const handleDelete = (campaign: Campaign) => {
+    setCampaignToDelete(campaign);
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!campaignToDelete) return;
+    await deleteCampanha({ id: parseInt(campaignToDelete.id) });
+    setDeleteDialogOpen(false);
+    setCampaignToDelete(null);
+  };
+
   const handleResolveConflicts = async ({
     conflicts,
   }: {
@@ -123,7 +225,14 @@ export default function Campanhas() {
         </Button>
       </div>
 
-      <CampaignList campaigns={campaigns} isLoading={isLoading} onEdit={handleEdit} />
+      <CampaignList 
+        campaigns={campaigns} 
+        isLoading={isLoading} 
+        onEdit={handleEdit}
+        onDeactivate={handleDeactivate}
+        onActivate={handleActivate}
+        onDelete={handleDelete}
+      />
 
       <CampaignFormDialog
         open={dialogOpen}
@@ -148,6 +257,71 @@ export default function Campanhas() {
         isSubmitting={isSubmitting}
         onResolveConflicts={handleResolveConflicts}
       />
+
+      {/* Dialog de confirmação para desativar */}
+      <AlertDialog open={deactivateDialogOpen} onOpenChange={setDeactivateDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Desativar campanha?</AlertDialogTitle>
+            <AlertDialogDescription>
+              A campanha "{campaignToDeactivate?.Nome}" será desativada e não permitirá mais a emissão de novos cupons.
+              Os cupons já emitidos continuarão válidos para sorteios.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeactivate} disabled={isSubmitting}>
+              {isDeactivatingSingle ? 'Desativando...' : 'Desativar'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Dialog de confirmação para ativar */}
+      <AlertDialog open={activateDialogOpen} onOpenChange={setActivateDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Ativar campanha?</AlertDialogTitle>
+            <AlertDialogDescription>
+              A campanha "{campaignToActivate?.Nome}" será ativada e permitirá a emissão de novos cupons dentro do período definido.
+              <strong className="block mt-2 text-amber-600">
+                ⚠️ ATENÇÃO: Outras campanhas ativas serão desativadas automaticamente, pois apenas uma campanha pode estar ativa por vez!
+              </strong>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmActivate} disabled={isSubmitting}>
+              {isSubmitting ? 'Ativando...' : 'Ativar'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Dialog de confirmação para excluir */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir campanha permanentemente?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação não pode ser desfeita. A campanha "{campaignToDelete?.Nome}" será excluída permanentemente do sistema.
+              <strong className="block mt-2 text-destructive">
+                ⚠️ ATENÇÃO: Todos os cupons vinculados a esta campanha também serão afetados!
+              </strong>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmDelete} 
+              disabled={isSubmitting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? 'Excluindo...' : 'Excluir permanentemente'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
