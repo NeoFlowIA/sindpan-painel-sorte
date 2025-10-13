@@ -122,6 +122,10 @@ export default function Sorteios() {
   }>(['campanhas'], LIST_CAMPANHAS);
 
   const campaigns = campanhasData?.campanha || [];
+  const activeCampaign = useMemo(
+    () => campaigns.find((campaign) => getCampaignStatus(campaign.data_inicio, campaign.data_fim) === 'Ativa'),
+    [campaigns]
+  );
   // Filtrar campanhas: apenas as que estão ativas OU já encerradas (para permitir sorteios de campanhas antigas)
   const scheduleableCampaigns = useMemo(
     () =>
@@ -158,17 +162,24 @@ export default function Sorteios() {
       return;
     }
 
-    const preferredCampaign =
-      scheduleableCampaigns.find(
-        (campaign) => getCampaignStatus(campaign.data_inicio, campaign.data_fim) === 'Ativa'
-      ) ?? scheduleableCampaigns[0];
+    const preferredCampaign = activeCampaign ?? scheduleableCampaigns[0];
 
     if (!preferredCampaign) {
       return;
     }
 
-    setSelectedCampaignId(preferredCampaign.id);
-    setSelectedScheduleCampaignId((current) => current ?? preferredCampaign.id);
+    setSelectedCampaignId((current) => {
+      const shouldReplace =
+        !current ||
+        !scheduleableCampaigns.some((campaign) => campaign.id === current) ||
+        (activeCampaign && current !== activeCampaign.id);
+
+      return shouldReplace ? preferredCampaign.id : current;
+    });
+    setSelectedScheduleCampaignId((current) => {
+      const shouldReplace = !current || (activeCampaign && current !== activeCampaign.id);
+      return shouldReplace ? preferredCampaign.id : current;
+    });
 
     if (urlCampaignId !== preferredCampaign.id) {
       const params = new URLSearchParams(searchParamsString);
@@ -178,13 +189,14 @@ export default function Sorteios() {
   }, [
     campaignsLoading,
     scheduleableCampaigns,
-    selectedCampaignId,
+    activeCampaign,
     urlCampaignId,
     searchParamsString,
     setSearchParams,
   ]);
 
   const hasCampaigns = scheduleableCampaigns.length > 0;
+  const hasActiveCampaign = Boolean(activeCampaign);
   const selectedCampaign = campaigns.find((c) => c.id === selectedCampaignId);
   const selectedCampaignStatus = selectedCampaign
     ? getCampaignStatus(selectedCampaign.data_inicio, selectedCampaign.data_fim)
@@ -431,8 +443,8 @@ export default function Sorteios() {
   };
 
   const startRaffle = () => {
-    if (!hasCampaigns) {
-      toast.error('Selecione uma campanha para iniciar o sorteio');
+    if (!hasActiveCampaign) {
+      toast.error('Selecione uma campanha ativa para iniciar o sorteio');
       return;
     }
     if (participants.length === 0) {
@@ -652,20 +664,28 @@ export default function Sorteios() {
               <CalendarIcon className="w-4 h-4 mr-2" />
               Agendar novo sorteio
             </Button>
-            <Button 
+            <Button
               onClick={() => {
+                if (!hasActiveCampaign) {
+                  toast.error('Selecione uma campanha ativa para iniciar o sorteio');
+                  return;
+                }
+                if (participants.length === 0) {
+                  toast.error('Não há participantes para o sorteio');
+                  return;
+                }
                 setShowLiveRaffle(true);
                 setTimeout(() => enterFullscreen(), 100);
               }}
-              disabled={participants.length === 0}
+              disabled={!hasActiveCampaign || campaignsLoading}
               className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white"
             >
               <Sparkles className="w-4 h-4 mr-2" />
               Sorteio Ao Vivo
             </Button>
-            <Button 
+            <Button
               onClick={() => setShowRaffleModal(true)}
-              disabled={!hasCampaigns || participants.length === 0}
+              disabled={!hasActiveCampaign || campaignsLoading}
               className="bg-green-600 hover:bg-green-700 text-white"
             >
               <Trophy className="w-4 h-4 mr-2" />
