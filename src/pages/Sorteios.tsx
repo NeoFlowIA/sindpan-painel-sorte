@@ -196,11 +196,14 @@ export default function Sorteios() {
   ]);
 
   const hasCampaigns = scheduleableCampaigns.length > 0;
-  const hasActiveCampaign = Boolean(activeCampaign);
   const selectedCampaign = campaigns.find((c) => c.id === selectedCampaignId);
   const selectedCampaignStatus = selectedCampaign
     ? getCampaignStatus(selectedCampaign.data_inicio, selectedCampaign.data_fim)
     : undefined;
+  const canRunRaffle =
+    Boolean(selectedCampaign) &&
+    selectedCampaignStatus !== 'Encerrada' &&
+    selectedCampaign?.ativo !== false;
 
   // Query para buscar próximo sorteio
   const { data: nextSorteioData } = useGraphQLQuery<{
@@ -443,7 +446,7 @@ export default function Sorteios() {
   };
 
   const startRaffle = () => {
-    if (!hasActiveCampaign) {
+    if (!canRunRaffle) {
       toast.error('Selecione uma campanha ativa para iniciar o sorteio');
       return;
     }
@@ -666,7 +669,7 @@ export default function Sorteios() {
             </Button>
             <Button
               onClick={() => {
-                if (!hasActiveCampaign) {
+                if (!canRunRaffle) {
                   toast.error('Selecione uma campanha ativa para iniciar o sorteio');
                   return;
                 }
@@ -677,7 +680,7 @@ export default function Sorteios() {
                 setShowLiveRaffle(true);
                 setTimeout(() => enterFullscreen(), 100);
               }}
-              disabled={!hasActiveCampaign || campaignsLoading}
+              disabled={!canRunRaffle || campaignsLoading}
               className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white"
             >
               <Sparkles className="w-4 h-4 mr-2" />
@@ -685,7 +688,7 @@ export default function Sorteios() {
             </Button>
             <Button
               onClick={() => setShowRaffleModal(true)}
-              disabled={!hasActiveCampaign || campaignsLoading}
+              disabled={!canRunRaffle || campaignsLoading}
               className="bg-green-600 hover:bg-green-700 text-white"
             >
               <Trophy className="w-4 h-4 mr-2" />
