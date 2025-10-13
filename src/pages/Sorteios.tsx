@@ -123,11 +123,67 @@ export default function Sorteios() {
 
   const campaigns = campanhasData?.campanha || [];
   // Filtrar campanhas: apenas as que estão ativas OU já encerradas (para permitir sorteios de campanhas antigas)
-  const scheduleableCampaigns = campaigns.filter((c) => {
-    const status = getCampaignStatus(c.data_inicio, c.data_fim);
-    // Mostrar apenas campanhas ativas ou encerradas (não mostrar desativadas manualmente)
-    return c.ativo === true || (c.ativo === false && status === 'Encerrada');
-  });
+  const scheduleableCampaigns = useMemo(
+    () =>
+      campaigns.filter((c) => {
+        const status = getCampaignStatus(c.data_inicio, c.data_fim);
+
+        if (status === 'Ativa') {
+          return true;
+        }
+
+        if (status === 'Encerrada') {
+          return true;
+        }
+
+        // Para campanhas futuras, manter apenas as que continuam ativadas manualmente
+        return c.ativo === true;
+      }),
+    [campaigns]
+  );
+  useEffect(() => {
+    if (campaignsLoading) {
+      return;
+    }
+
+    if (scheduleableCampaigns.length === 0) {
+      return;
+    }
+
+    const isSelectedCampaignAvailable = selectedCampaignId
+      ? scheduleableCampaigns.some((campaign) => campaign.id === selectedCampaignId)
+      : false;
+
+    if (isSelectedCampaignAvailable) {
+      return;
+    }
+
+    const preferredCampaign =
+      scheduleableCampaigns.find(
+        (campaign) => getCampaignStatus(campaign.data_inicio, campaign.data_fim) === 'Ativa'
+      ) ?? scheduleableCampaigns[0];
+
+    if (!preferredCampaign) {
+      return;
+    }
+
+    setSelectedCampaignId(preferredCampaign.id);
+    setSelectedScheduleCampaignId((current) => current ?? preferredCampaign.id);
+
+    if (urlCampaignId !== preferredCampaign.id) {
+      const params = new URLSearchParams(searchParamsString);
+      params.set('campanhaId', preferredCampaign.id);
+      setSearchParams(params, { replace: true });
+    }
+  }, [
+    campaignsLoading,
+    scheduleableCampaigns,
+    selectedCampaignId,
+    urlCampaignId,
+    searchParamsString,
+    setSearchParams,
+  ]);
+
   const hasCampaigns = scheduleableCampaigns.length > 0;
   const selectedCampaign = campaigns.find((c) => c.id === selectedCampaignId);
   const selectedCampaignStatus = selectedCampaign
@@ -333,10 +389,17 @@ export default function Sorteios() {
     const date = new Date(selectedDate);
     date.setHours(hours);
     date.setMinutes(minutes);
+
+    const campanhaIdAsNumber = Number(selectedScheduleCampaignId);
+    if (Number.isNaN(campanhaIdAsNumber)) {
+      toast.error('Campanha inválida para o sorteio.');
+      return;
+    }
+
     if (editingSorteioId) {
-      updateSorteio({ id: editingSorteioId, data: date.toISOString(), campanhaId: selectedScheduleCampaignId });
+      updateSorteio({ id: editingSorteioId, data: date.toISOString(), campanhaId: campanhaIdAsNumber });
     } else {
-      scheduleSorteio({ id: crypto.randomUUID(), data: date.toISOString(), campanhaId: selectedScheduleCampaignId });
+      scheduleSorteio({ id: crypto.randomUUID(), data: date.toISOString(), campanhaId: campanhaIdAsNumber });
     }
   };
 
