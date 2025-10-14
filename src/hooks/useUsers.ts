@@ -29,7 +29,10 @@ export const useUser = (
   const hasCnpj = !!identifier.cnpj;
   const query = hasCnpj ? GET_USER : GET_USER_BY_EMAIL_WITH_PADARIA;
   const variables = hasCnpj
-    ? identifier
+    ? {
+        ...(identifier.cnpj ? { cnpj: identifier.cnpj } : {}),
+        ...(identifier.email ? { email: identifier.email } : {}),
+      }
     : { email: identifier.email! };
 
   return useGraphQLQuery<UserResponse>(
