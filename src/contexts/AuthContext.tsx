@@ -337,7 +337,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
 
       const padariaResponse = await graphqlClient.query<{
-        padarias: Array<{ id: string; nome: string; cnpj: string; status: string }>;
+        padarias: Array<{
+          id: string;
+          nome: string;
+          cnpj: string;
+          status: string;
+          email: string | null;
+        }>;
       }>(GET_PADARIA_BY_CNPJ, { cnpj: sanitizedCnpj });
 
       const padaria = padariaResponse.padarias?.[0];
@@ -350,10 +356,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
         throw new Error('Padaria ainda não está ativa. Entre em contato com o SINDPAN.');
       }
 
+      if (!padaria.email) {
+        throw new Error(
+          'Padaria encontrada, mas sem e-mail cadastrado. Entre em contato com o suporte para atualizar o cadastro.'
+        );
+      }
+
       const passwordHash = await bcrypt.hash(password, 10);
 
       const upsertResponse = await graphqlClient.mutate<{
         insert_users_one: {
+          email: string | null;
           id: string;
           cnpj: string;
           bakery_name: string | null;
@@ -366,6 +379,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         padarias_id: padaria.id,
         password_hash: passwordHash,
         bakery_name: padaria.nome,
+        email: padaria.email,
       });
 
       const upsertedUser = upsertResponse.insert_users_one;

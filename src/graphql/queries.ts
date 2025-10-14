@@ -259,6 +259,7 @@ export const GET_PADARIA_BY_CNPJ = `
       nome
       cnpj
       status
+      email
     }
   }
 `;
@@ -269,6 +270,7 @@ export const UPSERT_PADARIA_USER = `
     $padarias_id: uuid!
     $password_hash: String!
     $bakery_name: String!
+    $email: String!
   ) {
     insert_users_one(
       object: {
@@ -277,10 +279,11 @@ export const UPSERT_PADARIA_USER = `
         role: "bakery"
         password_hash: $password_hash
         bakery_name: $bakery_name
+        email: $email
       }
       on_conflict: {
         constraint: users_cnpj_key
-        update_columns: [padarias_id, password_hash, role, bakery_name]
+        update_columns: [padarias_id, password_hash, role, bakery_name, email]
       }
     ) {
       id
