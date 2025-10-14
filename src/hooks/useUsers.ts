@@ -1,5 +1,9 @@
 import { useGraphQLQuery } from './useGraphQL';
-import { GET_USER, GET_USERS, GET_USER_BY_EMAIL_WITH_PADARIA } from '@/graphql/queries';
+import {
+  GET_USER_BY_CNPJ_WITH_PADARIA,
+  GET_USERS,
+  GET_USER_BY_EMAIL_WITH_PADARIA,
+} from '@/graphql/queries';
 
 // Tipos baseados no schema Hasura
 export interface User {
@@ -22,18 +26,15 @@ export interface UserResponse {
 
 // Hook para buscar usuário por email ou CNPJ
 export const useUser = (
-  identifier: { email?: string; cnpj?: string },
+  identifier: { email?: string | null; cnpj?: string | null },
   enabled: boolean = true
 ) => {
-  const key = identifier.email || identifier.cnpj || 'unknown';
-  const hasCnpj = !!identifier.cnpj;
-  const query = hasCnpj ? GET_USER : GET_USER_BY_EMAIL_WITH_PADARIA;
-  const variables = hasCnpj
-    ? {
-        ...(identifier.cnpj ? { cnpj: identifier.cnpj } : {}),
-        ...(identifier.email ? { email: identifier.email } : {}),
-      }
-    : { email: identifier.email! };
+  const email = identifier.email ?? undefined;
+  const cnpj = identifier.cnpj ?? undefined;
+  const key = email || cnpj || 'unknown';
+  const hasCnpj = !!cnpj;
+  const query = hasCnpj ? GET_USER_BY_CNPJ_WITH_PADARIA : GET_USER_BY_EMAIL_WITH_PADARIA;
+  const variables = hasCnpj ? { cnpj: cnpj! } : { email: email! };
 
   return useGraphQLQuery<UserResponse>(
     ['user', key],

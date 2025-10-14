@@ -69,7 +69,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   // Buscar dados do usuário no Hasura quando temos email ou CNPJ
   const { data: hasuraUserData, isLoading: hasuraLoading } = useUser(
-    { email: sindpanUser?.email, cnpj: sindpanUser?.cnpj },
+    {
+      email: sindpanUser?.email ?? undefined,
+      cnpj: sindpanUser?.cnpj ?? undefined,
+    },
     !!(sindpanUser?.email || sindpanUser?.cnpj)
   );
 

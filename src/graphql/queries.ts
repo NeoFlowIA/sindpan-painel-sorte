@@ -195,16 +195,16 @@ export const DELETE_PADARIA = `
 `;
 
 
-// Query para buscar dados do usuário por email ou CNPJ
-export const GET_USER = `
-  query GetUser($email: String, $cnpj: String) {
-    users(where: {_or: [{email: {_eq: $email}}, {cnpj: {_eq: $cnpj}}]}) {
+// Query para quando o campo padarias_id for criado no Hasura
+export const GET_USER_BY_EMAIL_WITH_PADARIA = `
+  query GetUserByEmailWithPadaria($email: String!) {
+    users(where: {email: {_eq: $email}}) {
       id
       email
-      cnpj
       bakery_name
       role
       padarias_id
+      cnpj
       password_hash
       padarias {
         id
@@ -214,10 +214,9 @@ export const GET_USER = `
   }
 `;
 
-// Query para quando o campo padarias_id for criado no Hasura
-export const GET_USER_BY_EMAIL_WITH_PADARIA = `
-  query GetUserByEmailWithPadaria($email: String!) {
-    users(where: {email: {_eq: $email}}) {
+export const GET_USER_BY_CNPJ_WITH_PADARIA = `
+  query GetUserByCnpjWithPadaria($cnpj: String!) {
+    users(where: {cnpj: {_eq: $cnpj}}) {
       id
       email
       bakery_name
