@@ -342,7 +342,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
           nome: string;
           cnpj: string;
           status: string;
-          email: string | null;
         }>;
       }>(GET_PADARIA_BY_CNPJ, { cnpj: sanitizedCnpj });
 
@@ -373,7 +372,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
         padarias_id: padaria.id,
         password_hash: passwordHash,
         bakery_name: padaria.nome,
-        email: padaria.email ?? null,
       });
 
       const upsertedUser = upsertResponse.insert_users_one;
