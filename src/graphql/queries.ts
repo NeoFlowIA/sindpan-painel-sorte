@@ -1140,10 +1140,7 @@ export const GET_ALL_CUPONS_FOR_GLOBAL_SORTEIO = `
       where: {
         status: {_eq: "ativo"},
         campanha_id: {_eq: $campanhaId},
-        valor_compra: {_neq: "0"},
-        cliente: {
-          resposta_pergunta: {_eq: "Na padaria"}
-        }
+        valor_compra: {_neq: "0"}
       }
       order_by: {data_compra: desc}
     ) {

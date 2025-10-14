@@ -79,7 +79,26 @@ export default function Sorteios() {
   const [showLiveRaffle, setShowLiveRaffle] = useState(false);
   const [campaignDialogOpen, setCampaignDialogOpen] = useState(false);
   const [selectedCampaignId, setSelectedCampaignId] = useState<string | undefined>(urlCampaignId);
-  const [selectedScheduleCampaignId, setSelectedScheduleCampaignId] = useState<string | undefined>(undefined);
+  const [selectedScheduleCampaignId, setSelectedScheduleCampaignId] = useState<string | undefined>(urlCampaignId);
+
+  const parseCampaignId = (value?: string) => {
+    if (!value) {
+      return undefined;
+    }
+
+    const numericId = Number(value);
+    return Number.isNaN(numericId) ? undefined : numericId;
+  };
+
+  const selectedCampaignIdNumber = useMemo(
+    () => parseCampaignId(selectedCampaignId),
+    [selectedCampaignId]
+  );
+
+  const selectedScheduleCampaignIdNumber = useMemo(
+    () => parseCampaignId(selectedScheduleCampaignId),
+    [selectedScheduleCampaignId]
+  );
   
   // Função para entrar em fullscreen
   const enterFullscreen = () => {
@@ -145,18 +164,17 @@ export default function Sorteios() {
       }),
     [campaigns]
   );
+  const activeCampaignIdString = activeCampaign ? String(activeCampaign.id) : undefined;
+
   useEffect(() => {
-    if (campaignsLoading) {
+    if (campaignsLoading || scheduleableCampaigns.length === 0) {
       return;
     }
 
-    if (scheduleableCampaigns.length === 0) {
-      return;
-    }
-
-    const isSelectedCampaignAvailable = selectedCampaignId
-      ? scheduleableCampaigns.some((campaign) => campaign.id === selectedCampaignId)
-      : false;
+    const isSelectedCampaignAvailable =
+      selectedCampaignIdNumber !== undefined
+        ? scheduleableCampaigns.some((campaign) => Number(campaign.id) === selectedCampaignIdNumber)
+        : false;
 
     if (isSelectedCampaignAvailable) {
       return;
@@ -168,35 +186,47 @@ export default function Sorteios() {
       return;
     }
 
+    const preferredCampaignId = String(preferredCampaign.id);
+
     setSelectedCampaignId((current) => {
+      const hasCurrentSelection = current
+        ? scheduleableCampaigns.some((campaign) => String(campaign.id) === current)
+        : false;
+      const shouldReplace =
+        !hasCurrentSelection ||
+        (activeCampaignIdString !== undefined && current !== activeCampaignIdString);
+
+      return shouldReplace ? preferredCampaignId : current;
+    });
+
+    setSelectedScheduleCampaignId((current) => {
       const shouldReplace =
         !current ||
-        !scheduleableCampaigns.some((campaign) => campaign.id === current) ||
-        (activeCampaign && current !== activeCampaign.id);
-
-      return shouldReplace ? preferredCampaign.id : current;
-    });
-    setSelectedScheduleCampaignId((current) => {
-      const shouldReplace = !current || (activeCampaign && current !== activeCampaign.id);
-      return shouldReplace ? preferredCampaign.id : current;
+        (activeCampaignIdString !== undefined && current !== activeCampaignIdString);
+      return shouldReplace ? preferredCampaignId : current;
     });
 
-    if (urlCampaignId !== preferredCampaign.id) {
+    if (urlCampaignId !== preferredCampaignId) {
       const params = new URLSearchParams(searchParamsString);
-      params.set('campanhaId', preferredCampaign.id);
+      params.set('campanhaId', preferredCampaignId);
       setSearchParams(params, { replace: true });
     }
   }, [
     campaignsLoading,
     scheduleableCampaigns,
     activeCampaign,
+    activeCampaignIdString,
+    selectedCampaignIdNumber,
     urlCampaignId,
     searchParamsString,
     setSearchParams,
   ]);
 
   const hasCampaigns = scheduleableCampaigns.length > 0;
-  const selectedCampaign = campaigns.find((c) => c.id === selectedCampaignId);
+  const selectedCampaign =
+    selectedCampaignIdNumber !== undefined
+      ? campaigns.find((c) => Number(c.id) === selectedCampaignIdNumber)
+      : undefined;
   const selectedCampaignStatus = selectedCampaign
     ? getCampaignStatus(selectedCampaign.data_inicio, selectedCampaign.data_fim)
     : undefined;
@@ -210,19 +240,19 @@ export default function Sorteios() {
     sorteios: {
       id: string;
       data_sorteio: string;
-      campanha_id: string | null;
+      campanha_id: number | null;
       campanha: { id: string; Nome: string } | null;
     }[];
   }>(['next-sorteio'], GET_NEXT_SORTEIO);
   const nextSorteio = nextSorteioData?.sorteios[0];
 
-  const cuponsQueryEnabled = Boolean(selectedCampaignId);
+  const cuponsQueryEnabled = selectedCampaignIdNumber !== undefined;
 
   // Query para buscar cupons da campanha selecionada
   const { data: cuponsData, isLoading: cuponsLoading } = useGraphQLQuery<{ cupons: CupomSorteio[] }>(
     ['campanha-cupons', selectedCampaignId ?? ''],
     GET_ALL_CUPONS_FOR_GLOBAL_SORTEIO,
-    selectedCampaignId ? { campanhaId: selectedCampaignId } : undefined,
+    selectedCampaignIdNumber !== undefined ? { campanhaId: selectedCampaignIdNumber } : undefined,
     { enabled: cuponsQueryEnabled }
   );
 
@@ -384,12 +414,13 @@ export default function Sorteios() {
       }
     });
 
-    const newId = (result as { insert_campanha_one?: { id: string } } | undefined)?.insert_campanha_one?.id;
-    if (newId) {
-      setSelectedCampaignId(newId);
-      setSelectedScheduleCampaignId(newId);
+    const newId = (result as { insert_campanha_one?: { id: number | string } } | undefined)?.insert_campanha_one?.id;
+    if (newId !== undefined && newId !== null) {
+      const newIdString = String(newId);
+      setSelectedCampaignId(newIdString);
+      setSelectedScheduleCampaignId(newIdString);
       const params = new URLSearchParams(searchParamsString);
-      params.set('campanhaId', newId);
+      params.set('campanhaId', newIdString);
       setSearchParams(params, { replace: true });
     }
   };
@@ -405,16 +436,15 @@ export default function Sorteios() {
     date.setHours(hours);
     date.setMinutes(minutes);
 
-    const campanhaIdAsNumber = Number(selectedScheduleCampaignId);
-    if (Number.isNaN(campanhaIdAsNumber)) {
+    if (selectedScheduleCampaignIdNumber === undefined) {
       toast.error('Campanha inválida para o sorteio.');
       return;
     }
 
     if (editingSorteioId) {
-      updateSorteio({ id: editingSorteioId, data: date.toISOString(), campanhaId: campanhaIdAsNumber });
+      updateSorteio({ id: editingSorteioId, data: date.toISOString(), campanhaId: selectedScheduleCampaignIdNumber });
     } else {
-      scheduleSorteio({ id: crypto.randomUUID(), data: date.toISOString(), campanhaId: campanhaIdAsNumber });
+      scheduleSorteio({ id: crypto.randomUUID(), data: date.toISOString(), campanhaId: selectedScheduleCampaignIdNumber });
     }
   };
 
@@ -424,7 +454,9 @@ export default function Sorteios() {
     setSelectedDate(date);
     setSelectedTime(format(date, 'HH:mm'));
     setEditingSorteioId(nextSorteio.id);
-    setSelectedScheduleCampaignId(nextSorteio.campanha_id ?? selectedCampaignId ?? undefined);
+    setSelectedScheduleCampaignId(
+      nextSorteio.campanha_id ? String(nextSorteio.campanha_id) : selectedCampaignId ?? undefined
+    );
     setShowScheduleModal(true);
   };
 
@@ -555,16 +587,16 @@ export default function Sorteios() {
     if (!winner || !cupomSorteadoId || !numeroDigitado) return;
     
     // Validar se há campanha selecionada
-    if (!selectedCampaignId) {
+    if (selectedCampaignIdNumber === undefined) {
       toast.error("Erro: Nenhuma campanha selecionada");
       return;
     }
-    
-    console.log('🔍 Salvando ganhador:', { 
-      cupomId: cupomSorteadoId, 
+
+    console.log('🔍 Salvando ganhador:', {
+      cupomId: cupomSorteadoId,
       numeroSorteado: numeroDigitado,
       winner,
-      campanhaId: selectedCampaignId
+      campanhaId: selectedCampaignIdNumber
     });
     
     // Encontrar o cupom específico que ganhou
@@ -579,7 +611,7 @@ export default function Sorteios() {
       cliente_id: cupomGanhador.cliente.id,
       numero_sorteado: cupomGanhador.numero_sorte,  // Usa numero_sorte do cupom vencedor
       numero_digitado: numeroDigitado,
-      campanha_id: selectedCampaignId
+      campanha_id: selectedCampaignIdNumber
     });
     
     // Salvar o ganhador na tabela sorteios (usa numero_sorte como numero_sorteado)
@@ -588,7 +620,7 @@ export default function Sorteios() {
       data_sorteio: new Date().toISOString(),
       ganhador_id: cupomGanhador.cliente.id,
       cliente_id: cupomGanhador.cliente.id,
-      campanha_id: parseInt(selectedCampaignId)
+      campanha_id: selectedCampaignIdNumber
     });
     
     // Remover todos os cupons do cliente dos próximos sorteios
