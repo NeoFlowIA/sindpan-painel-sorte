@@ -300,24 +300,24 @@ export default function Sorteios() {
   console.log('🔍 Loading state:', cuponsLoading);
 
   // Converter cupons para formato de participantes
-  const participants = (cuponsData?.cupons || [])
-    .filter(cupom => 
-      cupom && 
-      cupom.cliente && 
-      cupom.cliente.padaria && 
-      cupom.cliente.nome && 
-      cupom.cliente.cpf &&
-      cupom.numero_sorte
-    ) // Filtrar cupons com dados completos
-    .map(cupom => ({
-      name: cupom.cliente.nome || 'Nome não informado',
-      cpf: `***${(cupom.cliente.cpf || '').slice(-3)}`,
-      bakery: cupom.cliente.padaria.nome || 'Padaria não informada',
-      answer: cupom.cliente.resposta_pergunta || null,
-      numero_sorte: cupom.numero_sorte || '00000',
-      valor_compra: cupom.valor_compra || 0,
-      data_compra: cupom.data_compra || new Date().toISOString()
-    }));
+  const participants = useMemo(
+    () =>
+      (cuponsData?.cupons || []).map((cupom) => {
+        const rawCpf = cupom?.cliente?.cpf ?? '';
+        const maskedCpf = rawCpf ? `***${rawCpf.slice(-3)}` : 'CPF não informado';
+
+        return {
+          name: cupom?.cliente?.nome || 'Nome não informado',
+          cpf: maskedCpf,
+          bakery: cupom?.cliente?.padaria?.nome || 'Padaria não informada',
+          answer: cupom?.cliente?.resposta_pergunta || null,
+          numero_sorte: cupom?.numero_sorte || '00000',
+          valor_compra: Number(cupom?.valor_compra) || 0,
+          data_compra: cupom?.data_compra || new Date().toISOString(),
+        } satisfies Participant;
+      }),
+    [cuponsData?.cupons]
+  );
 
   const { mutate: scheduleSorteio, isPending: isScheduling } = useGraphQLMutation(SCHEDULE_SORTEIO, {
     invalidateQueries: [['next-sorteio']],
