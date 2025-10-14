@@ -9,10 +9,11 @@ export interface User {
   bakery_name: string;
   role: 'admin' | 'bakery';
   padarias_id?: string; // UUID da padaria
+  password_hash?: string;
   padarias?: {
     nome: string;
     id: string;
-  };
+  } | null;
 }
 
 export interface UserResponse {

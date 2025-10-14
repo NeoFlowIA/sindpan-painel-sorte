@@ -205,7 +205,11 @@ export const GET_USER = `
       bakery_name
       role
       padarias_id
-      cnpj
+      password_hash
+      padarias {
+        id
+        nome
+      }
     }
   }
 `;
@@ -220,6 +224,11 @@ export const GET_USER_BY_EMAIL_WITH_PADARIA = `
       role
       padarias_id
       cnpj
+      password_hash
+      padarias {
+        id
+        nome
+      }
     }
   }
 `;
@@ -234,7 +243,53 @@ export const GET_USERS = `
       bakery_name
       role
       padarias_id
+      password_hash
+      padarias {
+        id
+        nome
+      }
+    }
+  }
+`;
+
+export const GET_PADARIA_BY_CNPJ = `
+  query GetPadariaByCnpj($cnpj: String!) {
+    padarias(where: {cnpj: {_eq: $cnpj}}, limit: 1) {
+      id
+      nome
       cnpj
+      status
+    }
+  }
+`;
+
+export const UPSERT_PADARIA_USER = `
+  mutation UpsertPadariaUser(
+    $cnpj: String!
+    $padarias_id: uuid!
+    $password_hash: String!
+    $bakery_name: String!
+  ) {
+    insert_users_one(
+      object: {
+        cnpj: $cnpj
+        padarias_id: $padarias_id
+        role: "bakery"
+        password_hash: $password_hash
+        bakery_name: $bakery_name
+      }
+      on_conflict: {
+        constraint: users_cnpj_key
+        update_columns: [padarias_id, password_hash, role, bakery_name]
+      }
+    ) {
+      id
+      email
+      cnpj
+      bakery_name
+      role
+      padarias_id
+      password_hash
     }
   }
 `;

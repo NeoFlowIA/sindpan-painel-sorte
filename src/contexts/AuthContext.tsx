@@ -1,8 +1,10 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { sindpanAuthApi, User as SindpanUser, SindpanApiError, LoginData, RegisterData } from '@/services/sindpanAuthApi';
+import bcrypt from 'bcryptjs';
+import { sindpanAuthApi, User as SindpanUser } from '@/services/sindpanAuthApi';
 import { useUser } from '@/hooks/useUsers';
 import { graphqlClient } from '@/lib/graphql-client';
 import { toast } from 'sonner';
+import { GET_PADARIA_BY_CNPJ, UPSERT_PADARIA_USER } from '@/graphql/queries';
 
 interface User {
   id: string;
@@ -14,7 +16,7 @@ interface User {
   padarias?: {
     nome: string;
     id: string;
-  };
+  } | null;
 }
 
 interface AuthContextType {
@@ -25,6 +27,7 @@ interface AuthContextType {
   isBakery: boolean;
   login: (identifier: string, password: string) => Promise<void>;
   register: (identifier: string, password: string, bakeryName: string) => Promise<void>;
+  setupBakeryAccess: (params: { cnpj: string; password: string }) => Promise<void>;
   logout: () => void;
   refreshProfile: () => Promise<void>;
 }
@@ -52,6 +55,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const isAdmin = user?.role === 'admin';
   const isBakery = user?.role === 'bakery';
 
+  const normalizeCnpj = (value: string) => value.replace(/\D/g, '');
+  const createSessionToken = (payload: Omit<SindpanUser, 'role'> & { role: string }) => {
+    return btoa(
+      JSON.stringify({
+        userId: payload.id,
+        email: payload.email,
+        role: payload.role,
+        exp: Date.now() + 24 * 60 * 60 * 1000,
+      })
+    );
+  };
+
   // Buscar dados do usuário no Hasura quando temos email ou CNPJ
   const { data: hasuraUserData, isLoading: hasuraLoading } = useUser(
     { email: sindpanUser?.email, cnpj: sindpanUser?.cnpj },
@@ -73,7 +88,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         bakery_name: sindpanUser.bakery_name,
         role: hasuraUser.role,
         padarias_id: hasuraUser.padarias_id, // UUID da padaria vinculada
-        padarias: undefined // Temporariamente undefined até confirmar relacionamento
+        padarias: hasuraUser.padarias ?? null
       };
       
       console.log('🔍 AuthContext - Combined User (Com padarias_id da FK):', combinedUser);
@@ -116,6 +131,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
             cnpj: string;
             bakery_name: string;
             role: string;
+            padarias_id?: string;
+            padarias?: { id: string; nome: string } | null;
           }>;
         }>(
           `
@@ -126,6 +143,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
               cnpj
               bakery_name
               role
+              padarias_id
+              padarias {
+                id
+                nome
+              }
             }
           }
           `,
@@ -167,22 +189,24 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const login = async (identifier: string, password: string) => {
     try {
       setIsLoading(true);
-      
+
       console.log('🔍 Login attempt with identifier:', identifier);
 
       // Buscar usuário diretamente no Hasura
       // Determinar se é email ou CNPJ e montar query apropriada
       const isEmail = identifier.includes('@');
-      
+      const normalizedIdentifier = isEmail ? identifier : normalizeCnpj(identifier);
+
       const hasuraResponse = await graphqlClient.query<{
         users: Array<{
           id: string;
-          email: string;
-          cnpj: string;
-          bakery_name: string;
+          email: string | null;
+          cnpj: string | null;
+          bakery_name: string | null;
           role: string;
-          padarias_id: string;
-          password_hash: string;
+          padarias_id: string | null;
+          password_hash: string | null;
+          padarias?: { id: string; nome: string } | null;
         }>;
       }>(
         isEmail
@@ -196,6 +220,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
                 role
                 padarias_id
                 password_hash
+                padarias {
+                  id
+                  nome
+                }
               }
             }
             `
@@ -209,16 +237,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
                 role
                 padarias_id
                 password_hash
+                padarias {
+                  id
+                  nome
+                }
               }
             }
             `,
-        isEmail ? { email: identifier } : { cnpj: identifier }
+        isEmail ? { email: normalizedIdentifier } : { cnpj: normalizedIdentifier }
       );
 
       console.log('🔍 Hasura response:', hasuraResponse);
 
       const hasuraUser = hasuraResponse.users?.[0];
-      
+
       if (!hasuraUser) {
         toast.error('Erro no login', {
           description: 'Usuário não encontrado',
@@ -226,36 +258,53 @@ export function AuthProvider({ children }: AuthProviderProps) {
         throw new Error('Usuário não encontrado');
       }
 
-      // TODO: Implementar validação real de senha com bcrypt
-      // Por enquanto, aceita qualquer senha para desenvolvimento
-      console.log('⚠️ ATENÇÃO: Validação de senha desabilitada (desenvolvimento)');
+      if (!hasuraUser.password_hash) {
+        toast.error('Erro no login', {
+          description: 'Defina uma senha no primeiro acesso antes de entrar.',
+        });
+        throw new Error('Senha não configurada');
+      }
+
+      const isPasswordValid = await bcrypt.compare(password, hasuraUser.password_hash);
+
+      if (!isPasswordValid) {
+        toast.error('Erro no login', {
+          description: 'CNPJ ou senha inválidos',
+        });
+        throw new Error('Senha inválida');
+      }
+
+      if (!hasuraUser.padarias_id) {
+        toast.error('Erro no login', {
+          description: 'Padaria ainda não vinculada. Conclua o primeiro acesso.',
+        });
+        throw new Error('Padaria não vinculada');
+      }
 
       // Criar token JWT simples (mock para desenvolvimento)
-      const mockToken = btoa(JSON.stringify({
-        userId: hasuraUser.id,
-        email: hasuraUser.email,
+      const mockSindpanUser: SindpanUser = {
+        id: hasuraUser.id,
+        email: hasuraUser.email || undefined,
+        cnpj: hasuraUser.cnpj || undefined,
+        bakery_name: hasuraUser.bakery_name || undefined,
         role: hasuraUser.role,
-        exp: Date.now() + (24 * 60 * 60 * 1000) // 24 horas
-      }));
+      };
+
+      const mockToken = createSessionToken({
+        id: mockSindpanUser.id,
+        email: mockSindpanUser.email,
+        role: mockSindpanUser.role,
+      });
 
       // Armazenar token
       sindpanAuthApi.logout(); // Limpa token antigo
       localStorage.setItem('sindpan_access_token', mockToken);
 
-      // Criar objeto SindpanUser
-      const mockSindpanUser: SindpanUser = {
-        id: hasuraUser.id,
-        email: hasuraUser.email,
-        cnpj: hasuraUser.cnpj,
-        bakery_name: hasuraUser.bakery_name,
-        role: hasuraUser.role,
-      };
-
       setSindpanUser(mockSindpanUser);
 
       toast.success('Login realizado com sucesso', {
-        description: hasuraUser.role === 'admin' 
-          ? 'Bem-vindo ao painel administrativo!' 
+        description: hasuraUser.role === 'admin'
+          ? 'Bem-vindo ao painel administrativo!'
           : 'Carregando seus dados...',
       });
 
@@ -277,6 +326,105 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
+  const setupBakeryAccess = async ({ cnpj, password }: { cnpj: string; password: string }) => {
+    try {
+      setIsLoading(true);
+
+      const sanitizedCnpj = normalizeCnpj(cnpj);
+
+      if (sanitizedCnpj.length !== 14) {
+        throw new Error('Informe um CNPJ válido com 14 dígitos');
+      }
+
+      const padariaResponse = await graphqlClient.query<{
+        padarias: Array<{ id: string; nome: string; cnpj: string; status: string }>;
+      }>(GET_PADARIA_BY_CNPJ, { cnpj: sanitizedCnpj });
+
+      const padaria = padariaResponse.padarias?.[0];
+
+      if (!padaria) {
+        throw new Error('Padaria não encontrada. Verifique o CNPJ informado.');
+      }
+
+      if (padaria.status && padaria.status !== 'ativa') {
+        throw new Error('Padaria ainda não está ativa. Entre em contato com o SINDPAN.');
+      }
+
+      const passwordHash = await bcrypt.hash(password, 10);
+
+      const upsertResponse = await graphqlClient.mutate<{
+        insert_users_one: {
+          id: string;
+          cnpj: string;
+          bakery_name: string | null;
+          role: string;
+          padarias_id: string;
+          password_hash: string;
+        };
+      }>(UPSERT_PADARIA_USER, {
+        cnpj: sanitizedCnpj,
+        padarias_id: padaria.id,
+        password_hash: passwordHash,
+        bakery_name: padaria.nome,
+      });
+
+      const upsertedUser = upsertResponse.insert_users_one;
+
+      if (!upsertedUser) {
+        throw new Error('Não foi possível atualizar o usuário da padaria.');
+      }
+
+      const mockSindpanUser: SindpanUser = {
+        id: upsertedUser.id,
+        email: upsertedUser.email || undefined,
+        cnpj: sanitizedCnpj,
+        bakery_name: upsertedUser.bakery_name || padaria.nome,
+        role: upsertedUser.role,
+      };
+
+      const mockToken = createSessionToken({
+        id: mockSindpanUser.id,
+        email: mockSindpanUser.email,
+        role: mockSindpanUser.role,
+      });
+
+      sindpanAuthApi.logout();
+      localStorage.setItem('sindpan_access_token', mockToken);
+      setSindpanUser(mockSindpanUser);
+      setUser({
+        id: mockSindpanUser.id,
+        email: mockSindpanUser.email,
+        cnpj: mockSindpanUser.cnpj,
+        bakery_name: mockSindpanUser.bakery_name,
+        role: mockSindpanUser.role as 'admin' | 'bakery',
+        padarias_id: upsertedUser.padarias_id,
+        padarias: {
+          id: padaria.id,
+          nome: padaria.nome,
+        },
+      });
+
+      toast.success('Senha definida com sucesso', {
+        description: 'Agora você pode acessar o portal com o seu CNPJ e senha.',
+      });
+    } catch (error) {
+      console.error('Primeiro acesso falhou:', error);
+
+      let errorMessage = 'Não foi possível concluir o primeiro acesso';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+
+      toast.error('Erro no primeiro acesso', {
+        description: errorMessage,
+      });
+
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const register = async (identifier: string, password: string, bakeryName: string) => {
     try {
       setIsLoading(true);
@@ -285,7 +433,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       // Verificar se usuário já existe
       const isEmail = identifier.includes('@');
-      
+
       const checkResponse = await graphqlClient.query<{
         users: Array<{ id: string }>;
       }>(
@@ -304,7 +452,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
               }
             }
             `,
-        isEmail ? { email: identifier } : { cnpj: identifier }
+        isEmail ? { email: identifier } : { cnpj: normalizeCnpj(identifier) }
       );
 
       if (checkResponse.users && checkResponse.users.length > 0) {
@@ -314,9 +462,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         throw new Error('Identificador já está cadastrado');
       }
 
-      // Criar novo usuário no Hasura
-      // TODO: Hash real da senha com bcrypt
-      const passwordHash = btoa(password); // Mock - NÃO usar em produção!
+      const passwordHash = await bcrypt.hash(password, 10);
 
       const insertResponse = await graphqlClient.mutate<{
         insert_users_one: {
@@ -367,7 +513,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
               password_hash: passwordHash
             }
           : {
-              cnpj: identifier,
+              cnpj: normalizeCnpj(identifier),
               bakery_name: bakeryName,
               password_hash: passwordHash
             }
@@ -379,18 +525,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const mockSindpanUser: SindpanUser = {
         id: newUser.id,
         email: newUser.email || undefined,
-        cnpj: newUser.cnpj || undefined,
+        cnpj: isEmail ? undefined : normalizeCnpj(identifier),
         bakery_name: newUser.bakery_name,
         role: newUser.role,
       };
 
       // Criar token
-      const mockToken = btoa(JSON.stringify({
-        userId: newUser.id,
-        email: newUser.email,
-        role: newUser.role,
-        exp: Date.now() + (24 * 60 * 60 * 1000)
-      }));
+      const mockToken = createSessionToken({
+        id: mockSindpanUser.id,
+        email: mockSindpanUser.email,
+        role: mockSindpanUser.role,
+      });
 
       localStorage.setItem('sindpan_access_token', mockToken);
       setSindpanUser(mockSindpanUser);
@@ -438,6 +583,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     isBakery,
     login,
     register,
+    setupBakeryAccess,
     logout,
     refreshProfile,
   };
