@@ -1139,8 +1139,10 @@ export const GET_CLIENTES_WITH_ACTIVE_CUPONS_BY_CAMPANHA = `
     clientes(
       where: {
         cupons_aggregate: {
-          where: {status: {_eq: "ativo"}},
-          count: {predicate: {_gt: 0}}
+          count: {
+            filter: {status: {_eq: "ativo"}},
+            predicate: {_gt: 0}
+          }
         }
       }
       order_by: {nome: asc}
