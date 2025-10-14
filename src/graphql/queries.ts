@@ -1135,12 +1135,12 @@ export const GET_ADMIN_DASHBOARD_METRICS = `
 
 // Query para buscar todos os clientes que possuem cupons ativos na campanha selecionada
 export const GET_CLIENTES_WITH_ACTIVE_CUPONS_BY_CAMPANHA = `
-  query GetClientesWithActiveCuponsByCampanha($campanhaId: Int!) {
+  query GetClientesWithActiveCuponsByCampanha {
     clientes(
       where: {
-        cupons: {
-          campanha_id: {_eq: $campanhaId},
-          status: {_eq: "ativo"}
+        cupons_aggregate: {
+          where: {status: {_eq: "ativo"}},
+          count: {predicate: {_gt: 0}}
         }
       }
       order_by: {nome: asc}
@@ -1154,11 +1154,13 @@ export const GET_CLIENTES_WITH_ACTIVE_CUPONS_BY_CAMPANHA = `
         id
         nome
       }
-      cupons(
-        where: {
-          campanha_id: {_eq: $campanhaId},
-          status: {_eq: "ativo"}
+      cupons_aggregate(where: {status: {_eq: "ativo"}}) {
+        aggregate {
+          count
         }
+      }
+      cupons(
+        where: {status: {_eq: "ativo"}}
         order_by: {data_compra: desc}
       ) {
         id

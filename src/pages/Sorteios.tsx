@@ -51,6 +51,11 @@ interface ClienteWithCupons {
     id: string;
     nome: string;
   } | null;
+  cupons_aggregate: {
+    aggregate: {
+      count: number | null;
+    } | null;
+  } | null;
   cupons: Array<{
     id: string;
     numero_sorte: string;
@@ -269,17 +274,13 @@ export default function Sorteios() {
   }>(['next-sorteio'], GET_NEXT_SORTEIO);
   const nextSorteio = nextSorteioData?.sorteios[0];
 
-  const cuponsQueryEnabled = selectedCampaignIdNumber !== undefined;
-
   // Query para buscar cupons da campanha selecionada
   const {
     data: clientesCampanhaData,
     isLoading: participantesLoading,
   } = useGraphQLQuery<{ clientes: ClienteWithCupons[] }>(
-    ['campanha-participantes', selectedCampaignId ?? ''],
-    GET_CLIENTES_WITH_ACTIVE_CUPONS_BY_CAMPANHA,
-    selectedCampaignIdNumber !== undefined ? { campanhaId: selectedCampaignIdNumber } : undefined,
-    { enabled: cuponsQueryEnabled }
+    ['campanha-participantes'],
+    GET_CLIENTES_WITH_ACTIVE_CUPONS_BY_CAMPANHA
   );
 
   // Query para buscar ganhadores salvos (da tabela sorteios)
