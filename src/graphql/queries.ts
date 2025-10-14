@@ -270,7 +270,7 @@ export const UPSERT_PADARIA_USER = `
     $padarias_id: uuid!
     $password_hash: String!
     $bakery_name: String!
-    $email: String!
+    $email: String
   ) {
     insert_users_one(
       object: {
