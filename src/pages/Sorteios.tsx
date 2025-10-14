@@ -9,7 +9,7 @@ import { Calendar as DatePicker } from "@/components/ui/calendar";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { useGraphQLQuery, useGraphQLMutation } from "@/hooks/useGraphQL";
-import { GET_NEXT_SORTEIO, SCHEDULE_SORTEIO, UPDATE_SORTEIO, GET_ALL_CUPONS_FOR_GLOBAL_SORTEIO, GET_GANHADORES_COM_DADOS_COMPLETOS, SALVAR_GANHADOR, MARCAR_CUPOM_SORTEADO, REATIVAR_CUPOM, GET_PADARIAS, LIST_CAMPANHAS, CREATE_CAMPANHA, DEACTIVATE_CAMPANHAS } from "@/graphql/queries";
+import { GET_NEXT_SORTEIO, SCHEDULE_SORTEIO, UPDATE_SORTEIO, GET_CLIENTES_WITH_ACTIVE_CUPONS_BY_CAMPANHA, GET_GANHADORES_COM_DADOS_COMPLETOS, SALVAR_GANHADOR, MARCAR_CUPOM_SORTEADO, REATIVAR_CUPOM, GET_PADARIAS, LIST_CAMPANHAS, CREATE_CAMPANHA, DEACTIVATE_CAMPANHAS } from "@/graphql/queries";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { Trophy, Calendar as CalendarIcon, X, Save, RotateCcw, Sparkles, Clock, Pencil, PlusCircle } from "lucide-react";
@@ -26,17 +26,40 @@ interface CupomSorteio {
   valor_compra: number;
   data_compra: string;
   status: string;
+  campanha_id: number;
+  padaria_id?: string | null;
   cliente: {
     id: string;
-    nome: string;
-    cpf: string;
-    whatsapp: string;
-    resposta_pergunta: string;
+    nome: string | null;
+    cpf: string | null;
+    whatsapp: string | null;
+    resposta_pergunta: string | null;
     padaria: {
       id: string;
       nome: string;
-    };
+    } | null;
   };
+}
+
+interface ClienteWithCupons {
+  id: string;
+  nome: string | null;
+  cpf: string | null;
+  whatsapp: string | null;
+  resposta_pergunta: string | null;
+  padaria: {
+    id: string;
+    nome: string;
+  } | null;
+  cupons: Array<{
+    id: string;
+    numero_sorte: string;
+    valor_compra: string | number | null;
+    data_compra: string;
+    status: string;
+    campanha_id: number;
+    padaria_id?: string | null;
+  }>;
 }
 
 interface Participant {
@@ -249,9 +272,12 @@ export default function Sorteios() {
   const cuponsQueryEnabled = selectedCampaignIdNumber !== undefined;
 
   // Query para buscar cupons da campanha selecionada
-  const { data: cuponsData, isLoading: cuponsLoading } = useGraphQLQuery<{ cupons: CupomSorteio[] }>(
-    ['campanha-cupons', selectedCampaignId ?? ''],
-    GET_ALL_CUPONS_FOR_GLOBAL_SORTEIO,
+  const {
+    data: clientesCampanhaData,
+    isLoading: participantesLoading,
+  } = useGraphQLQuery<{ clientes: ClienteWithCupons[] }>(
+    ['campanha-participantes', selectedCampaignId ?? ''],
+    GET_CLIENTES_WITH_ACTIVE_CUPONS_BY_CAMPANHA,
     selectedCampaignIdNumber !== undefined ? { campanhaId: selectedCampaignIdNumber } : undefined,
     { enabled: cuponsQueryEnabled }
   );
@@ -295,14 +321,40 @@ export default function Sorteios() {
     GET_PADARIAS
   );
 
+  const campaignCoupons = useMemo<CupomSorteio[]>(() => {
+    const clientes = clientesCampanhaData?.clientes ?? [];
+
+    return clientes.flatMap((cliente) =>
+      (cliente.cupons || []).map((cupom) => ({
+        id: cupom.id,
+        numero_sorte: cupom.numero_sorte,
+        valor_compra: Number(cupom.valor_compra ?? 0),
+        data_compra: cupom.data_compra,
+        status: cupom.status,
+        campanha_id: cupom.campanha_id,
+        padaria_id: cupom.padaria_id ?? null,
+        cliente: {
+          id: cliente.id,
+          nome: cliente.nome ?? null,
+          cpf: cliente.cpf ?? null,
+          whatsapp: cliente.whatsapp ?? null,
+          resposta_pergunta: cliente.resposta_pergunta ?? null,
+          padaria: cliente.padaria
+            ? { id: cliente.padaria.id, nome: cliente.padaria.nome }
+            : null,
+        },
+      }))
+    );
+  }, [clientesCampanhaData?.clientes]);
+
   // Debug logs
-  console.log('🔍 Cupons carregados:', cuponsData?.cupons);
-  console.log('🔍 Loading state:', cuponsLoading);
+  console.log('🔍 Cupons carregados:', campaignCoupons);
+  console.log('🔍 Loading state:', participantesLoading);
 
   // Converter cupons para formato de participantes
   const participants = useMemo(
     () =>
-      (cuponsData?.cupons || []).map((cupom) => {
+      campaignCoupons.map((cupom) => {
         const rawCpf = cupom?.cliente?.cpf ?? '';
         const maskedCpf = rawCpf ? `***${rawCpf.slice(-3)}` : 'CPF não informado';
 
@@ -316,7 +368,7 @@ export default function Sorteios() {
           data_compra: cupom?.data_compra || new Date().toISOString(),
         } satisfies Participant;
       }),
-    [cuponsData?.cupons]
+    [campaignCoupons]
   );
 
   const { mutate: scheduleSorteio, isPending: isScheduling } = useGraphQLMutation(SCHEDULE_SORTEIO, {
@@ -351,7 +403,7 @@ export default function Sorteios() {
 
   // Mutation para salvar ganhador (cupom específico + dados completos)
   const { mutate: salvarGanhador, isPending: isMarcandoSorteado } = useGraphQLMutation(SALVAR_GANHADOR, {
-    invalidateQueries: [['campanha-cupons'], ['ganhadores-salvos']],
+    invalidateQueries: [['campanha-participantes'], ['ganhadores-salvos']],
     onSuccess: (data) => {
       console.log('🔍 Ganhador salvo com sucesso:', data);
       toast.success('Ganhador salvo com todos os dados!');
@@ -365,7 +417,7 @@ export default function Sorteios() {
 
   // Mutation para reativar cupom
   const { mutate: reativarCupom, isPending: isReativando } = useGraphQLMutation(REATIVAR_CUPOM, {
-    invalidateQueries: [['campanha-cupons'], ['ganhadores-salvos']],
+    invalidateQueries: [['campanha-participantes'], ['ganhadores-salvos']],
     onSuccess: () => {
       toast.success('Cliente reativado! Voltou para os sorteios.');
       // Força atualização da lista de ganhadores
@@ -564,10 +616,16 @@ export default function Sorteios() {
         }
         
         // Encontrar o cupom original para salvar o ID
-        const cupomOriginal = (cuponsData?.cupons || []).find(cupom => 
-          cupom.numero_sorte === winnerParticipant!.numero_sorte &&
-          cupom.cliente.nome === winnerParticipant!.name
-        );
+        const cupomOriginal = campaignCoupons.find((cupom) => {
+          const participanteCpfSuffix = winnerParticipant!.cpf.replace('***', '');
+          const normalizedCpf = cupom.cliente?.cpf ?? '';
+
+          return (
+            cupom.numero_sorte === winnerParticipant!.numero_sorte &&
+            (normalizedCpf.endsWith(participanteCpfSuffix) ||
+              (cupom.cliente?.nome || 'Nome não informado') === winnerParticipant!.name)
+          );
+        });
         
         setFinalNumber(winnerParticipant.numero_sorte);
         setCurrentNumber(winnerParticipant.numero_sorte);
@@ -600,7 +658,7 @@ export default function Sorteios() {
     });
     
     // Encontrar o cupom específico que ganhou
-    const cupomGanhador = cuponsData?.cupons.find(cupom => cupom.id === cupomSorteadoId);
+    const cupomGanhador = campaignCoupons.find(cupom => cupom.id === cupomSorteadoId);
     if (!cupomGanhador || !cupomGanhador.cliente?.id) {
       toast.error("Erro: Cupom ou cliente não encontrado");
       return;
@@ -823,7 +881,7 @@ export default function Sorteios() {
               </Alert>
             )}
 
-            {cuponsLoading ? (
+            {participantesLoading ? (
               <div className="flex items-center justify-center py-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
               </div>

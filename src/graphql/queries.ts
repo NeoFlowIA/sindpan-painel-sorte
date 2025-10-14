@@ -1133,32 +1133,41 @@ export const GET_ADMIN_DASHBOARD_METRICS = `
   }
 `;
 
-// Query para buscar todos os cupons ativos para sorteio global
-export const GET_ALL_CUPONS_FOR_GLOBAL_SORTEIO = `
-  query GetAllCuponsForGlobalSorteio($campanhaId: Int!) {
-    cupons(
+// Query para buscar todos os clientes que possuem cupons ativos na campanha selecionada
+export const GET_CLIENTES_WITH_ACTIVE_CUPONS_BY_CAMPANHA = `
+  query GetClientesWithActiveCuponsByCampanha($campanhaId: Int!) {
+    clientes(
       where: {
-        status: {_eq: "ativo"},
-        campanha_id: {_eq: $campanhaId}
+        cupons: {
+          campanha_id: {_eq: $campanhaId},
+          status: {_eq: "ativo"}
+        }
       }
-      order_by: {data_compra: desc}
+      order_by: {nome: asc}
     ) {
       id
-      numero_sorte
-      valor_compra
-      data_compra
-      status
-      campanha_id
-      cliente {
+      nome
+      cpf
+      whatsapp
+      resposta_pergunta
+      padaria {
         id
         nome
-        cpf
-        whatsapp
-        resposta_pergunta
-        padaria {
-          id
-          nome
+      }
+      cupons(
+        where: {
+          campanha_id: {_eq: $campanhaId},
+          status: {_eq: "ativo"}
         }
+        order_by: {data_compra: desc}
+      ) {
+        id
+        numero_sorte
+        valor_compra
+        data_compra
+        status
+        campanha_id
+        padaria_id
       }
     }
   }
