@@ -9,7 +9,9 @@ import { Search, User, Calculator, Receipt } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { ClienteInlineForm } from "./ClienteInlineForm";
 import { useAuth } from "@/contexts/AuthContext";
-import { useCreateCupom, usePadariaTicketMedio, useClienteSaldoDesconto, useResetClienteDesconto, gerarNumeroSorte } from "@/hooks/useCupons";
+import { useCreateCupom, usePadariaTicketMedio, useClienteSaldoDesconto, useClienteSaldoPorPadaria, useResetClienteDesconto, useAlocarCupons, gerarNumeroSorte } from "@/hooks/useCupons";
+import { useUpdateCliente } from "@/hooks/useClientes";
+import { useUpsertSaldoClientePadaria, saldoUtils } from "@/hooks/useSaldosPadarias";
 import { useGraphQLQuery } from "@/hooks/useGraphQL";
 import { GET_CLIENTE_BY_CPF_OR_WHATSAPP } from "@/graphql/queries";
 import { formatCPF, formatPhone, maskCPF } from "@/utils/formatters";
@@ -45,11 +47,42 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
   const { toast } = useToast();
   const { user } = useAuth();
 
+  // Reset automático do modal quando fechado
+  useEffect(() => {
+    if (!open) {
+      // Reset todos os estados quando o modal é fechado
+      setSearchTerm("");
+      setClienteEncontrado(null);
+      setShowClienteForm(false);
+      setValorCompra("");
+      setDataHora("");
+      setStatusCupom('ativo');
+      setIsLoading(false);
+    }
+  }, [open]);
+
   // Hooks para GraphQL
-  const createCupomMutation = useCreateCupom();
   const { data: ticketMedioData } = usePadariaTicketMedio(user?.padarias_id || "");
-  const { data: saldoDescontoData, refetch: refetchSaldoDesconto } = useClienteSaldoDesconto(clienteEncontrado?.id);
-  // const resetClienteDescontoMutation = useResetClienteDesconto(); // Desabilitado temporariamente
+  
+  // Usar saldo específico por padaria ao invés de saldo geral
+  const { data: saldoDescontoData, refetch: refetchSaldoDesconto } = useClienteSaldoPorPadaria(
+    clienteEncontrado?.id, 
+    user?.padarias_id
+  );
+  
+  // Hook para alocar cupons disponíveis
+  const { 
+    cuponsDisponiveis, 
+    alocarCupons, 
+    isLoading: alocarCuponsLoading, 
+    error: alocarCuponsError 
+  } = useAlocarCupons(user?.padarias_id);
+  
+  // Hook para atualizar cliente
+  const updateClienteMutation = useUpdateCliente();
+  
+  // Hook para gerenciar saldos por padaria
+  const upsertSaldoMutation = useUpsertSaldoClientePadaria();
   
   // Query para buscar cliente
   const { data: clienteData, refetch: refetchCliente } = useGraphQLQuery(
@@ -61,17 +94,19 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
 
   const ticketMedio = ticketMedioData?.padarias_by_pk?.ticket_medio || 28.65;
   
-  // Calcular saldo de desconto manualmente somando todos os valores
-  const saldoDescontoAtual = saldoDescontoData?.cupons?.reduce((total, cupom) => {
-    return total + parseFloat(cupom.valor_desconto || "0");
-  }, 0) || 0;
+  // Calcular saldo de desconto - usar apenas o último cupom da padaria (que contém o saldo acumulado)
+  const saldoDescontoAtual = saldoDescontoData?.cupons?.[0]?.valor_desconto 
+    ? parseFloat(saldoDescontoData.cupons[0].valor_desconto) 
+    : 0;
 
   // Debug: Log dos dados para verificar se estão atualizados
-  console.log('🔍 Debug Saldo Desconto:', {
+  console.log('🔍 Debug Saldo Desconto por Padaria:', {
     clienteId: clienteEncontrado?.id,
+    padariaId: user?.padarias_id,
     saldoDescontoData,
     saldoDescontoAtual,
-    cupons: saldoDescontoData?.cupons?.map(c => ({ valor_desconto: c.valor_desconto }))
+    ultimoCupom: saldoDescontoData?.cupons?.[0],
+    totalCupons: saldoDescontoData?.cupons?.length || 0
   });
 
   // Função para obter timestamp no fuso horário de Brasília
@@ -92,6 +127,35 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
     }
   }, [open]);
 
+  // Função para calcular a padaria com mais cupons
+  const calcularPadariaComMaisCupons = (cliente: any) => {
+    if (!cliente.cupons || cliente.cupons.length === 0) return null;
+    
+    const cuponsAtivos = cliente.cupons.filter((cupom: any) => cupom.status === "ativo");
+    if (cuponsAtivos.length === 0) return null;
+    
+    // Agrupar cupons por padaria
+    const cuponsPorPadaria = new Map<string, number>();
+    cuponsAtivos.forEach((cupom: any) => {
+      const padariaId = cupom.padaria_id || cliente.padaria_id;
+      if (padariaId) {
+        cuponsPorPadaria.set(padariaId, (cuponsPorPadaria.get(padariaId) || 0) + 1);
+      }
+    });
+    
+    // Encontrar a padaria com mais cupons
+    let padariaComMaisCupons = null;
+    let maxCupons = 0;
+    
+    cuponsPorPadaria.forEach((quantidade, padariaId) => {
+      if (quantidade > maxCupons) {
+        maxCupons = quantidade;
+        padariaComMaisCupons = padariaId;
+      }
+    });
+    
+    return padariaComMaisCupons;
+  };
 
   const handleSearch = async () => {
     if (!searchTerm.trim()) return;
@@ -102,11 +166,25 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
       
       if (clientes.length > 0) {
         const cliente = clientes[0];
-        setClienteEncontrado({
+        
+        // Calcular padaria com mais cupons automaticamente
+        const padariaComMaisCupons = calcularPadariaComMaisCupons(cliente);
+        const clienteComPadariaAtualizada = {
           ...cliente,
-          saldoAcumulado: "0" // Por enquanto, podemos calcular isso depois se necessário
-        });
+          saldoAcumulado: "0", // Por enquanto, podemos calcular isso depois se necessário
+          padaria_id: padariaComMaisCupons || cliente.padaria_id
+        };
+        
+        setClienteEncontrado(clienteComPadariaAtualizada);
         setShowClienteForm(false);
+        
+        // Mostrar feedback se a vinculação foi alterada
+        if (padariaComMaisCupons && padariaComMaisCupons !== cliente.padaria_id) {
+          toast({
+            title: "Cliente encontrado!",
+            description: `Padaria automaticamente vinculada baseada nos cupons ativos`,
+          });
+        }
       } else {
         setClienteEncontrado(null);
         setShowClienteForm(true);
@@ -133,6 +211,78 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
     const valorTotal = valor + saldoDescontoAtual;
     const cuponsGerados = Math.floor(valorTotal / ticketMedio);
     return valorTotal - (cuponsGerados * ticketMedio);
+  };
+
+  // Função para validar e atualizar padaria do cliente
+  const validarEAtualizarPadaria = async (cliente: any, padariaIdNovosCupons: string) => {
+    console.log("🔍 DEBUG - Iniciando validação de padaria:", {
+      cliente: cliente.nome,
+      padariaIdNovosCupons,
+      padariaIdOriginal: cliente.padaria_id,
+      cupons: cliente.cupons
+    });
+
+    // Calcular cupons atuais por padaria
+    const cuponsAtivos = cliente.cupons?.filter((cupom: any) => cupom.status === "ativo") || [];
+    const cuponsPorPadaria = new Map<string, number>();
+    
+    cuponsAtivos.forEach((cupom: any) => {
+      const padariaId = cupom.padaria_id || cliente.padaria_id;
+      if (padariaId) {
+        cuponsPorPadaria.set(padariaId, (cuponsPorPadaria.get(padariaId) || 0) + 1);
+      }
+    });
+    
+    // Adicionar os novos cupons que serão criados
+    const cuponsGerados = calcularCupons();
+    const cuponsAtuaisNovaPadaria = cuponsPorPadaria.get(padariaIdNovosCupons) || 0;
+    const cuponsAtuaisPadariaOriginal = cuponsPorPadaria.get(cliente.padaria_id) || 0;
+    
+    const totalCuponsNovaPadaria = cuponsAtuaisNovaPadaria + cuponsGerados;
+    
+    console.log("🔍 DEBUG - Cálculos de validação:", {
+      cuponsAtivos: cuponsAtivos.length,
+      cuponsPorPadaria: Object.fromEntries(cuponsPorPadaria),
+      cuponsGerados,
+      cuponsAtuaisNovaPadaria,
+      cuponsAtuaisPadariaOriginal,
+      totalCuponsNovaPadaria,
+      deveAtualizar: totalCuponsNovaPadaria > cuponsAtuaisPadariaOriginal
+    });
+    
+    // Validação: se a nova padaria terá mais cupons que a original, atualizar no banco
+    if (totalCuponsNovaPadaria > cuponsAtuaisPadariaOriginal) {
+      console.log("✅ DEBUG - Atualizando padaria no banco de dados");
+      try {
+        // Atualizar padaria do cliente no banco
+        await updateClienteMutation.mutateAsync({
+          id: cliente.id,
+          changes: {
+            padaria_id: parseInt(padariaIdNovosCupons)
+          }
+        });
+        
+        console.log("✅ DEBUG - Padaria atualizada com sucesso");
+        toast({
+          title: "Padaria atualizada!",
+          description: "Padaria do cliente foi atualizada no banco de dados baseada na validação dos cupons",
+        });
+        
+        return true;
+      } catch (error) {
+        console.error("❌ DEBUG - Erro ao atualizar padaria do cliente:", error);
+        toast({
+          title: "Aviso",
+          description: "Cupons criados, mas não foi possível atualizar a padaria do cliente",
+          variant: "destructive"
+        });
+        return false;
+      }
+    } else {
+      console.log("ℹ️ DEBUG - Não é necessário atualizar padaria");
+    }
+    
+    return false;
   };
 
   const handleSubmit = async () => {
@@ -169,46 +319,55 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
     setIsLoading(true);
 
      try {
-       // Reset de desconto desabilitado temporariamente
-       // TODO: Implementar reset de desconto quando possível
-       console.log('Reset de desconto desabilitado temporariamente');
+       // Preparar data no fuso horário de Brasília
+       const dataCompra = dataHora ? 
+         new Date(dataHora).toISOString() : 
+         getBrasiliaTimestamp();
 
-       const numerosSorte: string[] = [];
-       const cuponsPromises: Promise<any>[] = [];
-       const novoSaldoDesconto = calcularNovoSaldoDesconto();
+      // Alocar cupons usando o hook
+      const resultado = await alocarCupons(
+        clienteEncontrado.id,
+        cuponsGerados,
+        ticketMedio,
+        valor,
+        saldoDescontoAtual,
+        dataCompra
+      );
 
-      // Criar múltiplos cupons se necessário
-      for (let i = 0; i < cuponsGerados; i++) {
-        const numeroSorte = gerarNumeroSorte();
-        numerosSorte.push(numeroSorte);
-
-        // Preparar data no fuso horário de Brasília
-        const dataCompra = dataHora ? 
-          new Date(dataHora).toISOString() : 
-          getBrasiliaTimestamp();
-
-        const cupomPromise = createCupomMutation.mutateAsync({
-          cupom: {
-            numero_sorte: numeroSorte,
-            valor_compra: String(i === 0 ? valor : 0), // Só o primeiro cupom tem o valor da compra
-            data_compra: dataCompra,
-            status: statusCupom,
-            cliente_id: clienteEncontrado.id,
-            padaria_id: user?.padarias_id, // Adicionar padaria_id obrigatório
-            valor_desconto: String(i === cuponsGerados - 1 ? novoSaldoDesconto : 0), // Só o último cupom tem o saldo restante
-          }
+      // Calcular e salvar saldo por padaria (considerando saldo anterior)
+      const trocoCentavos = saldoUtils.calcularTroco(valor, ticketMedio, saldoDescontoAtual);
+      if (trocoCentavos > 0) {
+        console.log('💰 Calculando saldo por padaria:', {
+          valorCompra: valor,
+          saldoAnterior: saldoDescontoAtual,
+          valorTotal: valor + saldoDescontoAtual,
+          ticketMedio,
+          trocoCentavos,
+          clienteId: clienteEncontrado.id,
+          padariaId: user.padarias_id
         });
 
-        cuponsPromises.push(cupomPromise);
+        try {
+          await upsertSaldoMutation.mutateAsync({
+            cliente_id: clienteEncontrado.id,
+            padaria_id: user.padarias_id,
+            saldo_centavos: trocoCentavos
+          });
+          
+          console.log('✅ Saldo por padaria salvo com sucesso:', trocoCentavos, 'centavos');
+        } catch (saldoError) {
+          console.error('❌ Erro ao salvar saldo por padaria:', saldoError);
+          // Não falha o processo principal, apenas loga o erro
+        }
       }
 
-      // Executar todas as mutations em paralelo
-      await Promise.all(cuponsPromises);
-
       toast({
-        title: "Cupons cadastrados com sucesso!",
-        description: `${cuponsGerados} cupons gerados: ${numerosSorte.join(", ")}`
+        title: "Cupons alocados com sucesso!",
+        description: `${resultado.quantidade} cupons alocados: ${resultado.numerosSorte.join(", ")}${trocoCentavos > 0 ? ` | Saldo: ${saldoUtils.formatarSaldo(trocoCentavos)}` : ''}`
       });
+
+      // VALIDAÇÃO E ATUALIZAÇÃO DA PADARIA NO BANCO
+      await validarEAtualizarPadaria(clienteEncontrado, user.padarias_id);
 
       // Forçar atualização do saldo de desconto
       if (clienteEncontrado?.id) {
@@ -222,6 +381,10 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
       setValorCompra("");
       setStatusCupom('ativo');
       
+      // Fechar modal automaticamente
+      onOpenChange(false);
+      
+      // Atualizar dados da página
       onCupomCadastrado();
     } catch (error) {
       console.error("Erro ao cadastrar cupons:", error);
@@ -242,9 +405,9 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Cadastrar Cupom</DialogTitle>
+          <DialogTitle>Alocar Cupons</DialogTitle>
           <DialogDescription>
-            Cadastre um novo cupom para a compra do cliente
+            Aloque cupons disponíveis para a compra do cliente
           </DialogDescription>
         </DialogHeader>
 
@@ -273,12 +436,38 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
                {/* Cliente encontrado */}
                {clienteEncontrado && (
                  <div className="mt-4 p-4 bg-muted/50 rounded-lg">
-                   <h4 className="font-medium text-foreground">{clienteEncontrado.nome}</h4>
+                   <div className="flex items-center gap-2 mb-2">
+                     <h4 className="font-medium text-foreground">{clienteEncontrado.nome}</h4>
+                     {(() => {
+                       const padariaComMaisCupons = calcularPadariaComMaisCupons(clienteEncontrado);
+                       const foiAlterada = padariaComMaisCupons && padariaComMaisCupons !== clienteEncontrado.padaria_id;
+                       return foiAlterada && (
+                         <Badge variant="secondary" className="text-xs">
+                           Padaria auto-vinculada
+                         </Badge>
+                       );
+                     })()}
+                   </div>
                    <p className="text-sm text-muted-foreground">CPF: {maskCPF(clienteEncontrado.cpf)}</p>
                    <p className="text-sm text-muted-foreground">WhatsApp: {formatPhone(clienteEncontrado.whatsapp || '')}</p>
                    <p className="text-sm text-muted-foreground">
                      Saldo de desconto: R$ {saldoDescontoAtual.toFixed(2)}
                    </p>
+                   
+                   {/* Informação sobre vinculação automática */}
+                   {(() => {
+                     const padariaComMaisCupons = calcularPadariaComMaisCupons(clienteEncontrado);
+                     const foiAlterada = padariaComMaisCupons && padariaComMaisCupons !== clienteEncontrado.padaria_id;
+                     
+                     if (foiAlterada) {
+                       return (
+                         <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-700">
+                           <strong>Vinculação automática:</strong> Padaria foi automaticamente vinculada baseada nos cupons ativos.
+                         </div>
+                       );
+                     }
+                     return null;
+                   })()}
                  </div>
                )}
 
@@ -374,15 +563,30 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
                     <span className="text-muted-foreground">Saldo de Desconto Atual:</span>
                     <span className="font-medium">R$ {saldoDescontoAtual.toFixed(2)}</span>
                   </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Cupons Disponíveis:</span>
+                    <span className={`font-medium ${cuponsDisponiveis.length >= cuponsGerados ? 'text-green-600' : 'text-red-600'}`}>
+                      {cuponsDisponiveis.length}
+                    </span>
+                  </div>
                   <Separator />
                   <div className="flex justify-between text-primary font-medium">
-                    <span>Cupons Gerados:</span>
+                    <span>Cupons a Alocar:</span>
                     <span>{cuponsGerados}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Novo Saldo de Desconto:</span>
                     <span className="font-medium">R$ {novoSaldoDesconto.toFixed(2)}</span>
                   </div>
+                  {cuponsDisponiveis.length < cuponsGerados && (
+                    <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                      <p className="text-sm text-red-700">
+                        ⚠️ Não há cupons disponíveis suficientes. 
+                        Disponíveis: {cuponsDisponiveis.length}, 
+                        Necessários: {cuponsGerados}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -395,9 +599,9 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
             </Button>
             <Button 
               onClick={handleSubmit}
-              disabled={!clienteEncontrado || !valorCompra || isLoading}
+              disabled={!clienteEncontrado || !valorCompra || isLoading || cuponsDisponiveis.length < cuponsGerados}
             >
-              {isLoading ? "Cadastrando..." : "Confirmar Cupom"}
+              {isLoading ? "Alocando..." : "Alocar Cupons"}
             </Button>
           </div>
         </div>

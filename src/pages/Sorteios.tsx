@@ -26,6 +26,11 @@ interface CupomSorteio {
   valor_compra: number;
   data_compra: string;
   status: string;
+  padaria_id: string;
+  padaria: {
+    id: string;
+    nome: string;
+  };
   cliente: {
     id: string;
     nome: string;
@@ -203,7 +208,7 @@ export default function Sorteios() {
     .filter(cupom => 
       cupom && 
       cupom.cliente && 
-      cupom.cliente.padaria && 
+      cupom.padaria && 
       cupom.cliente.nome && 
       cupom.cliente.cpf &&
       cupom.numero_sorte
@@ -211,7 +216,7 @@ export default function Sorteios() {
     .map(cupom => ({
       name: cupom.cliente.nome || 'Nome não informado',
       cpf: `***${(cupom.cliente.cpf || '').slice(-3)}`,
-      bakery: cupom.cliente.padaria.nome || 'Padaria não informada',
+      bakery: cupom.padaria.nome || 'Padaria não informada', // ✅ Usar padaria do cupom
       answer: cupom.cliente.resposta_pergunta || null,
       numero_sorte: cupom.numero_sorte || '00000',
       valor_compra: cupom.valor_compra || 0,
@@ -717,9 +722,9 @@ export default function Sorteios() {
                 </div>
                 <div className="text-center">
                   <div className="text-3xl font-bold text-secondary">
-                    {participants.filter(p => p.answer === "Na padaria").length}
+                    {participants.filter(p => p.answer === "Na Padaria").length}
                   </div>
-                  <div className="text-sm text-muted-foreground">Resposta: Na padaria</div>
+                  <div className="text-sm text-muted-foreground">Resposta: Na Padaria</div>
                 </div>
                 <div className="text-center">
                   <div className="text-3xl font-bold text-accent">
@@ -1002,7 +1007,7 @@ export default function Sorteios() {
                         <div className="mt-3">
                           <Badge 
                             className={
-                              winner.answer === "Na padaria" 
+                              winner.answer === "Na Padaria" 
                                 ? "bg-green-500 text-white hover:bg-green-600" 
                                 : winner.answer === "Outro lugar"
                                 ? "bg-yellow-500 text-black hover:bg-yellow-600"
@@ -1241,7 +1246,7 @@ export default function Sorteios() {
                               <div className="flex justify-center">
                                 <Badge 
                                   className={`text-xl px-6 py-2 ${
-                                    winner.answer === "Na padaria" 
+                                    winner.answer === "Na Padaria" 
                                       ? "bg-green-600 text-white" 
                                       : "bg-blue-600 text-white"
                                   }`}

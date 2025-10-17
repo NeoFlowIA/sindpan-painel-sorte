@@ -88,6 +88,47 @@ export const formatWhatsApp = (whatsapp: string): string => {
 };
 
 /**
+ * Valida formato do WhatsApp para integração com API
+ * Aceita formatos: 5585988889999, 85988889999, (85) 98888-9999
+ * Retorna true se o formato é válido para WhatsApp
+ */
+export const validateWhatsAppFormat = (whatsapp: string): boolean => {
+  if (!whatsapp) return false;
+  
+  // Remove todos os caracteres não numéricos
+  const digits = whatsapp.replace(/\D/g, '');
+  
+  // Deve ter 11 ou 13 dígitos
+  // 11 dígitos: 85988889999 (DDD + número)
+  // 13 dígitos: 5585988889999 (código do país + DDD + número)
+  return digits.length === 11 || digits.length === 13;
+};
+
+/**
+ * Normaliza WhatsApp para formato padrão da API (5585988889999)
+ * Converte qualquer formato válido para o formato com código do país
+ */
+export const normalizeWhatsApp = (whatsapp: string): string => {
+  if (!whatsapp) return '';
+  
+  // Remove todos os caracteres não numéricos
+  const digits = whatsapp.replace(/\D/g, '');
+  
+  // Se tem 11 dígitos, adiciona o código do país 55
+  if (digits.length === 11) {
+    return `55${digits}`;
+  }
+  
+  // Se tem 13 dígitos, retorna como está
+  if (digits.length === 13) {
+    return digits;
+  }
+  
+  // Para outros casos, retorna como está
+  return whatsapp;
+};
+
+/**
  * Remove formatação de CPF, retornando apenas números
  */
 export const unformatCPF = (cpf: string): string => {
