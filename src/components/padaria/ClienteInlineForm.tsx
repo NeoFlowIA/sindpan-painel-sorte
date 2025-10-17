@@ -8,7 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useGraphQLQuery, useGraphQLMutation } from "@/hooks/useGraphQL";
 import { useAuth } from "@/contexts/AuthContext";
 import { GET_CLIENTE_BY_CPF_OR_WHATSAPP, CREATE_CLIENTE } from "@/graphql/queries";
-import { formatCPF, formatPhone, unformatCPF, unformatPhone, maskCPF } from "@/utils/formatters";
+import { formatCPF, formatPhone, unformatCPF, unformatPhone, maskCPF, validateWhatsAppFormat, normalizeWhatsApp } from "@/utils/formatters";
 
 interface Cliente {
   id?: number;
@@ -134,8 +134,7 @@ export function ClienteInlineForm({ onClienteEncontrado, onClienteCriado, search
   };
 
   const validateWhatsApp = (whatsapp: string) => {
-    const digits = whatsapp.replace(/\D/g, "");
-    return digits.length >= 10 && digits.length <= 13;
+    return validateWhatsAppFormat(whatsapp);
   };
 
   const handleInputChange = (field: string, value: string) => {
@@ -228,12 +227,15 @@ export function ClienteInlineForm({ onClienteEncontrado, onClienteCriado, search
       return;
     }
 
+    // Normalizar WhatsApp para formato padrão da API
+    const whatsappNormalizado = normalizeWhatsApp(formData.whatsapp);
+
     // Criar cliente usando a mutation
     createClienteMutation.mutate({
       cliente: {
         nome: formData.nome.trim(),
         cpf: formData.cpf.replace(/\D/g, ""),
-        whatsapp: formData.whatsapp.trim(),
+        whatsapp: whatsappNormalizado,
         padaria_id: user.padarias_id
       }
     });
@@ -339,11 +341,14 @@ export function ClienteInlineForm({ onClienteEncontrado, onClienteCriado, search
                   <Label htmlFor="inline-whatsapp">WhatsApp *</Label>
                   <Input
                     id="inline-whatsapp"
-                    placeholder="(+55) (00) 00000-0000"
+                    placeholder="Ex: 5585988889999 ou (85) 98888-9999"
                     value={formData.whatsapp}
                     onChange={(e) => handleInputChange("whatsapp", e.target.value)}
                     required
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Formato aceito: 5585988889999 (13 dígitos) ou 85988889999 (11 dígitos)
+                  </p>
                 </div>
               </div>
               

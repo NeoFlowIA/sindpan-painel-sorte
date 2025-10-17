@@ -8,6 +8,7 @@ import { CadastrarCupomButton } from "@/components/padaria/CadastrarCupomButton"
 import { CuponsRecentesTable } from "@/components/padaria/CuponsRecentesTable";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDashboardMetrics, useTopClientes, useCuponsRecentes, useEstatisticasSemanais, useCuponsPorDiaSemana, useEvolucaoDiariaCupons } from "@/hooks/useCupons";
+import { useAnexarClientesAutomatico } from "@/hooks/useClientes";
 import { maskCPF } from "@/utils/formatters";
 import { 
   Users, 
@@ -42,6 +43,13 @@ export function PadariaDashboard() {
   const { data: estatisticasSemanaisData, isLoading: estatisticasSemanaisLoading, refetch: refetchEstatisticasSemanais } = useEstatisticasSemanais(user?.padarias_id || "");
   const { data: cuponsPorDiaSemanaData, isLoading: cuponsPorDiaSemanaLoading, refetch: refetchCuponsPorDiaSemana } = useCuponsPorDiaSemana(user?.padarias_id || "");
   const { data: evolucaoDiariaData, isLoading: evolucaoDiariaLoading, refetch: refetchEvolucaoDiaria } = useEvolucaoDiariaCupons(user?.padarias_id || "");
+  
+  // Hook para anexar clientes automaticamente baseado na quantidade de cupons
+  const { 
+    clientesParaAnexar, 
+    anexarClientesAutomatico, 
+    isLoading: anexarClientesLoading 
+  } = useAnexarClientesAutomatico(user?.padarias_id || "", 3); // Limite de 3 cupons
 
   const refreshData = async () => {
     setIsLoading(true);
@@ -54,6 +62,24 @@ export function PadariaDashboard() {
         refetchCuponsPorDiaSemana(),
         refetchEvolucaoDiaria()
       ]);
+      
+      // Anexar clientes automaticamente baseado na quantidade de cupons
+      if (clientesParaAnexar.length > 0) {
+        try {
+          const clientesAnexados = await anexarClientesAutomatico();
+          if (clientesAnexados > 0) {
+            console.log(`✅ ${clientesAnexados} clientes anexados automaticamente à padaria`);
+            // Recarregar dados após anexar clientes
+            await Promise.all([
+              refetchMetrics(),
+              refetchTopClientes()
+            ]);
+          }
+        } catch (error) {
+          console.error("Erro ao anexar clientes automaticamente:", error);
+        }
+      }
+      
       setLastUpdate(new Date());
     } catch (error) {
       console.error("Erro ao atualizar dados:", error);
@@ -286,6 +312,51 @@ export function PadariaDashboard() {
             trend={{ value: 0, isPositive: true }}
           />
         </div>
+
+        {/* Indicador de Clientes para Anexar */}
+        {clientesParaAnexar.length > 0 && (
+          <Card className="border-orange-200 bg-orange-50 dark:border-orange-800 dark:bg-orange-950">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-orange-800 dark:text-orange-200">
+                <Users className="w-5 h-5" />
+                Clientes para Anexar Automaticamente
+              </CardTitle>
+              <CardDescription className="text-orange-700 dark:text-orange-300">
+                {clientesParaAnexar.length} cliente(s) com 3+ cupons podem ser anexados à sua padaria
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-orange-700 dark:text-orange-300">
+                  <p>Estes clientes serão anexados automaticamente na próxima atualização:</p>
+                  <ul className="mt-2 space-y-1">
+                    {clientesParaAnexar.slice(0, 3).map((cliente, index) => (
+                      <li key={cliente.id} className="flex items-center gap-2">
+                        <span className="font-medium">{cliente.nome}</span>
+                        <span className="text-xs bg-orange-200 dark:bg-orange-800 px-2 py-1 rounded">
+                          {cliente.cupons.length} cupons
+                        </span>
+                      </li>
+                    ))}
+                    {clientesParaAnexar.length > 3 && (
+                      <li className="text-xs text-orange-600 dark:text-orange-400">
+                        +{clientesParaAnexar.length - 3} outros...
+                      </li>
+                    )}
+                  </ul>
+                </div>
+                <Button 
+                  onClick={anexarClientesAutomatico}
+                  disabled={anexarClientesLoading}
+                  variant="outline"
+                  className="border-orange-300 text-orange-800 hover:bg-orange-100 dark:border-orange-700 dark:text-orange-200 dark:hover:bg-orange-900"
+                >
+                  {anexarClientesLoading ? "Anexando..." : "Anexar Agora"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">

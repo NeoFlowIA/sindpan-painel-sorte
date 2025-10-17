@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { useGraphQLQuery, useGraphQLMutation } from "@/hooks/useGraphQL";
 import { CREATE_CLIENTE, GET_PADARIAS } from "@/graphql/queries";
+import { validateWhatsAppFormat, normalizeWhatsApp, formatWhatsApp } from "@/utils/formatters";
 
 interface AdminNovoClienteModalProps {
   open: boolean;
@@ -31,9 +32,11 @@ export function AdminNovoClienteModal({ open, onOpenChange, onClienteAdded }: Ad
     GET_PADARIAS
   );
 
-  const padarias = padariasData?.padarias || [];
-  
-  console.log('🔍 Padarias carregadas:', padariasData?.padarias);
+  // Tipar corretamente padariasData para evitar o erro de 'unknown'
+  type PadariasData = { padarias: any[] };
+  const padarias = (padariasData as PadariasData | undefined)?.padarias || [];
+
+  console.log('🔍 Padarias carregadas:', (padariasData as PadariasData | undefined)?.padarias);
   console.log('🔍 Dados completos:', padariasData);
   console.log('🔍 Array padarias:', padarias);
   console.log('🔍 Loading state:', padariasLoading);
@@ -98,8 +101,7 @@ export function AdminNovoClienteModal({ open, onOpenChange, onClienteAdded }: Ad
   };
 
   const validateWhatsApp = (whatsapp: string) => {
-    // Validação simples: apenas verificar se não está vazio
-    return whatsapp.trim().length > 0;
+    return validateWhatsAppFormat(whatsapp);
   };
 
   const handleInputChange = (field: string, value: string) => {
@@ -114,6 +116,13 @@ export function AdminNovoClienteModal({ open, onOpenChange, onClienteAdded }: Ad
     setFormData(prev => ({
       ...prev,
       [field]: formattedValue
+    }));
+  };
+
+  const handleSelectChange = (field: string, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
     }));
   };
 
@@ -167,7 +176,7 @@ export function AdminNovoClienteModal({ open, onOpenChange, onClienteAdded }: Ad
 
     // Remover formatação apenas do CPF - WhatsApp manter como digitado
     const cpfLimpo = formData.cpf.replace(/\D/g, "");
-    const whatsappValue = formData.whatsapp.trim(); // Manter exatamente como digitado
+    const whatsappValue = normalizeWhatsApp(formData.whatsapp); // Normalizar para formato da API
 
     console.log('🔍 Criando cliente - Dados completos:', {
       padariaId: formData.padaria_id,
@@ -231,7 +240,8 @@ export function AdminNovoClienteModal({ open, onOpenChange, onClienteAdded }: Ad
             <Label htmlFor="whatsapp">WhatsApp *</Label>
             <Input
               id="whatsapp"
-              placeholder="Digite o WhatsApp"
+              type="tel"
+              placeholder="Ex: (85) 98888-9999 ou 5585988889999"
               value={formData.whatsapp}
               onChange={(e) => handleInputChange("whatsapp", e.target.value)}
               autoComplete="off"
@@ -240,6 +250,9 @@ export function AdminNovoClienteModal({ open, onOpenChange, onClienteAdded }: Ad
               spellCheck="false"
               required
             />
+            <p className="text-xs text-muted-foreground">
+              Formato aceito: 5585988889999 (13 dígitos) ou 85988889999 (11 dígitos)
+            </p>
           </div>
 
           <div className="space-y-2">
@@ -266,7 +279,6 @@ export function AdminNovoClienteModal({ open, onOpenChange, onClienteAdded }: Ad
                   <SelectItem value="no-padarias" disabled>Nenhuma padaria encontrada</SelectItem>
                 ) : (
                   padarias.map((padaria: any) => {
-                    console.log('🔍 Padaria item:', { id: padaria.id, nome: padaria.nome, type: typeof padaria.id });
                     return (
                       <SelectItem key={padaria.id} value={String(padaria.id)}>
                         {padaria.nome}
@@ -288,12 +300,18 @@ export function AdminNovoClienteModal({ open, onOpenChange, onClienteAdded }: Ad
 
           <div className="space-y-2">
             <Label htmlFor="resposta_pergunta">Resposta da Pergunta</Label>
-            <Input
-              id="resposta_pergunta"
-              placeholder="Resposta opcional"
-              value={formData.resposta_pergunta}
-              onChange={(e) => handleInputChange("resposta_pergunta", e.target.value)}
-            />
+            <Select 
+              value={formData.resposta_pergunta} 
+              onValueChange={(value) => handleSelectChange("resposta_pergunta", value)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione uma opção" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Na Padaria">Na Padaria</SelectItem>
+                <SelectItem value="Em outra lugar">Em outra lugar</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           
           <DialogFooter>

@@ -7,6 +7,9 @@ import {
   GET_PADARIA_TICKET_MEDIO,
   GET_CLIENTE_SALDO_DESCONTO,
   GET_CUPONS_CLIENTE_SALDO,
+  GET_CLIENTE_SALDO_POR_PADARIA,
+  GET_CUPONS_DISPONIVEIS_POR_PADARIA,
+  VINCULAR_CUPOM_AO_CLIENTE,
   GET_DASHBOARD_METRICS,
   GET_TOP_CLIENTES,
   GET_CUPONS_RECENTES,
@@ -108,7 +111,7 @@ export const usePadariaTicketMedio = (padariaId: string) => {
   );
 };
 
-// Hook para obter saldo de desconto acumulado do cliente
+// Hook para obter saldo de desconto acumulado do cliente (TODOS os cupons)
 export const useClienteSaldoDesconto = (clienteId: number | undefined) => {
   return useGraphQLQuery<{
     cupons: Array<{
@@ -121,6 +124,24 @@ export const useClienteSaldoDesconto = (clienteId: number | undefined) => {
     {
       staleTime: 0, // Sempre buscar dados frescos do Hasura
       enabled: !!clienteId,
+    }
+  );
+};
+
+// Hook para obter saldo de desconto do cliente em uma padaria específica
+export const useClienteSaldoPorPadaria = (clienteId: number | undefined, padariaId: string | undefined) => {
+  return useGraphQLQuery<{
+    cupons: Array<{
+      id: string;
+      valor_desconto: string | null;
+    }>;
+  }>(
+    ['cliente-saldo-por-padaria', String(clienteId || 0), String(padariaId || '')],
+    GET_CLIENTE_SALDO_POR_PADARIA,
+    { cliente_id: clienteId, padaria_id: padariaId },
+    {
+      staleTime: 0, // Sempre buscar dados frescos do Hasura
+      enabled: !!clienteId && !!padariaId,
     }
   );
 };
@@ -426,3 +447,116 @@ export const useParticipantesSorteio = () => {
 
 // Hook removido - mutation não existe no Hasura
 // Sistema de sorteio funcionará apenas no frontend
+
+// ===== HOOKS PARA GERENCIAMENTO DE CUPONS DISPONÍVEIS =====
+
+// Interface para cupom disponível
+export interface CupomDisponivel {
+  id: string;
+  numero_sorte: string;
+  serie: number;
+  status: string;
+}
+
+// Hook para buscar cupons disponíveis de uma padaria
+export const useCuponsDisponiveisPorPadaria = (padariaId: string | undefined) => {
+  return useGraphQLQuery<{
+    cupons: CupomDisponivel[];
+  }>(
+    ['cupons-disponiveis-padaria', padariaId],
+    GET_CUPONS_DISPONIVEIS_POR_PADARIA,
+    { padaria_id: padariaId },
+    {
+      staleTime: 1 * 60 * 1000, // 1 minuto
+      enabled: !!padariaId,
+    }
+  );
+};
+
+// Hook para vincular cupom disponível ao cliente
+export const useVincularCupom = () => {
+  return useGraphQLMutation<
+    { update_cupons_by_pk: any },
+    {
+      id: string;
+      cliente_id: string;
+      padaria_id: string;
+      valor_compra: string;
+      valor_desconto: string;
+      data_compra: string;
+      status: string;
+      campanha_id?: number | null;
+      sorteio_id?: string | null;
+    }
+  >(
+    VINCULAR_CUPOM_AO_CLIENTE,
+    {
+      onSuccess: () => {
+        // Invalidar cache dos cupons disponíveis
+      },
+      invalidateQueries: [
+        ['cupons-disponiveis-padaria'],
+        ['cupons-by-padaria'],
+        ['cliente-saldo-por-padaria']
+      ],
+    }
+  );
+};
+
+// Hook para alocar múltiplos cupons de uma vez
+export const useAlocarCupons = (padariaId: string | undefined) => {
+  const { data: cuponsDisponiveisData, refetch: refetchCuponsDisponiveis } = useCuponsDisponiveisPorPadaria(padariaId);
+  const vincularCupomMutation = useVincularCupom();
+
+  const alocarCupons = async (
+    clienteId: string,
+    quantidade: number,
+    ticketMedio: number,
+    valorCompra: number,
+    saldoDesconto: number,
+    dataCompra: string
+  ) => {
+    const cuponsDisponiveis = cuponsDisponiveisData?.cupons || [];
+    
+    if (cuponsDisponiveis.length < quantidade) {
+      throw new Error(`Não há cupons disponíveis suficientes. Disponíveis: ${cuponsDisponiveis.length}, Necessários: ${quantidade}`);
+    }
+
+    const numerosSorte: string[] = [];
+    const novoSaldoDesconto = (valorCompra + saldoDesconto) - (quantidade * ticketMedio);
+
+    // Vincular cupons disponíveis ao cliente
+    for (let i = 0; i < quantidade; i++) {
+      const cupomDisponivel = cuponsDisponiveis[i];
+      numerosSorte.push(cupomDisponivel.numero_sorte);
+
+      const ehUltimoCupom = i === quantidade - 1;
+
+      await vincularCupomMutation.mutateAsync({
+        id: cupomDisponivel.id,
+        cliente_id: clienteId,
+        padaria_id: padariaId!,
+        valor_compra: String(ticketMedio.toFixed(2)),
+        valor_desconto: ehUltimoCupom ? String(novoSaldoDesconto.toFixed(2)) : "0",
+        data_compra: dataCompra,
+        status: "ativo",
+        campanha_id: null,
+        sorteio_id: null
+      });
+    }
+
+    return {
+      numerosSorte,
+      quantidade,
+      novoSaldoDesconto
+    };
+  };
+
+  return {
+    cuponsDisponiveis: cuponsDisponiveisData?.cupons || [],
+    alocarCupons,
+    isLoading: vincularCupomMutation.isLoading,
+    error: vincularCupomMutation.error,
+    refetchCuponsDisponiveis
+  };
+};
