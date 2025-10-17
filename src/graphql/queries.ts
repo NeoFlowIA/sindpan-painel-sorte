@@ -195,21 +195,6 @@ export const DELETE_PADARIA = `
 `;
 
 
-// Query para buscar dados do usuário por email ou CNPJ
-export const GET_USER = `
-  query GetUser($email: String, $cnpj: String) {
-    users(where: {_or: [{email: {_eq: $email}}, {cnpj: {_eq: $cnpj}}]}) {
-      id
-      email
-      cnpj
-      bakery_name
-      role
-      padarias_id
-      cnpj
-    }
-  }
-`;
-
 // Query para quando o campo padarias_id for criado no Hasura
 export const GET_USER_BY_EMAIL_WITH_PADARIA = `
   query GetUserByEmailWithPadaria($email: String!) {
@@ -220,6 +205,29 @@ export const GET_USER_BY_EMAIL_WITH_PADARIA = `
       role
       padarias_id
       cnpj
+      password_hash
+      padarias {
+        id
+        nome
+      }
+    }
+  }
+`;
+
+export const GET_USER_BY_CNPJ_WITH_PADARIA = `
+  query GetUserByCnpjWithPadaria($cnpj: String!) {
+    users(where: {cnpj: {_eq: $cnpj}}) {
+      id
+      email
+      bakery_name
+      role
+      padarias_id
+      cnpj
+      password_hash
+      padarias {
+        id
+        nome
+      }
     }
   }
 `;
@@ -234,7 +242,53 @@ export const GET_USERS = `
       bakery_name
       role
       padarias_id
+      password_hash
+      padarias {
+        id
+        nome
+      }
+    }
+  }
+`;
+
+export const GET_PADARIA_BY_CNPJ = `
+  query GetPadariaByCnpj($cnpj: String!) {
+    padarias(where: {cnpj: {_eq: $cnpj}}, limit: 1) {
+      id
+      nome
       cnpj
+      status
+    }
+  }
+`;
+
+export const UPSERT_PADARIA_USER = `
+  mutation UpsertPadariaUser(
+    $cnpj: String!
+    $padarias_id: uuid!
+    $password_hash: String!
+    $bakery_name: String!
+  ) {
+    insert_users_one(
+      object: {
+        cnpj: $cnpj
+        padarias_id: $padarias_id
+        role: "bakery"
+        password_hash: $password_hash
+        bakery_name: $bakery_name
+      }
+      on_conflict: {
+        constraint: users_cnpj_key
+        update_columns: [padarias_id, password_hash, role, bakery_name]
+      }
+    ) {
+      id
+      email
+      cnpj
+      bakery_name
+      role
+      padarias_id
+      password_hash
     }
   }
 `;
@@ -1218,10 +1272,10 @@ export const GET_ADMIN_DASHBOARD_METRICS = `
   }
 `;
 
-// Query para buscar todos os cupons ativos para sorteio global
-export const GET_ALL_CUPONS_FOR_GLOBAL_SORTEIO = `
-  query GetAllCuponsForGlobalSorteio($campanhaId: Int!) {
-    cupons(
+// Query para buscar todos os clientes que possuem cupons ativos na campanha selecionada
+export const GET_CLIENTES_WITH_ACTIVE_CUPONS_BY_CAMPANHA = `
+  query GetClientesWithActiveCuponsByCampanha {
+    clientes(
       where: {
         status: {_eq: "ativo"},
         campanha_id: {_eq: $campanhaId},
@@ -1230,7 +1284,7 @@ export const GET_ALL_CUPONS_FOR_GLOBAL_SORTEIO = `
         
         }
       }
-      order_by: {data_compra: desc}
+      order_by: {nome: asc}
     ) {
       id
       numero_sorte
@@ -1246,13 +1300,23 @@ export const GET_ALL_CUPONS_FOR_GLOBAL_SORTEIO = `
       cliente {
         id
         nome
-        cpf
-        whatsapp
-        resposta_pergunta
-        padaria {
-          id
-          nome
+      }
+      cupons_aggregate(where: {status: {_eq: "ativo"}}) {
+        aggregate {
+          count
         }
+      }
+      cupons(
+        where: {status: {_eq: "ativo"}}
+        order_by: {data_compra: desc}
+      ) {
+        id
+        numero_sorte
+        valor_compra
+        data_compra
+        status
+        campanha_id
+        padaria_id
       }
     }
   }

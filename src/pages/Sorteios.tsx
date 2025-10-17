@@ -9,7 +9,7 @@ import { Calendar as DatePicker } from "@/components/ui/calendar";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { useGraphQLQuery, useGraphQLMutation } from "@/hooks/useGraphQL";
-import { GET_NEXT_SORTEIO, SCHEDULE_SORTEIO, UPDATE_SORTEIO, GET_ALL_CUPONS_FOR_GLOBAL_SORTEIO, GET_GANHADORES_COM_DADOS_COMPLETOS, SALVAR_GANHADOR, MARCAR_CUPOM_SORTEADO, REATIVAR_CUPOM, GET_PADARIAS, LIST_CAMPANHAS, CREATE_CAMPANHA, DEACTIVATE_CAMPANHAS } from "@/graphql/queries";
+import { GET_NEXT_SORTEIO, SCHEDULE_SORTEIO, UPDATE_SORTEIO, GET_CLIENTES_WITH_ACTIVE_CUPONS_BY_CAMPANHA, GET_GANHADORES_COM_DADOS_COMPLETOS, SALVAR_GANHADOR, MARCAR_CUPOM_SORTEADO, REATIVAR_CUPOM, GET_PADARIAS, LIST_CAMPANHAS, CREATE_CAMPANHA, DEACTIVATE_CAMPANHAS } from "@/graphql/queries";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { Trophy, Calendar as CalendarIcon, X, Save, RotateCcw, Sparkles, Clock, Pencil, PlusCircle } from "lucide-react";
@@ -33,15 +33,41 @@ interface CupomSorteio {
   };
   cliente: {
     id: string;
-    nome: string;
-    cpf: string;
-    whatsapp: string;
-    resposta_pergunta: string;
+    nome: string | null;
+    cpf: string | null;
+    whatsapp: string | null;
+    resposta_pergunta: string | null;
     padaria: {
       id: string;
       nome: string;
-    };
+    } | null;
   };
+}
+
+interface ClienteWithCupons {
+  id: string;
+  nome: string | null;
+  cpf: string | null;
+  whatsapp: string | null;
+  resposta_pergunta: string | null;
+  padaria: {
+    id: string;
+    nome: string;
+  } | null;
+  cupons_aggregate: {
+    aggregate: {
+      count: number | null;
+    } | null;
+  } | null;
+  cupons: Array<{
+    id: string;
+    numero_sorte: string;
+    valor_compra: string | number | null;
+    data_compra: string;
+    status: string;
+    campanha_id: number;
+    padaria_id?: string | null;
+  }>;
 }
 
 interface Participant {
@@ -84,7 +110,26 @@ export default function Sorteios() {
   const [showLiveRaffle, setShowLiveRaffle] = useState(false);
   const [campaignDialogOpen, setCampaignDialogOpen] = useState(false);
   const [selectedCampaignId, setSelectedCampaignId] = useState<string | undefined>(urlCampaignId);
-  const [selectedScheduleCampaignId, setSelectedScheduleCampaignId] = useState<string | undefined>(undefined);
+  const [selectedScheduleCampaignId, setSelectedScheduleCampaignId] = useState<string | undefined>(urlCampaignId);
+
+  const parseCampaignId = (value?: string) => {
+    if (!value) {
+      return undefined;
+    }
+
+    const numericId = Number(value);
+    return Number.isNaN(numericId) ? undefined : numericId;
+  };
+
+  const selectedCampaignIdNumber = useMemo(
+    () => parseCampaignId(selectedCampaignId),
+    [selectedCampaignId]
+  );
+
+  const selectedScheduleCampaignIdNumber = useMemo(
+    () => parseCampaignId(selectedScheduleCampaignId),
+    [selectedScheduleCampaignId]
+  );
   
   // Função para entrar em fullscreen
   const enterFullscreen = () => {
@@ -127,37 +172,118 @@ export default function Sorteios() {
   }>(['campanhas'], LIST_CAMPANHAS);
 
   const campaigns = campanhasData?.campanha || [];
+  const activeCampaign = useMemo(
+    () => campaigns.find((campaign) => getCampaignStatus(campaign.data_inicio, campaign.data_fim) === 'Ativa'),
+    [campaigns]
+  );
   // Filtrar campanhas: apenas as que estão ativas OU já encerradas (para permitir sorteios de campanhas antigas)
-  const scheduleableCampaigns = campaigns.filter((c) => {
-    const status = getCampaignStatus(c.data_inicio, c.data_fim);
-    // Mostrar apenas campanhas ativas ou encerradas (não mostrar desativadas manualmente)
-    return c.ativo === true || (c.ativo === false && status === 'Encerrada');
-  });
+  const scheduleableCampaigns = useMemo(
+    () =>
+      campaigns.filter((c) => {
+        const status = getCampaignStatus(c.data_inicio, c.data_fim);
+
+        if (status === 'Ativa') {
+          return true;
+        }
+
+        if (status === 'Encerrada') {
+          return true;
+        }
+
+        // Para campanhas futuras, manter apenas as que continuam ativadas manualmente
+        return c.ativo === true;
+      }),
+    [campaigns]
+  );
+  const activeCampaignIdString = activeCampaign ? String(activeCampaign.id) : undefined;
+
+  useEffect(() => {
+    if (campaignsLoading || scheduleableCampaigns.length === 0) {
+      return;
+    }
+
+    const isSelectedCampaignAvailable =
+      selectedCampaignIdNumber !== undefined
+        ? scheduleableCampaigns.some((campaign) => Number(campaign.id) === selectedCampaignIdNumber)
+        : false;
+
+    if (isSelectedCampaignAvailable) {
+      return;
+    }
+
+    const preferredCampaign = activeCampaign ?? scheduleableCampaigns[0];
+
+    if (!preferredCampaign) {
+      return;
+    }
+
+    const preferredCampaignId = String(preferredCampaign.id);
+
+    setSelectedCampaignId((current) => {
+      const hasCurrentSelection = current
+        ? scheduleableCampaigns.some((campaign) => String(campaign.id) === current)
+        : false;
+      const shouldReplace =
+        !hasCurrentSelection ||
+        (activeCampaignIdString !== undefined && current !== activeCampaignIdString);
+
+      return shouldReplace ? preferredCampaignId : current;
+    });
+
+    setSelectedScheduleCampaignId((current) => {
+      const shouldReplace =
+        !current ||
+        (activeCampaignIdString !== undefined && current !== activeCampaignIdString);
+      return shouldReplace ? preferredCampaignId : current;
+    });
+
+    if (urlCampaignId !== preferredCampaignId) {
+      const params = new URLSearchParams(searchParamsString);
+      params.set('campanhaId', preferredCampaignId);
+      setSearchParams(params, { replace: true });
+    }
+  }, [
+    campaignsLoading,
+    scheduleableCampaigns,
+    activeCampaign,
+    activeCampaignIdString,
+    selectedCampaignIdNumber,
+    urlCampaignId,
+    searchParamsString,
+    setSearchParams,
+  ]);
+
   const hasCampaigns = scheduleableCampaigns.length > 0;
-  const selectedCampaign = campaigns.find((c) => c.id === selectedCampaignId);
+  const selectedCampaign =
+    selectedCampaignIdNumber !== undefined
+      ? campaigns.find((c) => Number(c.id) === selectedCampaignIdNumber)
+      : undefined;
   const selectedCampaignStatus = selectedCampaign
     ? getCampaignStatus(selectedCampaign.data_inicio, selectedCampaign.data_fim)
     : undefined;
+  const canRunRaffle =
+    Boolean(selectedCampaign) &&
+    selectedCampaignStatus !== 'Encerrada' &&
+    selectedCampaign?.ativo !== false;
 
   // Query para buscar próximo sorteio
   const { data: nextSorteioData } = useGraphQLQuery<{
     sorteios: {
       id: string;
       data_sorteio: string;
-      campanha_id: string | null;
+      campanha_id: number | null;
       campanha: { id: string; Nome: string } | null;
     }[];
   }>(['next-sorteio'], GET_NEXT_SORTEIO);
   const nextSorteio = nextSorteioData?.sorteios[0];
 
-  const cuponsQueryEnabled = Boolean(selectedCampaignId);
-
   // Query para buscar cupons da campanha selecionada
-  const { data: cuponsData, isLoading: cuponsLoading } = useGraphQLQuery<{ cupons: CupomSorteio[] }>(
-    ['campanha-cupons', selectedCampaignId ?? ''],
-    GET_ALL_CUPONS_FOR_GLOBAL_SORTEIO,
-    selectedCampaignId ? { campanhaId: selectedCampaignId } : undefined,
-    { enabled: cuponsQueryEnabled }
+  const {
+    data: clientesCampanhaData,
+    isLoading: participantesLoading,
+  } = useGraphQLQuery<{ clientes: ClienteWithCupons[] }>(
+    ['campanha-participantes'],
+    GET_CLIENTES_WITH_ACTIVE_CUPONS_BY_CAMPANHA
   );
 
   // Query para buscar ganhadores salvos (da tabela sorteios)
@@ -199,9 +325,35 @@ export default function Sorteios() {
     GET_PADARIAS
   );
 
+  const campaignCoupons = useMemo<CupomSorteio[]>(() => {
+    const clientes = clientesCampanhaData?.clientes ?? [];
+
+    return clientes.flatMap((cliente) =>
+      (cliente.cupons || []).map((cupom) => ({
+        id: cupom.id,
+        numero_sorte: cupom.numero_sorte,
+        valor_compra: Number(cupom.valor_compra ?? 0),
+        data_compra: cupom.data_compra,
+        status: cupom.status,
+        campanha_id: cupom.campanha_id,
+        padaria_id: cupom.padaria_id ?? null,
+        cliente: {
+          id: cliente.id,
+          nome: cliente.nome ?? null,
+          cpf: cliente.cpf ?? null,
+          whatsapp: cliente.whatsapp ?? null,
+          resposta_pergunta: cliente.resposta_pergunta ?? null,
+          padaria: cliente.padaria
+            ? { id: cliente.padaria.id, nome: cliente.padaria.nome }
+            : null,
+        },
+      }))
+    );
+  }, [clientesCampanhaData?.clientes]);
+
   // Debug logs
-  console.log('🔍 Cupons carregados:', cuponsData?.cupons);
-  console.log('🔍 Loading state:', cuponsLoading);
+  console.log('🔍 Cupons carregados:', campaignCoupons);
+  console.log('🔍 Loading state:', participantesLoading);
 
   // Converter cupons para formato de participantes
   const participants = (cuponsData?.cupons || [])
@@ -255,7 +407,7 @@ export default function Sorteios() {
 
   // Mutation para salvar ganhador (cupom específico + dados completos)
   const { mutate: salvarGanhador, isPending: isMarcandoSorteado } = useGraphQLMutation(SALVAR_GANHADOR, {
-    invalidateQueries: [['campanha-cupons'], ['ganhadores-salvos']],
+    invalidateQueries: [['campanha-participantes'], ['ganhadores-salvos']],
     onSuccess: (data) => {
       console.log('🔍 Ganhador salvo com sucesso:', data);
       toast.success('Ganhador salvo com todos os dados!');
@@ -269,7 +421,7 @@ export default function Sorteios() {
 
   // Mutation para reativar cupom
   const { mutate: reativarCupom, isPending: isReativando } = useGraphQLMutation(REATIVAR_CUPOM, {
-    invalidateQueries: [['campanha-cupons'], ['ganhadores-salvos']],
+    invalidateQueries: [['campanha-participantes'], ['ganhadores-salvos']],
     onSuccess: () => {
       toast.success('Cliente reativado! Voltou para os sorteios.');
       // Força atualização da lista de ganhadores
@@ -318,12 +470,13 @@ export default function Sorteios() {
       }
     });
 
-    const newId = (result as { insert_campanha_one?: { id: string } } | undefined)?.insert_campanha_one?.id;
-    if (newId) {
-      setSelectedCampaignId(newId);
-      setSelectedScheduleCampaignId(newId);
+    const newId = (result as { insert_campanha_one?: { id: number | string } } | undefined)?.insert_campanha_one?.id;
+    if (newId !== undefined && newId !== null) {
+      const newIdString = String(newId);
+      setSelectedCampaignId(newIdString);
+      setSelectedScheduleCampaignId(newIdString);
       const params = new URLSearchParams(searchParamsString);
-      params.set('campanhaId', newId);
+      params.set('campanhaId', newIdString);
       setSearchParams(params, { replace: true });
     }
   };
@@ -338,10 +491,16 @@ export default function Sorteios() {
     const date = new Date(selectedDate);
     date.setHours(hours);
     date.setMinutes(minutes);
+
+    if (selectedScheduleCampaignIdNumber === undefined) {
+      toast.error('Campanha inválida para o sorteio.');
+      return;
+    }
+
     if (editingSorteioId) {
-      updateSorteio({ id: editingSorteioId, data: date.toISOString(), campanhaId: selectedScheduleCampaignId });
+      updateSorteio({ id: editingSorteioId, data: date.toISOString(), campanhaId: selectedScheduleCampaignIdNumber });
     } else {
-      scheduleSorteio({ id: crypto.randomUUID(), data: date.toISOString(), campanhaId: selectedScheduleCampaignId });
+      scheduleSorteio({ id: crypto.randomUUID(), data: date.toISOString(), campanhaId: selectedScheduleCampaignIdNumber });
     }
   };
 
@@ -351,7 +510,9 @@ export default function Sorteios() {
     setSelectedDate(date);
     setSelectedTime(format(date, 'HH:mm'));
     setEditingSorteioId(nextSorteio.id);
-    setSelectedScheduleCampaignId(nextSorteio.campanha_id ?? selectedCampaignId ?? undefined);
+    setSelectedScheduleCampaignId(
+      nextSorteio.campanha_id ? String(nextSorteio.campanha_id) : selectedCampaignId ?? undefined
+    );
     setShowScheduleModal(true);
   };
 
@@ -373,8 +534,8 @@ export default function Sorteios() {
   };
 
   const startRaffle = () => {
-    if (!hasCampaigns) {
-      toast.error('Selecione uma campanha para iniciar o sorteio');
+    if (!canRunRaffle) {
+      toast.error('Selecione uma campanha ativa para iniciar o sorteio');
       return;
     }
     if (participants.length === 0) {
@@ -459,10 +620,16 @@ export default function Sorteios() {
         }
         
         // Encontrar o cupom original para salvar o ID
-        const cupomOriginal = (cuponsData?.cupons || []).find(cupom => 
-          cupom.numero_sorte === winnerParticipant!.numero_sorte &&
-          cupom.cliente.nome === winnerParticipant!.name
-        );
+        const cupomOriginal = campaignCoupons.find((cupom) => {
+          const participanteCpfSuffix = winnerParticipant!.cpf.replace('***', '');
+          const normalizedCpf = cupom.cliente?.cpf ?? '';
+
+          return (
+            cupom.numero_sorte === winnerParticipant!.numero_sorte &&
+            (normalizedCpf.endsWith(participanteCpfSuffix) ||
+              (cupom.cliente?.nome || 'Nome não informado') === winnerParticipant!.name)
+          );
+        });
         
         setFinalNumber(winnerParticipant.numero_sorte);
         setCurrentNumber(winnerParticipant.numero_sorte);
@@ -482,20 +649,20 @@ export default function Sorteios() {
     if (!winner || !cupomSorteadoId || !numeroDigitado) return;
     
     // Validar se há campanha selecionada
-    if (!selectedCampaignId) {
+    if (selectedCampaignIdNumber === undefined) {
       toast.error("Erro: Nenhuma campanha selecionada");
       return;
     }
-    
-    console.log('🔍 Salvando ganhador:', { 
-      cupomId: cupomSorteadoId, 
+
+    console.log('🔍 Salvando ganhador:', {
+      cupomId: cupomSorteadoId,
       numeroSorteado: numeroDigitado,
       winner,
-      campanhaId: selectedCampaignId
+      campanhaId: selectedCampaignIdNumber
     });
     
     // Encontrar o cupom específico que ganhou
-    const cupomGanhador = cuponsData?.cupons.find(cupom => cupom.id === cupomSorteadoId);
+    const cupomGanhador = campaignCoupons.find(cupom => cupom.id === cupomSorteadoId);
     if (!cupomGanhador || !cupomGanhador.cliente?.id) {
       toast.error("Erro: Cupom ou cliente não encontrado");
       return;
@@ -506,7 +673,7 @@ export default function Sorteios() {
       cliente_id: cupomGanhador.cliente.id,
       numero_sorteado: cupomGanhador.numero_sorte,  // Usa numero_sorte do cupom vencedor
       numero_digitado: numeroDigitado,
-      campanha_id: selectedCampaignId
+      campanha_id: selectedCampaignIdNumber
     });
     
     // Salvar o ganhador na tabela sorteios (usa numero_sorte como numero_sorteado)
@@ -515,7 +682,7 @@ export default function Sorteios() {
       data_sorteio: new Date().toISOString(),
       ganhador_id: cupomGanhador.cliente.id,
       cliente_id: cupomGanhador.cliente.id,
-      campanha_id: parseInt(selectedCampaignId)
+      campanha_id: selectedCampaignIdNumber
     });
     
     // Remover todos os cupons do cliente dos próximos sorteios
@@ -594,20 +761,28 @@ export default function Sorteios() {
               <CalendarIcon className="w-4 h-4 mr-2" />
               Agendar novo sorteio
             </Button>
-            <Button 
+            <Button
               onClick={() => {
+                if (!canRunRaffle) {
+                  toast.error('Selecione uma campanha ativa para iniciar o sorteio');
+                  return;
+                }
+                if (participants.length === 0) {
+                  toast.error('Não há participantes para o sorteio');
+                  return;
+                }
                 setShowLiveRaffle(true);
                 setTimeout(() => enterFullscreen(), 100);
               }}
-              disabled={participants.length === 0}
+              disabled={!canRunRaffle || campaignsLoading}
               className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white"
             >
               <Sparkles className="w-4 h-4 mr-2" />
               Sorteio Ao Vivo
             </Button>
-            <Button 
+            <Button
               onClick={() => setShowRaffleModal(true)}
-              disabled={!hasCampaigns || participants.length === 0}
+              disabled={!canRunRaffle || campaignsLoading}
               className="bg-green-600 hover:bg-green-700 text-white"
             >
               <Trophy className="w-4 h-4 mr-2" />
@@ -710,7 +885,7 @@ export default function Sorteios() {
               </Alert>
             )}
 
-            {cuponsLoading ? (
+            {participantesLoading ? (
               <div className="flex items-center justify-center py-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
               </div>
