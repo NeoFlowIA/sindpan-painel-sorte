@@ -43,7 +43,7 @@ export function SortearButton({ disabled, onSortear }: SortearButtonProps) {
               }
             }}
             className={cn(
-              "group flex flex-col gap-4 rounded-3xl border border-[#006CFF]/20 bg-white/80 p-4 shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00C2FF]/70 focus-visible:ring-offset-2 dark:border-[#00C2FF]/20 dark:bg-slate-900/70",
+              "group flex flex-col gap-4 rounded-3xl border border-[#006CFF]/30 bg-[#006CFF]/10 p-4 shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00C2FF]/70 focus-visible:ring-offset-2 dark:border-[#00C2FF]/30 dark:bg-[#0A1F44]/80",
               disabled && "cursor-not-allowed opacity-60 hover:translate-y-0 hover:shadow-lg"
             )}
           >

@@ -251,7 +251,7 @@ export function PadariaSorteio() {
             />
           )}
 
-          <Card className="border-[#006CFF]/20 bg-white/60 shadow-sm backdrop-blur dark:bg-slate-900/40">
+          <Card className="border-[#006CFF]/25 bg-[#006CFF]/10 shadow-sm backdrop-blur dark:bg-[#0A1F44]/70">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-[#0A1F44] dark:text-white">
                 <Shuffle className="h-5 w-5" />

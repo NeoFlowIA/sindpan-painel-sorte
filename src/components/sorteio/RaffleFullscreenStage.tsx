@@ -154,9 +154,10 @@ export function RaffleFullscreenStage({
         aria-modal="true"
         className="max-w-none h-[100dvh] w-[100vw] border-0 bg-transparent p-0 focus:outline-none"
       >
-        <div className="relative flex h-full w-full items-center justify-center overflow-hidden bg-gradient-to-b from-[#0A1F44] via-[#071633] to-black text-white">
+        <div className="relative flex h-full w-full items-center justify-center overflow-hidden bg-[#0A1F44] text-white">
           <div className="absolute inset-0 backdrop-blur-sm" aria-hidden="true" />
-          <div className="absolute inset-x-0 top-0 h-32 bg-[radial-gradient(circle_at_top,#00C2FF33,transparent)]" aria-hidden="true" />
+          <div className="absolute inset-x-0 top-0 h-32 bg-[radial-gradient(circle_at_top,#00C2FF4d,transparent)]" aria-hidden="true" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,#006CFF14,transparent)]" aria-hidden="true" />
 
           <div className="relative z-10 flex h-full w-full max-w-6xl flex-col items-center justify-center gap-10 px-6 py-10 text-center">
             <header className="flex w-full items-center justify-between gap-4 text-left">
@@ -181,11 +182,17 @@ export function RaffleFullscreenStage({
                 {estado === "done" && "Número sorteado"}
               </div>
 
-              <div className={cn("rounded-2xl border border-white/15 bg-white/10 px-6 py-4 shadow-lg transition", estado === "done" ? "opacity-100" : "opacity-70")}
+              <div
+                className={cn(
+                  "rounded-2xl border border-[#00C2FF]/30 bg-[#0A1F44]/60 px-6 py-4 shadow-lg transition",
+                  estado === "done" ? "opacity-100" : "opacity-80"
+                )}
                 aria-live="polite"
               >
-                <p className="text-sm uppercase tracking-[0.45em] text-white/60">Número</p>
-                <p className="text-3xl font-black md:text-5xl">{estado === "done" && vencedor ? vencedor.numero : digits}</p>
+                <p className="text-sm uppercase tracking-[0.45em] text-[#00C2FF]">Número</p>
+                <p className="text-3xl font-black text-white md:text-5xl">
+                  {estado === "done" && vencedor ? vencedor.numero : digits}
+                </p>
               </div>
 
               {estado === "done" && vencedor && (
@@ -208,7 +215,7 @@ export function RaffleFullscreenStage({
                 size="lg"
                 variant="outline"
                 onClick={onVoltar}
-                className="w-full border-white/30 bg-white/10 text-white hover:bg-white/20 md:w-auto"
+                className="w-full border-[#00C2FF]/30 bg-[#0A1F44]/50 text-white hover:bg-[#0A1F44]/60 md:w-auto"
               >
                 Voltar ao painel
               </Button>
@@ -231,7 +238,7 @@ function SoundToggle({ muted, onToggle }: { muted: boolean; onToggle: () => void
     <button
       type="button"
       onClick={onToggle}
-      className="flex h-11 w-11 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white transition hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00C2FF]"
+      className="flex h-11 w-11 items-center justify-center rounded-full border border-[#00C2FF]/40 bg-[#0A1F44]/60 text-white transition hover:bg-[#0A1F44]/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00C2FF]"
       aria-label={muted ? "Ativar som" : "Desativar som"}
     >
       {muted ? <VolumeX className="h-5 w-5" aria-hidden="true" /> : <Volume2 className="h-5 w-5" aria-hidden="true" />}
@@ -241,19 +248,15 @@ function SoundToggle({ muted, onToggle }: { muted: boolean; onToggle: () => void
 
 function WinnerCard({ vencedor }: { vencedor: RaffleWinner }) {
   return (
-    <div className="w-full max-w-lg rounded-3xl border border-white/15 bg-white/10 p-6 text-left shadow-xl backdrop-blur">
+    <div className="w-full max-w-lg rounded-3xl border border-[#00C2FF]/30 bg-[#0A1F44]/60 p-6 text-left shadow-xl backdrop-blur">
       <p className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.35em] text-[#00C2FF]">
         <span aria-hidden="true">🎉</span>
         Ganhador
       </p>
       <div className="mt-4 space-y-2 text-white">
-        {vencedor.nome && <p className="text-xl font-semibold">{vencedor.nome}</p>}
-        {vencedor.telefone && (
-          <p className="text-sm text-white/80">Telefone: {vencedor.telefone}</p>
-        )}
-        {vencedor.cupom && (
-          <p className="font-mono text-lg">Cupom: {vencedor.cupom}</p>
-        )}
+        {vencedor.nome && <p className="text-xl font-semibold text-white">{vencedor.nome}</p>}
+        {vencedor.telefone && <p className="text-sm text-white/80">Telefone: {vencedor.telefone}</p>}
+        {vencedor.cupom && <p className="font-mono text-lg text-[#00C2FF]">Cupom: {vencedor.cupom}</p>}
       </div>
     </div>
   );
@@ -270,7 +273,7 @@ function ConfettiOverlay() {
             left: `${Math.random() * 100}%`,
             top: `-10%`,
             animationDelay: `${Math.random() * 0.8}s`,
-            backgroundColor: ["#00C2FF", "#006CFF", "#00FFC6", "#8AA8FF", "#F8D57E"][index % 5],
+            backgroundColor: ["#00C2FF", "#006CFF", "#0A1F44"][index % 3],
           }}
         />
       ))}
