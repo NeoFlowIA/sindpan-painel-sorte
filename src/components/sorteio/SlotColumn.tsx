@@ -27,8 +27,8 @@ function ensureGlobalStyles() {
       100% { transform: translateY(-1000%); }
     }
     @keyframes slot-column-pulse {
-      0%, 100% { transform: scale(1); box-shadow: 0 0 0 rgba(0, 194, 255, 0.45); }
-      50% { transform: scale(1.02); box-shadow: 0 0 45px rgba(0, 194, 255, 0.35); }
+      0%, 100% { transform: scale(1); box-shadow: 0 0 0 hsl(var(--accent) / 0.45); }
+      50% { transform: scale(1.02); box-shadow: 0 0 45px hsl(var(--accent) / 0.35); }
     }
   `;
   document.head.appendChild(style);
@@ -75,11 +75,11 @@ export function SlotColumn({ target, state, delay }: SlotColumnProps) {
   return (
     <div
       className={cn(
-        "relative h-28 w-16 overflow-hidden rounded-[28px] border border-[#00C2FF]/40 bg-white/95 text-[#0A1F44] shadow-[0_0_25px_rgba(0,194,255,0.25)] transition-all md:h-36 md:w-20",
+        "relative h-28 w-16 overflow-hidden rounded-[28px] border border-accent/40 bg-card text-foreground shadow-[var(--shadow-number)] transition-all md:h-36 md:w-20",
         phase === "settled" && "animate-[slot-column-pulse_1.6s_ease-in-out_1]"
       )}
     >
-      <div className="absolute inset-0 bg-gradient-to-b from-white/60 via-transparent to-white/40" aria-hidden="true" />
+      <div className="absolute inset-0 bg-gradient-to-b from-background/70 via-transparent to-background/40" aria-hidden="true" />
       <div
         className={cn(
           "relative flex h-full w-full",
@@ -109,7 +109,7 @@ export function SlotColumn({ target, state, delay }: SlotColumnProps) {
           ))}
         </div>
       </div>
-      <div className="pointer-events-none absolute inset-0 rounded-[28px] border border-white/30 shadow-inner" aria-hidden="true" />
+      <div className="pointer-events-none absolute inset-0 rounded-[28px] border border-foreground/10 shadow-inner" aria-hidden="true" />
     </div>
   );
 }

@@ -154,17 +154,17 @@ export function RaffleFullscreenStage({
         aria-modal="true"
         className="max-w-none h-[100dvh] w-[100vw] border-0 bg-transparent p-0 focus:outline-none"
       >
-        <div className="relative flex h-full w-full items-center justify-center overflow-hidden bg-[#0A1F44] text-white">
+        <div className="relative flex h-full w-full items-center justify-center overflow-hidden bg-gradient-to-b from-background via-secondary/15 to-background text-foreground dark:from-secondary/20 dark:via-background/40 dark:to-background">
           <div className="absolute inset-0 backdrop-blur-sm" aria-hidden="true" />
-          <div className="absolute inset-x-0 top-0 h-32 bg-[radial-gradient(circle_at_top,#00C2FF4d,transparent)]" aria-hidden="true" />
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,#006CFF14,transparent)]" aria-hidden="true" />
+          <div className="absolute inset-x-0 top-0 h-32 bg-[radial-gradient(circle_at_top,hsl(var(--accent))/0.35,transparent)]" aria-hidden="true" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,hsl(var(--primary))/0.12,transparent)]" aria-hidden="true" />
 
           <div className="relative z-10 flex h-full w-full max-w-6xl flex-col items-center justify-center gap-10 px-6 py-10 text-center">
             <header className="flex w-full items-center justify-between gap-4 text-left">
               <div>
-                <p className="text-sm uppercase tracking-[0.35em] text-[#00C2FF] opacity-80">Sorteio em andamento</p>
+                <p className="text-sm uppercase tracking-[0.35em] text-accent opacity-80">Sorteio em andamento</p>
                 <h1 className="mt-1 text-3xl font-black md:text-5xl">Prepare-se...</h1>
-                <p className="text-sm text-white/70 md:text-base">Girando roletas. Boa sorte!</p>
+                <p className="text-sm text-muted-foreground md:text-base">Girando roletas. Boa sorte!</p>
               </div>
               <SoundToggle muted={isMuted} onToggle={handleToggleSound} />
             </header>
@@ -176,7 +176,7 @@ export function RaffleFullscreenStage({
                 ))}
               </div>
 
-              <div className="text-lg font-semibold tracking-widest text-[#00C2FF] md:text-2xl">
+              <div className="text-lg font-semibold tracking-widest text-accent md:text-2xl">
                 {estado === "spinning" && "Girando"}
                 {estado === "revealing" && "Revelando"}
                 {estado === "done" && "Número sorteado"}
@@ -184,13 +184,13 @@ export function RaffleFullscreenStage({
 
               <div
                 className={cn(
-                  "rounded-2xl border border-[#00C2FF]/30 bg-[#0A1F44]/60 px-6 py-4 shadow-lg transition",
+                  "rounded-2xl border border-secondary/40 bg-secondary/20 px-6 py-4 shadow-lg transition dark:bg-secondary/30",
                   estado === "done" ? "opacity-100" : "opacity-80"
                 )}
                 aria-live="polite"
               >
-                <p className="text-sm uppercase tracking-[0.45em] text-[#00C2FF]">Número</p>
-                <p className="text-3xl font-black text-white md:text-5xl">
+                <p className="text-sm uppercase tracking-[0.45em] text-accent">Número</p>
+                <p className="text-3xl font-black text-foreground md:text-5xl">
                   {estado === "done" && vencedor ? vencedor.numero : digits}
                 </p>
               </div>
@@ -206,7 +206,7 @@ export function RaffleFullscreenStage({
                   size="lg"
                   onClick={onNovoSorteio}
                   disabled={isProcessing}
-                  className="w-full bg-[#006CFF] text-white transition hover:bg-[#0057cc] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00C2FF] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A1F44] md:w-auto"
+                  className="w-full bg-primary text-primary-foreground transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background md:w-auto"
                 >
                   {isProcessing ? "Sorteando..." : "Novo sorteio"}
                 </Button>
@@ -215,7 +215,7 @@ export function RaffleFullscreenStage({
                 size="lg"
                 variant="outline"
                 onClick={onVoltar}
-                className="w-full border-[#00C2FF]/30 bg-[#0A1F44]/50 text-white transition hover:bg-[#0A1F44]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00C2FF] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A1F44] md:w-auto"
+                className="w-full border-secondary/40 bg-transparent text-foreground transition hover:bg-secondary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background md:w-auto"
               >
                 Voltar ao painel
               </Button>
@@ -238,7 +238,7 @@ function SoundToggle({ muted, onToggle }: { muted: boolean; onToggle: () => void
     <button
       type="button"
       onClick={onToggle}
-      className="flex h-11 w-11 items-center justify-center rounded-full border border-[#00C2FF]/40 bg-[#0A1F44]/60 text-white transition hover:bg-[#0A1F44]/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00C2FF]"
+      className="flex h-11 w-11 items-center justify-center rounded-full border border-primary/40 bg-background/80 text-foreground transition hover:bg-secondary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
       aria-label={muted ? "Ativar som" : "Desativar som"}
     >
       {muted ? <VolumeX className="h-5 w-5" aria-hidden="true" /> : <Volume2 className="h-5 w-5" aria-hidden="true" />}
@@ -248,15 +248,15 @@ function SoundToggle({ muted, onToggle }: { muted: boolean; onToggle: () => void
 
 function WinnerCard({ vencedor }: { vencedor: RaffleWinner }) {
   return (
-    <div className="w-full max-w-lg rounded-3xl border border-[#00C2FF]/30 bg-[#0A1F44]/60 p-6 text-left shadow-xl backdrop-blur">
-      <p className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.35em] text-[#00C2FF]">
+    <div className="w-full max-w-lg rounded-3xl border border-secondary/40 bg-secondary/20 p-6 text-left shadow-xl backdrop-blur dark:bg-secondary/30">
+      <p className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.35em] text-accent">
         <span aria-hidden="true">🎉</span>
         Ganhador
       </p>
-      <div className="mt-4 space-y-2 text-white">
-        {vencedor.nome && <p className="text-xl font-semibold text-white">{vencedor.nome}</p>}
-        {vencedor.telefone && <p className="text-sm text-white/80">Telefone: {vencedor.telefone}</p>}
-        {vencedor.cupom && <p className="font-mono text-lg text-[#00C2FF]">Cupom: {vencedor.cupom}</p>}
+      <div className="mt-4 space-y-2 text-foreground">
+        {vencedor.nome && <p className="text-xl font-semibold text-foreground">{vencedor.nome}</p>}
+        {vencedor.telefone && <p className="text-sm text-muted-foreground">Telefone: {vencedor.telefone}</p>}
+        {vencedor.cupom && <p className="font-mono text-lg text-accent">Cupom: {vencedor.cupom}</p>}
       </div>
     </div>
   );
@@ -273,7 +273,7 @@ function ConfettiOverlay() {
             left: `${Math.random() * 100}%`,
             top: `-10%`,
             animationDelay: `${Math.random() * 0.8}s`,
-            backgroundColor: ["#00C2FF", "#006CFF", "#0A1F44"][index % 3],
+            backgroundColor: ["hsl(var(--primary))", "hsl(var(--secondary))", "hsl(var(--accent))"][index % 3],
           }}
         />
       ))}

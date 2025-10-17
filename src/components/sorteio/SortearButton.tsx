@@ -43,17 +43,17 @@ export function SortearButton({ disabled, onSortear }: SortearButtonProps) {
               }
             }}
             className={cn(
-              "group flex flex-col gap-4 rounded-3xl border border-[#006CFF]/30 bg-[#006CFF]/10 p-4 shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00C2FF]/70 focus-visible:ring-offset-2 dark:border-[#00C2FF]/30 dark:bg-[#0A1F44]/80",
+              "group flex flex-col gap-4 rounded-3xl border border-secondary/40 bg-card p-4 shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:bg-secondary/20",
               disabled && "cursor-not-allowed opacity-60 hover:translate-y-0 hover:shadow-lg"
             )}
           >
             <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#006CFF]/15 text-[#006CFF] shadow-inner">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/15 text-primary shadow-inner">
                 <Sparkles className="h-6 w-6" aria-hidden="true" />
               </div>
               <div className="flex-1 space-y-1">
-                <p className="text-xl font-semibold text-[#0A1F44] dark:text-white">Sortear</p>
-                <p className="text-sm text-[#0A1F44]/70 dark:text-white/70">
+                <p className="text-xl font-semibold text-foreground">Sortear</p>
+                <p className="text-sm text-muted-foreground">
                   {disabled ? "Sem cupons disponíveis" : "Pronto para iniciar? Pressione S para sortear"}
                 </p>
               </div>
@@ -63,14 +63,14 @@ export function SortearButton({ disabled, onSortear }: SortearButtonProps) {
                   event.stopPropagation();
                   onSortear();
                 }}
-                className="bg-[#006CFF] text-white shadow-lg transition hover:bg-[#0057cc] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00C2FF] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[#0A1F44]"
+                className="bg-primary text-primary-foreground shadow-lg transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               >
                 Sortear
               </Button>
             </div>
           </div>
         </TooltipTrigger>
-        <TooltipContent side="bottom" className="bg-[#0A1F44] text-white">
+        <TooltipContent side="bottom" className="bg-popover text-popover-foreground">
           Pressione S para sortear
         </TooltipContent>
       </Tooltip>

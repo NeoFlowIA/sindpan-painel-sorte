@@ -16,6 +16,7 @@ import {
   Users,
 } from "lucide-react";
 
+import { cn } from "@/lib/utils";
 import { RaffleFullscreenStage, type RaffleWinner } from "@/components/sorteio/RaffleFullscreenStage";
 import { SortearButton } from "@/components/sorteio/SortearButton";
 
@@ -206,7 +207,7 @@ export function PadariaSorteio() {
     <div className="space-y-6">
       <div>
         <h1 className="flex items-center gap-2 text-3xl font-bold tracking-tight">
-          <Gift className="h-8 w-8 text-[#006CFF]" />
+          <Gift className="h-8 w-8 text-primary" />
           Sistema de Sorteio
         </h1>
         <p className="text-muted-foreground">Realize sorteios entre os cupons cadastrados</p>
@@ -251,9 +252,9 @@ export function PadariaSorteio() {
             />
           )}
 
-          <Card className="border-[#006CFF]/25 bg-[#006CFF]/10 shadow-sm backdrop-blur dark:bg-[#0A1F44]/70">
+          <Card className="border-secondary/40 bg-secondary/10 shadow-sm backdrop-blur dark:bg-secondary/20">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-[#0A1F44] dark:text-white">
+              <CardTitle className="flex items-center gap-2 text-foreground">
                 <Shuffle className="h-5 w-5" />
                 Controles do sorteio
               </CardTitle>
@@ -263,7 +264,7 @@ export function PadariaSorteio() {
               <Button
                 onClick={continuarSorteio}
                 disabled={!ultimoGanhador}
-                className="flex-1 bg-[#006CFF] text-white shadow-sm transition hover:bg-[#0057cc] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00C2FF] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[#0A1F44]"
+                className="flex-1 bg-primary text-primary-foreground shadow-sm transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               >
                 <RotateCcw className="mr-2 h-4 w-4" />
                 Continuar sorteio
@@ -271,7 +272,7 @@ export function PadariaSorteio() {
               <Button
                 onClick={iniciarNovoSorteio}
                 variant="outline"
-                className="flex-1 border-[#006CFF] text-[#006CFF] transition hover:bg-[#006CFF]/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00C2FF] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:border-[#00C2FF] dark:text-[#00C2FF] dark:hover:bg-[#00C2FF]/10 dark:focus-visible:ring-offset-[#0A1F44]"
+                className="flex-1 border-primary text-primary transition hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               >
                 <RotateCcw className="mr-2 h-4 w-4" />
                 Novo sorteio
@@ -422,14 +423,14 @@ function StatsCard({
   accent?: boolean;
 }) {
   return (
-    <Card className={accent ? "border-[#00C2FF]/40 bg-[#006CFF]/5" : ""}>
+    <Card className={accent ? "border-accent/40 bg-accent/10" : ""}>
       <CardContent className="flex items-start gap-4 p-6">
-        <div className={`rounded-2xl bg-[#006CFF]/10 p-3 text-[#006CFF] ${accent ? "shadow-[0_0_25px_rgba(0,194,255,0.35)]" : ""}`}>
+        <div className={cn("rounded-2xl bg-primary/10 p-3 text-primary", accent && "shadow-[var(--shadow-number)]")}> 
           <Icon className="h-6 w-6" aria-hidden="true" />
         </div>
         <div className="space-y-1 text-left">
           <p className="text-sm font-medium text-muted-foreground">{title}</p>
-          <p className="text-3xl font-semibold text-[#0A1F44] dark:text-white">{value}</p>
+          <p className="text-3xl font-semibold text-foreground">{value}</p>
           <p className="text-xs text-muted-foreground">{description}</p>
         </div>
       </CardContent>
@@ -445,18 +446,18 @@ function LastWinnerBanner({
   onVerHistorico: () => void;
 }) {
   return (
-    <div className="flex flex-col justify-between gap-4 rounded-3xl border border-[#00C2FF]/30 bg-[#006CFF]/5 p-6 shadow-sm md:flex-row md:items-center">
+    <div className="flex flex-col justify-between gap-4 rounded-3xl border border-secondary/40 bg-secondary/10 p-6 shadow-sm md:flex-row md:items-center dark:bg-secondary/20">
       <div className="space-y-1 text-left">
-        <div className="flex items-center gap-2 text-[#006CFF]">
+        <div className="flex items-center gap-2 text-primary">
           <span aria-hidden="true">🎉</span>
           <span className="text-sm font-semibold uppercase tracking-[0.35em]">Último ganhador</span>
         </div>
-        <p className="text-xl font-semibold text-[#0A1F44] dark:text-white">{ganhador.cliente.nome}</p>
+        <p className="text-xl font-semibold text-foreground">{ganhador.cliente.nome}</p>
         <p className="text-sm text-muted-foreground">{formatPhone(ganhador.cliente.whatsapp)} • Cupom {ganhador.numero_sorte}</p>
       </div>
       <Button
         variant="link"
-        className="text-[#006CFF] hover:text-[#0057cc] dark:text-[#00C2FF] dark:hover:text-[#66dbff]"
+        className="text-primary hover:text-primary/80"
         onClick={onVerHistorico}
       >
         Ver histórico
