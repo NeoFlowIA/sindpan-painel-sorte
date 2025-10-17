@@ -263,13 +263,16 @@ export function PadariaSorteio() {
               <Button
                 onClick={continuarSorteio}
                 disabled={!ultimoGanhador}
-                variant="secondary"
-                className="flex-1"
+                className="flex-1 bg-[#006CFF] text-white shadow-sm transition hover:bg-[#0057cc] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00C2FF] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[#0A1F44]"
               >
                 <RotateCcw className="mr-2 h-4 w-4" />
                 Continuar sorteio
               </Button>
-              <Button onClick={iniciarNovoSorteio} variant="outline" className="flex-1">
+              <Button
+                onClick={iniciarNovoSorteio}
+                variant="outline"
+                className="flex-1 border-[#006CFF] text-[#006CFF] transition hover:bg-[#006CFF]/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00C2FF] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:border-[#00C2FF] dark:text-[#00C2FF] dark:hover:bg-[#00C2FF]/10 dark:focus-visible:ring-offset-[#0A1F44]"
+              >
                 <RotateCcw className="mr-2 h-4 w-4" />
                 Novo sorteio
               </Button>
@@ -451,7 +454,11 @@ function LastWinnerBanner({
         <p className="text-xl font-semibold text-[#0A1F44] dark:text-white">{ganhador.cliente.nome}</p>
         <p className="text-sm text-muted-foreground">{formatPhone(ganhador.cliente.whatsapp)} • Cupom {ganhador.numero_sorte}</p>
       </div>
-      <Button variant="link" className="text-[#006CFF]" onClick={onVerHistorico}>
+      <Button
+        variant="link"
+        className="text-[#006CFF] hover:text-[#0057cc] dark:text-[#00C2FF] dark:hover:text-[#66dbff]"
+        onClick={onVerHistorico}
+      >
         Ver histórico
       </Button>
     </div>

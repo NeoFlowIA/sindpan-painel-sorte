@@ -63,7 +63,7 @@ export function SortearButton({ disabled, onSortear }: SortearButtonProps) {
                   event.stopPropagation();
                   onSortear();
                 }}
-                className="bg-[#006CFF] text-white shadow-lg transition hover:bg-[#0057cc] focus-visible:ring-2 focus-visible:ring-[#00C2FF]"
+                className="bg-[#006CFF] text-white shadow-lg transition hover:bg-[#0057cc] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00C2FF] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[#0A1F44]"
               >
                 Sortear
               </Button>

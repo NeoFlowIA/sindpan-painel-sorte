@@ -206,7 +206,7 @@ export function RaffleFullscreenStage({
                   size="lg"
                   onClick={onNovoSorteio}
                   disabled={isProcessing}
-                  className="w-full bg-[#006CFF] text-white hover:bg-[#0057cc] md:w-auto"
+                  className="w-full bg-[#006CFF] text-white transition hover:bg-[#0057cc] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00C2FF] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A1F44] md:w-auto"
                 >
                   {isProcessing ? "Sorteando..." : "Novo sorteio"}
                 </Button>
@@ -215,7 +215,7 @@ export function RaffleFullscreenStage({
                 size="lg"
                 variant="outline"
                 onClick={onVoltar}
-                className="w-full border-[#00C2FF]/30 bg-[#0A1F44]/50 text-white hover:bg-[#0A1F44]/60 md:w-auto"
+                className="w-full border-[#00C2FF]/30 bg-[#0A1F44]/50 text-white transition hover:bg-[#0A1F44]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00C2FF] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A1F44] md:w-auto"
               >
                 Voltar ao painel
               </Button>
