@@ -1091,6 +1091,36 @@ export const VINCULAR_CUPOM_AO_CLIENTE = `
   }
 `;
 
+export const REGISTER_RECEIPT_BASIC = `
+  mutation Register(
+    $cliente: uuid!
+    $padaria: uuid!
+    $valor: bigint!
+    $data: timestamptz!
+    $cnpj: String!
+    $conf: numeric!
+    $raw: String!
+    $img: String!
+  ) {
+    register_receipt_basic(
+      args: {
+        p_cliente_id: $cliente
+        p_padaria_id: $padaria
+        p_valor_centavos: $valor
+        p_data_compra: $data
+        p_cnpj_extraido: $cnpj
+        p_ocr_confidence: $conf
+        p_ocr_raw: $raw
+        p_image_url: $img
+      }
+    ) {
+      receipt_id
+      saldo_atual_centavos
+      cupons_emitidos_agora
+    }
+  }
+`;
+
 // ===== QUERIES E MUTATIONS PARA SORTEIO =====
 
 // Query para obter todos os cupons de uma padaria para sorteio

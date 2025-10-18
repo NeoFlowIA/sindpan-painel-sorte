@@ -10,6 +10,7 @@ import {
   GET_CLIENTE_SALDO_POR_PADARIA,
   GET_CUPONS_DISPONIVEIS_POR_PADARIA,
   VINCULAR_CUPOM_AO_CLIENTE,
+  REGISTER_RECEIPT_BASIC,
   GET_DASHBOARD_METRICS,
   GET_TOP_CLIENTES,
   GET_CUPONS_RECENTES,
@@ -67,6 +68,25 @@ export interface PadariaTicketMedio {
     ticket_medio: number;
     nome: string;
   };
+}
+
+export interface RegisterReceiptBasicResponse {
+  register_receipt_basic: {
+    receipt_id: string;
+    saldo_atual_centavos: number;
+    cupons_emitidos_agora: number;
+  };
+}
+
+export interface RegisterReceiptBasicVariables {
+  cliente: string;
+  padaria: string;
+  valor: number;
+  data: string;
+  cnpj: string;
+  conf: number;
+  raw: string;
+  img: string;
 }
 
 // Hook para buscar cupons de uma padaria
@@ -541,6 +561,30 @@ export const useVincularCupom = () => {
         ['cupons-disponiveis-padaria'],
         ['cupons-by-padaria'],
         ['cliente-saldo-por-padaria']
+      ],
+    }
+  );
+};
+
+export const useRegisterReceiptBasic = () => {
+  return useGraphQLMutation<
+    RegisterReceiptBasicResponse,
+    RegisterReceiptBasicVariables
+  >(
+    REGISTER_RECEIPT_BASIC,
+    {
+      invalidateQueries: [
+        ['cupons-by-padaria'],
+        ['cupons-by-cliente'],
+        ['cliente-saldo-desconto'],
+        ['cliente-saldo-por-padaria'],
+        ['cupons-disponiveis-padaria'],
+        ['cupons-recentes'],
+        ['dashboard-metrics'],
+        ['top-clientes'],
+        ['estatisticas-semanais'],
+        ['cupons-por-dia-semana'],
+        ['evolucao-diaria-cupons'],
       ],
     }
   );
