@@ -18,7 +18,8 @@ import {
   GET_EVOLUCAO_DIARIA_CUPONS,
   GET_CUPONS_PARA_SORTEIO,
   GET_HISTORICO_SORTEIOS,
-  GET_PARTICIPANTES_SORTEIO
+  GET_PARTICIPANTES_SORTEIO,
+  SALVAR_SORTEIO_PADARIA
 } from '@/graphql/queries';
 
 // Tipos para cupons
@@ -353,13 +354,13 @@ export const useCuponsStats = (padariaId: string) => {
 
 // Tipos para sorteio
 export interface CupomParaSorteio {
-  id: number;
+  id: string;
   numero_sorte: string;
   valor_compra: string;
   data_compra: string;
-  cliente_id: number;
+  cliente_id: string;
   cliente: {
-    id: number;
+    id: string;
     nome: string;
     cpf: string;
     whatsapp: string;
@@ -367,12 +368,13 @@ export interface CupomParaSorteio {
 }
 
 export interface Sorteio {
-  id: number;
+  id: string;
   data_sorteio: string;
   numero_sorteado: string;
-  ganhador_id: number;
+  ganhador_id: string;
+  tipo?: string | null;
   cliente: {
-    id: number;
+    id: string;
     nome: string;
     cpf: string;
     whatsapp: string;
@@ -380,7 +382,7 @@ export interface Sorteio {
 }
 
 export interface ParticipanteSorteio {
-  id: number;
+  id: string;
   nome: string;
   cpf: string;
   whatsapp: string;
@@ -412,7 +414,14 @@ export const useHistoricoSorteios = () => {
       id: string;
       data_sorteio: string;
       numero_sorteado: string;
-      ganhador_id: number;
+      ganhador_id: string;
+      tipo: string | null;
+      cliente: {
+        id: string;
+        nome: string;
+        cpf: string;
+        whatsapp: string;
+      } | null;
     }>;
   }>(
     ['historico-sorteios'],
@@ -429,7 +438,7 @@ export const useHistoricoSorteios = () => {
 export const useParticipantesSorteio = () => {
   return useGraphQLQuery<{
     clientes: Array<{
-      id: number;
+      id: string;
       nome: string;
       cpf: string;
       whatsapp: string;
@@ -441,6 +450,36 @@ export const useParticipantesSorteio = () => {
     {
       staleTime: 1 * 60 * 1000, // 1 minuto
       enabled: true,
+    }
+  );
+};
+
+export const useSalvarSorteioPadaria = () => {
+  return useGraphQLMutation<
+    {
+      insert_sorteios_one: {
+        id: string;
+        numero_sorteado: string;
+        data_sorteio: string;
+        ganhador_id: string;
+        tipo: string | null;
+        cliente: {
+          id: string;
+          nome: string;
+          cpf: string;
+          whatsapp: string;
+        } | null;
+      };
+    },
+    {
+      numero_sorteado: string;
+      ganhador_id: string;
+      data_sorteio: string;
+    }
+  >(
+    SALVAR_SORTEIO_PADARIA,
+    {
+      invalidateQueries: [['historico-sorteios']],
     }
   );
 };
