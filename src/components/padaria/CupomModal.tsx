@@ -3,18 +3,18 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Search, User, Calculator, Receipt } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { ClienteInlineForm } from "./ClienteInlineForm";
 import { useAuth } from "@/contexts/AuthContext";
-import { useCreateCupom, usePadariaTicketMedio, useClienteSaldoDesconto, useClienteSaldoPorPadaria, useResetClienteDesconto, useAlocarCupons, gerarNumeroSorte } from "@/hooks/useCupons";
+import { usePadariaTicketMedio, useClienteSaldoPorPadaria, useRegisterReceiptBasic } from "@/hooks/useCupons";
 import { useUpdateCliente } from "@/hooks/useClientes";
-import { useUpsertSaldoClientePadaria, saldoUtils } from "@/hooks/useSaldosPadarias";
 import { useGraphQLQuery } from "@/hooks/useGraphQL";
 import { GET_CLIENTE_BY_CPF_OR_WHATSAPP } from "@/graphql/queries";
-import { formatCPF, formatPhone, maskCPF } from "@/utils/formatters";
+import { formatCPF, formatPhone, maskCPF, unformatCNPJ } from "@/utils/formatters";
 
 interface CupomModalProps {
   open: boolean;
@@ -23,7 +23,7 @@ interface CupomModalProps {
 }
 
 interface Cliente {
-  id?: number;
+  id?: string;
   cpf: string;
   nome: string;
   whatsapp?: string;
@@ -43,7 +43,6 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
   const [valorCompra, setValorCompra] = useState("");
   const [dataHora, setDataHora] = useState("");
   const [statusCupom, setStatusCupom] = useState<'ativo' | 'inativo'>('ativo');
-  const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -57,7 +56,6 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
       setValorCompra("");
       setDataHora("");
       setStatusCupom('ativo');
-      setIsLoading(false);
     }
   }, [open]);
 
@@ -70,19 +68,10 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
     user?.padarias_id
   );
   
-  // Hook para alocar cupons disponíveis
-  const { 
-    cuponsDisponiveis, 
-    alocarCupons, 
-    isLoading: alocarCuponsLoading, 
-    error: alocarCuponsError 
-  } = useAlocarCupons(user?.padarias_id);
-  
+  const registerReceiptBasic = useRegisterReceiptBasic();
+
   // Hook para atualizar cliente
   const updateClienteMutation = useUpdateCliente();
-  
-  // Hook para gerenciar saldos por padaria
-  const upsertSaldoMutation = useUpsertSaldoClientePadaria();
   
   // Query para buscar cliente
   const { data: clienteData, refetch: refetchCliente } = useGraphQLQuery(
@@ -286,7 +275,9 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
   };
 
   const handleSubmit = async () => {
-    if (!clienteEncontrado || !clienteEncontrado.id || !valorCompra || !user?.padarias_id) {
+    const padariaId = user?.padarias_id;
+
+    if (!clienteEncontrado || !clienteEncontrado.id || !valorCompra || !padariaId) {
       toast({
         title: "Erro",
         description: "Cliente, valor da compra e padaria são obrigatórios",
@@ -316,58 +307,40 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
       return;
     }
 
-    setIsLoading(true);
+    try {
+      const valorCentavos = Math.round(valor * 100);
+      const dataCompra = dataHora
+        ? new Date(dataHora).toISOString()
+        : getBrasiliaTimestamp();
 
-     try {
-       // Preparar data no fuso horário de Brasília
-       const dataCompra = dataHora ? 
-         new Date(dataHora).toISOString() : 
-         getBrasiliaTimestamp();
+      const response = await registerReceiptBasic.mutateAsync({
+        cliente: clienteEncontrado.id,
+        padaria: padariaId,
+        valor: valorCentavos,
+        data: dataCompra,
+        cnpj: unformatCNPJ(user?.cnpj || ""),
+        conf: 1.0,
+        raw: "raw",
+        img: "img",
+      });
 
-      // Alocar cupons usando o hook
-      const resultado = await alocarCupons(
-        clienteEncontrado.id,
-        cuponsGerados,
-        ticketMedio,
-        valor,
-        saldoDescontoAtual,
-        dataCompra
-      );
-
-      // Calcular e salvar saldo por padaria (considerando saldo anterior)
-      const trocoCentavos = saldoUtils.calcularTroco(valor, ticketMedio, saldoDescontoAtual);
-      if (trocoCentavos > 0) {
-        console.log('💰 Calculando saldo por padaria:', {
-          valorCompra: valor,
-          saldoAnterior: saldoDescontoAtual,
-          valorTotal: valor + saldoDescontoAtual,
-          ticketMedio,
-          trocoCentavos,
-          clienteId: clienteEncontrado.id,
-          padariaId: user.padarias_id
-        });
-
-        try {
-          await upsertSaldoMutation.mutateAsync({
-            cliente_id: clienteEncontrado.id,
-            padaria_id: user.padarias_id,
-            saldo_centavos: trocoCentavos
-          });
-          
-          console.log('✅ Saldo por padaria salvo com sucesso:', trocoCentavos, 'centavos');
-        } catch (saldoError) {
-          console.error('❌ Erro ao salvar saldo por padaria:', saldoError);
-          // Não falha o processo principal, apenas loga o erro
-        }
-      }
+      const receiptData = response.register_receipt_basic;
+      const cuponsEmitidos = receiptData?.cupons_emitidos_agora ?? cuponsGerados;
+      const saldoAtual = (receiptData?.saldo_atual_centavos ?? 0) / 100;
+      const saldoFormatado = new Intl.NumberFormat('pt-BR', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(Number.isFinite(saldoAtual) ? saldoAtual : 0);
+      const cupomLabel = cuponsEmitidos === 1 ? 'cupom' : 'cupons';
+      const emitidoLabel = cuponsEmitidos === 1 ? 'emitido' : 'emitidos';
 
       toast({
-        title: "Cupons alocados com sucesso!",
-        description: `${resultado.quantidade} cupons alocados: ${resultado.numerosSorte.join(", ")}${trocoCentavos > 0 ? ` | Saldo: ${saldoUtils.formatarSaldo(trocoCentavos)}` : ''}`
+        title: "Cupom criado com sucesso!",
+        description: `${cuponsEmitidos} ${cupomLabel} ${emitidoLabel}. Saldo atual: R$ ${saldoFormatado}`,
       });
 
       // VALIDAÇÃO E ATUALIZAÇÃO DA PADARIA NO BANCO
-      await validarEAtualizarPadaria(clienteEncontrado, user.padarias_id);
+      await validarEAtualizarPadaria(clienteEncontrado, padariaId);
 
       // Forçar atualização do saldo de desconto
       if (clienteEncontrado?.id) {
@@ -380,21 +353,19 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
       setShowClienteForm(false);
       setValorCompra("");
       setStatusCupom('ativo');
-      
+
       // Fechar modal automaticamente
       onOpenChange(false);
-      
+
       // Atualizar dados da página
       onCupomCadastrado();
     } catch (error) {
-      console.error("Erro ao cadastrar cupons:", error);
+      console.error("Erro ao cadastrar cupom:", error);
       toast({
         title: "Erro",
-        description: "Erro ao cadastrar cupons. Tente novamente.",
+        description: "Erro ao criar cupom. Tente novamente.",
         variant: "destructive"
       });
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -405,9 +376,9 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Alocar Cupons</DialogTitle>
+          <DialogTitle>Criar Cupom</DialogTitle>
           <DialogDescription>
-            Aloque cupons disponíveis para a compra do cliente
+            Registre a compra para gerar cupons automaticamente
           </DialogDescription>
         </DialogHeader>
 
@@ -563,30 +534,15 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
                     <span className="text-muted-foreground">Saldo de Desconto Atual:</span>
                     <span className="font-medium">R$ {saldoDescontoAtual.toFixed(2)}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Cupons Disponíveis:</span>
-                    <span className={`font-medium ${cuponsDisponiveis.length >= cuponsGerados ? 'text-green-600' : 'text-red-600'}`}>
-                      {cuponsDisponiveis.length}
-                    </span>
-                  </div>
                   <Separator />
                   <div className="flex justify-between text-primary font-medium">
-                    <span>Cupons a Alocar:</span>
+                    <span>Cupons gerados:</span>
                     <span>{cuponsGerados}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Novo Saldo de Desconto:</span>
                     <span className="font-medium">R$ {novoSaldoDesconto.toFixed(2)}</span>
                   </div>
-                  {cuponsDisponiveis.length < cuponsGerados && (
-                    <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-                      <p className="text-sm text-red-700">
-                        ⚠️ Não há cupons disponíveis suficientes. 
-                        Disponíveis: {cuponsDisponiveis.length}, 
-                        Necessários: {cuponsGerados}
-                      </p>
-                    </div>
-                  )}
                 </div>
               </CardContent>
             </Card>
@@ -597,11 +553,11 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
-            <Button 
+            <Button
               onClick={handleSubmit}
-              disabled={!clienteEncontrado || !valorCompra || isLoading || cuponsDisponiveis.length < cuponsGerados}
+              disabled={!clienteEncontrado || !valorCompra || registerReceiptBasic.isPending}
             >
-              {isLoading ? "Alocando..." : "Alocar Cupons"}
+              {registerReceiptBasic.isPending ? "Criando..." : "Criar Cupom"}
             </Button>
           </div>
         </div>
