@@ -22,7 +22,7 @@ export function CadastrarCupomButton({ onCupomCadastrado }: CadastrarCupomButton
         className="transition-all duration-200 hover:scale-105 hover:shadow-sm"
       >
         <Plus className="w-4 h-4 mr-2" />
-        Cadastrar Cupom
+        Alocar Cupons
       </Button>
 
       <CupomModal

@@ -3,11 +3,13 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useGraphQLQuery, useGraphQLMutation } from "@/hooks/useGraphQL";
 import { useAuth } from "@/contexts/AuthContext";
 import { CREATE_CLIENTE, CREATE_CLIENTE_SIMPLE, CREATE_CLIENTE_TEST, GET_NEXT_CLIENTE_ID, GET_PADARIA_BY_NAME, GET_ALL_PADARIAS_SIMPLE } from "@/graphql/queries";
 import { graphqlClient } from "@/lib/graphql-client";
+import { validateWhatsAppFormat, normalizeWhatsApp, formatWhatsApp } from "@/utils/formatters";
 
 interface NovoClienteModalProps {
   open: boolean;
@@ -103,10 +105,6 @@ export function NovoClienteModal({ open, onOpenChange, onClienteAdded }: NovoCli
     return value;
   };
 
-  const formatWhatsApp = (value: string) => {
-    // Retornar exatamente o que o usuário digitou, sem modificações
-    return value;
-  };
 
   const validateCPF = (cpf: string) => {
     const digits = cpf.replace(/\D/g, "");
@@ -114,8 +112,7 @@ export function NovoClienteModal({ open, onOpenChange, onClienteAdded }: NovoCli
   };
 
   const validateWhatsApp = (whatsapp: string) => {
-    // Validação simples: apenas verificar se não está vazio
-    return whatsapp.trim().length > 0;
+    return validateWhatsAppFormat(whatsapp);
   };
 
   const handleInputChange = (field: string, value: string) => {
@@ -130,6 +127,13 @@ export function NovoClienteModal({ open, onOpenChange, onClienteAdded }: NovoCli
     setFormData(prev => ({
       ...prev,
       [field]: formattedValue
+    }));
+  };
+
+  const handleSelectChange = (field: string, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
     }));
   };
 
@@ -182,9 +186,9 @@ export function NovoClienteModal({ open, onOpenChange, onClienteAdded }: NovoCli
       return;
     }
 
-    // Remover formatação apenas do CPF - WhatsApp manter como digitado
+    // Remover formatação apenas do CPF - WhatsApp normalizar para formato da API
     const cpfLimpo = formData.cpf.replace(/\D/g, "");
-    const whatsappValue = formData.whatsapp.trim(); // Manter exatamente como digitado
+    const whatsappValue = normalizeWhatsApp(formData.whatsapp); // Normalizar para formato da API
 
     console.log('🔍 Criando cliente - Dados completos:', {
       padariaIdToUse,
@@ -268,7 +272,7 @@ export function NovoClienteModal({ open, onOpenChange, onClienteAdded }: NovoCli
             <Label htmlFor="whatsapp">WhatsApp *</Label>
             <Input
               id="whatsapp"
-              placeholder="Digite o WhatsApp"
+              placeholder="Ex: 5585988889999 ou (85) 98888-9999"
               value={formData.whatsapp}
               onChange={(e) => handleInputChange("whatsapp", e.target.value)}
               autoComplete="off"
@@ -277,16 +281,25 @@ export function NovoClienteModal({ open, onOpenChange, onClienteAdded }: NovoCli
               spellCheck="false"
               required
             />
+            <p className="text-xs text-muted-foreground">
+              Formato aceito: 5585988889999 (13 dígitos) ou 85988889999 (11 dígitos)
+            </p>
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="resposta_pergunta">Resposta da Pergunta</Label>
-            <Input
-              id="resposta_pergunta"
-              placeholder="Resposta opcional"
-              value={formData.resposta_pergunta}
-              onChange={(e) => handleInputChange("resposta_pergunta", e.target.value)}
-            />
+            <Select 
+              value={formData.resposta_pergunta} 
+              onValueChange={(value) => handleSelectChange("resposta_pergunta", value)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione uma opção" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Na Padaria">Na Padaria</SelectItem>
+                <SelectItem value="Em outra lugar">Em outra lugar</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           
           <DialogFooter>

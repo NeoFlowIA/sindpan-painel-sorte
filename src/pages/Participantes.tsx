@@ -33,6 +33,7 @@ export default function Participantes() {
   const [selectedCliente, setSelectedCliente] = useState<any>(null);
   const [editedCliente, setEditedCliente] = useState<any>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isEditingPadaria, setIsEditingPadaria] = useState(false);
 
   const itemsPerPage = 10;
 
@@ -90,6 +91,18 @@ export default function Participantes() {
     GET_ADMIN_DASHBOARD_METRICS
   );
 
+  // Debug temporário
+  console.log('🔍 Debug Participantes:', {
+    clientesLoading,
+    clientesData: clientesData?.clientes?.length || 0,
+    padariasLoading,
+    padariasData: padariasData?.padarias?.length || 0,
+    metricsLoading,
+    metricsData: metricsData ? 'loaded' : 'not loaded',
+    firstCliente: clientesData?.clientes?.[0]
+  });
+
+
   const refreshData = async () => {
     setIsLoading(true);
     try {
@@ -127,27 +140,36 @@ export default function Participantes() {
   const clientesPorPadaria = useMemo(() => {
     const resultado: any[] = [];
     
+    console.log('🔍 Processando clientes:', {
+      totalClientes: clientesData?.clientes?.length || 0,
+      totalPadarias: padariasData?.padarias?.length || 0
+    });
+    
     (clientesData?.clientes || []).forEach((cliente: any) => {
       try {
         if (!cliente) return;
         
-        // 1. Verificar se o cliente tem resposta "Na padaria"
-        const respostaValida = cliente.resposta_pergunta === "Na padaria";
-        if (!respostaValida) return;
+        // 1. Verificar se o cliente tem cupons ativos (mais flexível)
+        const temCuponsAtivos = (cliente.cupons || []).some((cupom: any) => 
+          cupom && cupom.status === "ativo"
+        );
+        
+        console.log('🔍 Cliente:', cliente.nome, {
+          resposta_pergunta: cliente.resposta_pergunta,
+          totalCupons: cliente.cupons?.length || 0,
+          temCuponsAtivos
+        });
+        
+        // Se não tem cupons ativos, pular
+        if (!temCuponsAtivos) return;
         
         // 2. Agrupar cupons por padaria
-        const cuponsAtivos = (cliente.cupons || []).filter((cupom: any) => 
-          cupom && cupom.valor_compra !== "0" && cupom.status === "ativo"
+        const todosCupons = cliente.cupons || [];
+        const cuponsAtivos = todosCupons.filter((cupom: any) => 
+          cupom && cupom.status === "ativo"
         );
         
         if (cuponsAtivos.length === 0) return;
-        
-        // Debug: verificar se cupons têm padaria_id
-        console.log('🔍 Cliente:', cliente.nome, 'Cupons ativos:', cuponsAtivos.map((c: any) => ({ 
-          id: c.id, 
-          padaria_id: c.padaria_id,
-          numero_sorte: c.numero_sorte 
-        })));
         
         // Agrupar cupons por padaria_id
         const cuponsPorPadaria = new Map<string, any[]>();
@@ -159,9 +181,7 @@ export default function Participantes() {
           cuponsPorPadaria.get(padariaId)!.push(cupom);
         });
         
-        console.log('🔍 Cliente:', cliente.nome, 'Padarias encontradas:', Array.from(cuponsPorPadaria.keys()));
-        
-        // Criar uma entrada para cada padaria
+        // Criar uma entrada para cada padaria (MESMO CLIENTE PODE APARECER MÚLTIPLAS VEZES)
         cuponsPorPadaria.forEach((cupons, padariaId) => {
           // Buscar nome da padaria
           const padaria = (padariasData?.padarias || []).find((p: any) => p.id === padariaId);
@@ -174,7 +194,9 @@ export default function Participantes() {
             totalCuponsNestaPadaria: cupons.length,
             ultimaSubmissaoNestaPadaria: cupons.length > 0 
               ? new Date(cupons.sort((a, b) => new Date(b.data_compra).getTime() - new Date(a.data_compra).getTime())[0].data_compra).toLocaleDateString('pt-BR')
-              : 'N/A'
+              : 'N/A',
+            // Chave única para cada combinação cliente+padaria
+            uniqueKey: `${cliente.id}-${padariaId}`
           });
         });
       } catch (error) {
@@ -182,7 +204,16 @@ export default function Participantes() {
       }
     });
     
-    console.log('🔍 Total de linhas geradas:', resultado.length);
+    console.log('🔍 Resultado final:', {
+      totalLinhas: resultado.length,
+      primeirasLinhas: resultado.slice(0, 3).map(r => ({
+        nome: r.nome,
+        padaria: r.padariaVinculada,
+        cupons: r.totalCuponsNestaPadaria,
+        uniqueKey: r.uniqueKey
+      }))
+    });
+    
     return resultado;
   }, [clientesData, padariasData]);
 
@@ -204,25 +235,59 @@ export default function Participantes() {
     }
   });
 
-  const totalClientes = participantesFiltrados.length;
+  // Fallback: se não há participantes processados, mostrar clientes simples
+  const clientesFallback = useMemo(() => {
+    if (participantesFiltrados.length > 0) return [];
+    
+    return (clientesData?.clientes || []).map((cliente: any) => {
+      const cuponsAtivos = (cliente.cupons || []).filter((cupom: any) => 
+        cupom && cupom.status === "ativo"
+      );
+      
+      return {
+        ...cliente,
+        padariaVinculada: cliente.padaria?.nome || 'N/A',
+        padariaVinculadaId: cliente.padaria_id || 'sem_padaria',
+        cuponsNestaPadaria: cuponsAtivos,
+        totalCuponsNestaPadaria: cuponsAtivos.length,
+        ultimaSubmissaoNestaPadaria: cuponsAtivos.length > 0 
+          ? new Date(cuponsAtivos.sort((a: any, b: any) => new Date(b.data_compra).getTime() - new Date(a.data_compra).getTime())[0].data_compra).toLocaleDateString('pt-BR')
+          : 'N/A',
+        // Chave única para cada combinação cliente+padaria
+        uniqueKey: `${cliente.id}-${cliente.padaria_id || 'sem_padaria'}`
+      };
+    });
+  }, [clientesData, participantesFiltrados.length]);
+
+  console.log('🔍 Fallback check:', {
+    participantesFiltrados: participantesFiltrados.length,
+    clientesFallback: clientesFallback.length
+  });
+
+  // Usar fallback se não há participantes processados
+  const clientesParaExibir = participantesFiltrados.length > 0 ? participantesFiltrados : clientesFallback;
+  
+  const totalClientes = clientesParaExibir.length;
   const totalPages = Math.ceil(totalClientes / itemsPerPage);
   
   // Paginar resultados filtrados
-  const clientes = participantesFiltrados.slice(
+  const clientes = clientesParaExibir.slice(
     currentPage * itemsPerPage, 
     (currentPage + 1) * itemsPerPage
   );
 
-  // Calcular métricas no frontend
-  const totalParticipantes = metricsData?.clientes_aggregate?.aggregate?.count || 0;
-  const totalCupons = metricsData?.cupons_aggregate?.aggregate?.count || 0;
+  // Calcular métricas no frontend - APENAS CUPONS ATIVOS
+  const totalParticipantes = participantesFiltrados.length; // Apenas participantes com cupons ativos
+  const totalCupons = (metricsData?.cupons || []).filter((cupom: any) => 
+    cupom.status === "ativo" 
+  ).length || 0;
   
-  // Calcular cupons de hoje
+  // Calcular cupons de hoje - APENAS CUPONS ATIVOS
   const hoje = new Date();
   hoje.setHours(0, 0, 0, 0);
   const cuponsHoje = (metricsData?.cupons || []).filter((cupom: any) => {
     const dataCupom = new Date(cupom.data_compra);
-    return dataCupom >= hoje;
+    return dataCupom >= hoje && cupom.status === "ativo" && cupom.valor_compra !== "0";
   }).length || 0;
   
   const mediaCupons = totalParticipantes > 0 ? (totalCupons / totalParticipantes).toFixed(1) : "0.0";
@@ -267,11 +332,56 @@ export default function Participantes() {
     document.body.removeChild(link);
   };
 
+  // Função para calcular a padaria com mais cupons
+  const calcularPadariaComMaisCupons = (cliente: any) => {
+    if (!cliente.cupons || cliente.cupons.length === 0) return null;
+    
+    const cuponsAtivos = cliente.cupons.filter((cupom: any) => cupom.status === "ativo");
+    if (cuponsAtivos.length === 0) return null;
+    
+    // Agrupar cupons por padaria
+    const cuponsPorPadaria = new Map<string, number>();
+    cuponsAtivos.forEach((cupom: any) => {
+      const padariaId = cupom.padaria_id || cliente.padaria_id;
+      if (padariaId) {
+        cuponsPorPadaria.set(padariaId, (cuponsPorPadaria.get(padariaId) || 0) + 1);
+      }
+    });
+    
+    // Encontrar a padaria com mais cupons
+    let padariaComMaisCupons = null;
+    let maxCupons = 0;
+    
+    cuponsPorPadaria.forEach((quantidade, padariaId) => {
+      if (quantidade > maxCupons) {
+        maxCupons = quantidade;
+        padariaComMaisCupons = padariaId;
+      }
+    });
+    
+    return padariaComMaisCupons;
+  };
+
   // Função para abrir detalhes do cliente
   const verDetalhes = (cliente: any) => {
     setSelectedCliente(cliente);
-    setEditedCliente({ ...cliente });
+    
+    // Fazer vinculação automática baseada nos cupons
+    const padariaComMaisCupons = calcularPadariaComMaisCupons(cliente);
+    const clienteComPadariaAtualizada = {
+      ...cliente,
+      padaria_id: padariaComMaisCupons || cliente.padaria_id
+    };
+    
+    setEditedCliente(clienteComPadariaAtualizada);
+    setIsEditingPadaria(false);
     setShowDetailsModal(true);
+    
+    // Mostrar feedback se a vinculação foi alterada
+    if (padariaComMaisCupons && padariaComMaisCupons !== cliente.padaria_id) {
+      const padaria = padariasData?.padarias?.find((p: any) => p.id === padariaComMaisCupons);
+      toast.success(`Padaria automaticamente vinculada: ${padaria?.nome || 'N/A'}`);
+    }
   };
 
   // Função para salvar alterações
@@ -283,9 +393,23 @@ export default function Participantes() {
       changes: {
         nome: editedCliente.nome,
         cpf: editedCliente.cpf,
-        whatsapp: editedCliente.whatsapp
+        whatsapp: editedCliente.whatsapp,
+        padaria_id: editedCliente.padaria_id
       }
     });
+  };
+
+  // Função para vincular automaticamente à padaria com mais cupons
+  const vincularPadariaAutomatica = () => {
+    if (!editedCliente) return;
+    
+    const padariaComMaisCupons = calcularPadariaComMaisCupons(editedCliente);
+    if (padariaComMaisCupons) {
+      setEditedCliente({ ...editedCliente, padaria_id: padariaComMaisCupons });
+      toast.success('Padaria vinculada automaticamente baseada nos cupons!');
+    } else {
+      toast.error('Não foi possível determinar a padaria com mais cupons');
+    }
   };
 
   // Função para confirmar exclusão
@@ -298,9 +422,14 @@ export default function Participantes() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-primary">Participantes</h1>
+          <h1 className="text-3xl font-bold text-primary">
+            {participantesFiltrados.length > 0 ? "Participantes por Padaria" : "Todos os Clientes"}
+          </h1>
           <p className="text-muted-foreground">
-            Gerencie todos os participantes da campanha • Última atualização: {lastUpdate.toLocaleTimeString()}
+            {participantesFiltrados.length > 0 
+              ? "Visualize participantes agrupados por padaria (mesmo cliente pode aparecer múltiplas vezes)" 
+              : "Visualize todos os clientes cadastrados (alguns podem não ter cupons ativos)"
+            } • Última atualização: {lastUpdate.toLocaleTimeString()}
           </p>
         </div>
         <div className="flex gap-2">
@@ -338,7 +467,7 @@ export default function Participantes() {
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total de Participantes</CardTitle>
+            <CardTitle className="text-sm font-medium">Participantes Ativos</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -346,22 +475,22 @@ export default function Participantes() {
               {metricsLoading ? "..." : totalParticipantes.toLocaleString()}
             </div>
             <p className="text-xs text-muted-foreground">
-              {cuponsHoje > 0 ? `+${cuponsHoje} cupons hoje` : "Dados atualizados"}
+              {cuponsHoje > 0 ? `+${cuponsHoje} cupons ativos hoje` : "Com cupons ativos"}
             </p>
           </CardContent>
         </Card>
         
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Cupons Validados</CardTitle>
-            <Badge className="bg-secondary text-secondary-foreground">Total</Badge>
+            <CardTitle className="text-sm font-medium">Cupons Ativos</CardTitle>
+            <Badge className="bg-secondary text-secondary-foreground">Validados</Badge>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-secondary">
               {metricsLoading ? "..." : totalCupons.toLocaleString()}
             </div>
             <p className="text-xs text-muted-foreground">
-              {cuponsHoje > 0 ? `+${cuponsHoje} hoje` : "Todos os cupons"}
+              {cuponsHoje > 0 ? `+${cuponsHoje} hoje` : "Status: ativo"}
             </p>
           </CardContent>
         </Card>
@@ -374,7 +503,7 @@ export default function Participantes() {
             <div className="text-2xl font-bold text-accent">
               {metricsLoading ? "..." : mediaCupons}
             </div>
-            <p className="text-xs text-muted-foreground">cupons por pessoa</p>
+            <p className="text-xs text-muted-foreground">cupons ativos por pessoa</p>
           </CardContent>
         </Card>
       </div>
@@ -426,15 +555,25 @@ export default function Participantes() {
       {/* Participants Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Lista de Participantes</CardTitle>
+          <CardTitle>
+            {participantesFiltrados.length > 0 ? "Lista de Participantes por Padaria" : "Lista de Todos os Clientes"}
+          </CardTitle>
           <p className="text-sm text-muted-foreground">
-            {totalClientes} participantes encontrados
+            {participantesFiltrados.length > 0 
+              ? `${totalClientes} entradas encontradas (agrupadas por padaria)`
+              : `${totalClientes} clientes encontrados (mostrando todos, incluindo sem cupons ativos)`
+            }
           </p>
         </CardHeader>
         <CardContent>
           {clientesLoading ? (
             <div className="flex items-center justify-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              <p className="ml-2">Carregando participantes...</p>
+            </div>
+          ) : clientes.length === 0 ? (
+            <div className="flex items-center justify-center py-8">
+              <p className="text-muted-foreground">Nenhum participante encontrado</p>
             </div>
           ) : (
             <>
@@ -445,14 +584,14 @@ export default function Participantes() {
                     <TableHead>CPF</TableHead>
                     <TableHead>WhatsApp</TableHead>
                     <TableHead>Padaria Vinculada</TableHead>
-                    <TableHead>Cupons Enviados</TableHead>
-                    <TableHead>Última Submissão</TableHead>
+                    <TableHead>Cupons Ativos (nesta padaria)</TableHead>
+                    <TableHead>Última Submissão (nesta padaria)</TableHead>
                     <TableHead>Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {clientes.map((participante: any) => (
-                    <TableRow key={`${participante.id}-${participante.padariaVinculadaId}`}>
+                    <TableRow key={participante.uniqueKey}>
                       <TableCell className="font-medium">{participante.nome}</TableCell>
                       <TableCell>{maskCPF(participante.cpf)}</TableCell>
                       <TableCell>{formatPhone(participante.whatsapp)}</TableCell>
@@ -462,8 +601,15 @@ export default function Participantes() {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline" className="text-secondary border-secondary">
+                        <Badge 
+                          variant="outline" 
+                          className={participante.totalCuponsNestaPadaria > 0 
+                            ? "text-secondary border-secondary" 
+                            : "text-muted-foreground border-muted-foreground"
+                          }
+                        >
                           {participante.totalCuponsNestaPadaria}
+                          {participante.totalCuponsNestaPadaria === 0 && " (sem cupons ativos)"}
                         </Badge>
                       </TableCell>
                       <TableCell>{participante.ultimaSubmissaoNestaPadaria}</TableCell>
@@ -578,22 +724,167 @@ export default function Participantes() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Padaria</Label>
-                    <Input
-                      value={selectedCliente.padaria?.nome || 'N/A'}
-                      disabled
-                      className="bg-muted"
-                    />
+                    <div className="flex items-center gap-2">
+                      <Label>Padaria</Label>
+                      {(() => {
+                        const padariaComMaisCupons = calcularPadariaComMaisCupons(selectedCliente);
+                        const foiAlterada = padariaComMaisCupons && padariaComMaisCupons !== selectedCliente.padaria_id;
+                        return foiAlterada && (
+                          <Badge variant="secondary" className="text-xs">
+                            Auto-vinculada
+                          </Badge>
+                        );
+                      })()}
+                    </div>
+                    {isEditingPadaria ? (
+                      <div className="space-y-2">
+                        <Select
+                          value={editedCliente.padaria_id || ''}
+                          onValueChange={(value) => setEditedCliente({ ...editedCliente, padaria_id: value })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione uma padaria" />
+                          </SelectTrigger>
+                          <SelectContent className="max-h-[200px]">
+                            {padariasData?.padarias?.map((padaria: any) => (
+                              <SelectItem key={padaria.id} value={padaria.id}>
+                                {padaria.nome}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={vincularPadariaAutomatica}
+                            className="text-xs"
+                          >
+                            Auto-vincular por cupons
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setIsEditingPadaria(false)}
+                          >
+                            Cancelar
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <Input
+                          value={(() => {
+                            const padaria = padariasData?.padarias?.find((p: any) => p.id === editedCliente.padaria_id);
+                            return padaria?.nome || 'N/A';
+                          })()}
+                          disabled
+                          className="bg-muted"
+                        />
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setIsEditingPadaria(true)}
+                        >
+                          Editar
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
 
               <Separator />
 
+              {/* Informação sobre Vinculação Automática */}
+              {(() => {
+                const padariaComMaisCupons = calcularPadariaComMaisCupons(selectedCliente);
+                const foiAlterada = padariaComMaisCupons && padariaComMaisCupons !== selectedCliente.padaria_id;
+                
+                if (foiAlterada) {
+                  const padaria = padariasData?.padarias?.find((p: any) => p.id === padariaComMaisCupons);
+                  return (
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                        <h4 className="font-medium text-blue-900">Vinculação Automática Aplicada</h4>
+                      </div>
+                      <p className="text-sm text-blue-700">
+                        A padaria foi automaticamente vinculada para <strong>{padaria?.nome || 'N/A'}</strong> baseada na análise dos cupons ativos. 
+                        Você pode alterar manualmente se necessário.
+                      </p>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
+
+              <Separator />
+
+              {/* Análise de Cupons por Padaria */}
+              {editedCliente.cupons && editedCliente.cupons.filter((c: any) => c.status === "ativo").length > 0 && (
+                <div className="space-y-4">
+                  <h3 className="font-semibold text-lg">Análise de Cupons por Padaria</h3>
+                  <div className="bg-muted/50 p-4 rounded-lg">
+                    <p className="text-sm text-muted-foreground mb-3">
+                      Distribuição de cupons ativos por padaria:
+                    </p>
+                    <div className="space-y-2">
+                      {(() => {
+                        const cuponsAtivos = editedCliente.cupons.filter((c: any) => c.status === "ativo");
+                        const cuponsPorPadaria = new Map<string, { count: number; nome: string }>();
+                        
+                        cuponsAtivos.forEach((cupom: any) => {
+                          const padariaId = cupom.padaria_id || editedCliente.padaria_id;
+                          if (padariaId) {
+                            const padaria = padariasData?.padarias?.find((p: any) => p.id === padariaId);
+                            const nome = padaria?.nome || 'Padaria não encontrada';
+                            
+                            if (!cuponsPorPadaria.has(padariaId)) {
+                              cuponsPorPadaria.set(padariaId, { count: 0, nome });
+                            }
+                            cuponsPorPadaria.get(padariaId)!.count++;
+                          }
+                        });
+                        
+                        return Array.from(cuponsPorPadaria.entries())
+                          .sort((a, b) => b[1].count - a[1].count)
+                          .map(([padariaId, data]) => {
+                            const padariaComMaisCupons = calcularPadariaComMaisCupons(selectedCliente);
+                            const foiAlterada = padariaComMaisCupons && padariaComMaisCupons !== selectedCliente.padaria_id;
+                            const isAutoVinculada = foiAlterada && padariaId === padariaComMaisCupons;
+                            
+                            return (
+                              <div key={padariaId} className={`flex justify-between items-center p-2 rounded ${
+                                isAutoVinculada ? 'bg-blue-50 border border-blue-200' : 'bg-background'
+                              }`}>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm">{data.nome}</span>
+                                  {isAutoVinculada && (
+                                    <Badge variant="secondary" className="text-xs">
+                                      Auto-vinculada
+                                    </Badge>
+                                  )}
+                                </div>
+                                <Badge variant={padariaId === editedCliente.padaria_id ? "default" : "outline"}>
+                                  {data.count} cupons
+                                  {padariaId === editedCliente.padaria_id && " (atual)"}
+                                </Badge>
+                              </div>
+                            );
+                          });
+                      })()}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <Separator />
+
               {/* Lista de Cupons */}
               <div className="space-y-4">
-                <h3 className="font-semibold text-lg">Cupons do Cliente ({selectedCliente.cupons?.length || 0})</h3>
-                {selectedCliente.cupons && selectedCliente.cupons.length > 0 ? (
+                <h3 className="font-semibold text-lg">Cupons Ativos do Cliente ({selectedCliente.cupons?.filter((c: any) => c.status === "ativo").length || 0})</h3>
+                {selectedCliente.cupons && selectedCliente.cupons.filter((c: any) => c.status === "ativo").length > 0 ? (
                   <div className="max-h-[200px] overflow-y-auto border rounded-lg">
                     <Table>
                       <TableHeader>
@@ -605,7 +896,9 @@ export default function Participantes() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {selectedCliente.cupons.map((cupom: any) => (
+                        {selectedCliente.cupons
+                          .filter((cupom: any) => cupom.status === "ativo")
+                          .map((cupom: any) => (
                           <TableRow key={cupom.id}>
                             <TableCell className="font-mono">{cupom.numero_sorte}</TableCell>
                             <TableCell>R$ {cupom.valor_compra}</TableCell>
@@ -613,8 +906,8 @@ export default function Participantes() {
                               {cupom.data_compra ? format(new Date(cupom.data_compra), 'dd/MM/yyyy HH:mm') : 'N/A'}
                             </TableCell>
                             <TableCell>
-                              <Badge variant={cupom.valor_compra === "0" ? "outline" : "default"}>
-                                {cupom.valor_compra === "0" ? "Inativo" : "Ativo"}
+                              <Badge variant="default" className="bg-green-100 text-green-800">
+                                Ativo
                               </Badge>
                             </TableCell>
                           </TableRow>
@@ -624,7 +917,7 @@ export default function Participantes() {
                   </div>
                 ) : (
                   <p className="text-sm text-muted-foreground text-center py-4">
-                    Nenhum cupom cadastrado
+                    Nenhum cupom ativo cadastrado
                   </p>
                 )}
               </div>
@@ -649,7 +942,7 @@ export default function Participantes() {
                       ⚠️ Tem certeza que deseja excluir este cliente?
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      Isso também excluirá todos os {selectedCliente.cupons?.length || 0} cupons associados. Esta ação não pode ser desfeita.
+                      Isso também excluirá todos os {selectedCliente.cupons?.filter((c: any) => c.status === "ativo").length || 0} cupons ativos associados. Esta ação não pode ser desfeita.
                     </p>
                     <div className="flex gap-2">
                       <Button
@@ -680,6 +973,7 @@ export default function Participantes() {
               onClick={() => {
                 setShowDetailsModal(false);
                 setShowDeleteConfirm(false);
+                setIsEditingPadaria(false);
               }}
             >
               <X className="w-4 h-4 mr-2" />
