@@ -64,7 +64,7 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
   
   // Usar saldo específico por padaria ao invés de saldo geral
   const { data: saldoDescontoData, refetch: refetchSaldoDesconto } = useClienteSaldoPorPadaria(
-    clienteEncontrado?.id, 
+    clienteEncontrado?.id,
     user?.padarias_id
   );
   
@@ -83,10 +83,9 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
 
   const ticketMedio = ticketMedioData?.padarias_by_pk?.ticket_medio || 28.65;
   
-  // Calcular saldo de desconto - usar apenas o último cupom da padaria (que contém o saldo acumulado)
-  const saldoDescontoAtual = saldoDescontoData?.cupons?.[0]?.valor_desconto 
-    ? parseFloat(saldoDescontoData.cupons[0].valor_desconto) 
-    : 0;
+  // Calcular saldo de desconto utilizando o registro mais recente da tabela clientes_padarias_saldos
+  const saldoCentavos = saldoDescontoData?.clientes_padarias_saldos?.[0]?.saldo_centavos;
+  const saldoDescontoAtual = saldoCentavos ? Number(saldoCentavos) / 100 : 0;
 
   // Debug: Log dos dados para verificar se estão atualizados
   console.log('🔍 Debug Saldo Desconto por Padaria:', {
@@ -94,8 +93,7 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
     padariaId: user?.padarias_id,
     saldoDescontoData,
     saldoDescontoAtual,
-    ultimoCupom: saldoDescontoData?.cupons?.[0],
-    totalCupons: saldoDescontoData?.cupons?.length || 0
+    saldoRegistro: saldoDescontoData?.clientes_padarias_saldos?.[0],
   });
 
   // Função para obter timestamp no fuso horário de Brasília
@@ -246,9 +244,7 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
         // Atualizar padaria do cliente no banco
         await updateClienteMutation.mutateAsync({
           id: cliente.id,
-          changes: {
-            padaria_id: parseInt(padariaIdNovosCupons)
-          }
+          padaria_id: padariaIdNovosCupons,
         });
         
         console.log("✅ DEBUG - Padaria atualizada com sucesso");

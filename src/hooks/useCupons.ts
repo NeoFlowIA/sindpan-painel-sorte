@@ -150,14 +150,15 @@ export const useClienteSaldoDesconto = (clienteId: number | undefined) => {
 };
 
 // Hook para obter saldo de desconto do cliente em uma padaria específica
-export const useClienteSaldoPorPadaria = (clienteId: number | undefined, padariaId: string | undefined) => {
+export const useClienteSaldoPorPadaria = (clienteId: string | undefined, padariaId: string | undefined) => {
   return useGraphQLQuery<{
-    cupons: Array<{
+    clientes_padarias_saldos: Array<{
       id: string;
-      valor_desconto: string | null;
+      saldo_centavos: number | string;
+      updated_at: string;
     }>;
   }>(
-    ['cliente-saldo-por-padaria', String(clienteId || 0), String(padariaId || '')],
+    ['cliente-saldo-por-padaria', clienteId || '', padariaId || ''],
     GET_CLIENTE_SALDO_POR_PADARIA,
     { cliente_id: clienteId, padaria_id: padariaId },
     {

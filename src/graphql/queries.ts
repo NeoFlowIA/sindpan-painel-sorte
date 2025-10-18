@@ -749,7 +749,19 @@ export const UPDATE_CLIENTE = `
       whatsapp
       resposta_pergunta
       padaria_id
-      
+    }
+  }
+`;
+
+export const UPDATE_CLIENTE_PADARIA = `
+  mutation UpdateClientePadaria($id: uuid!, $padaria_id: uuid!) {
+    update_clientes_by_pk(pk_columns: {id: $id}, _set: {padaria_id: $padaria_id}) {
+      id
+      nome
+      cpf
+      whatsapp
+      resposta_pergunta
+      padaria_id
     }
   }
 `;
@@ -984,17 +996,17 @@ export const GET_CUPONS_CLIENTE_SALDO = `
 // Query para obter saldo de desconto do cliente em uma padaria específica
 export const GET_CLIENTE_SALDO_POR_PADARIA = `
   query GetClienteSaldoPorPadaria($cliente_id: uuid!, $padaria_id: uuid!) {
-    cupons(
+    clientes_padarias_saldos(
       where: {
-        cliente_id: {_eq: $cliente_id}, 
-        padaria_id: {_eq: $padaria_id},
-        status: {_eq: "ativo"}
+        cliente_id: {_eq: $cliente_id},
+        padaria_id: {_eq: $padaria_id}
       },
-      order_by: {data_compra: desc},
+      order_by: {updated_at: desc},
       limit: 1
     ) {
       id
-      valor_desconto
+      saldo_centavos
+      updated_at
     }
   }
 `;
