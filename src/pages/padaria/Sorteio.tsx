@@ -7,12 +7,13 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   CupomParaSorteio,
+  Sorteio,
   useCuponsParaSorteio,
   useHistoricoSorteios,
   useParticipantesSorteio,
   useSalvarSorteioPadaria,
 } from "@/hooks/useCupons";
-import { formatPhone, maskCPF } from "@/utils/formatters";
+import { formatCPF, formatPhone, maskCPF } from "@/utils/formatters";
 import {
   Gift,
   History,
@@ -25,6 +26,13 @@ import {
 import { cn } from "@/lib/utils";
 import { RaffleFullscreenStage, type RaffleWinner } from "@/components/sorteio/RaffleFullscreenStage";
 import { SortearButton } from "@/components/sorteio/SortearButton";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 const COLUMN_STAGGER = 140;
 
@@ -34,6 +42,8 @@ export function PadariaSorteio() {
   const [ultimoGanhador, setUltimoGanhador] = useState<CupomParaSorteio | null>(null);
   const [isSorteando, setIsSorteando] = useState(false);
   const [usuariosGanhadores, setUsuariosGanhadores] = useState<Set<string>>(new Set());
+  const [sorteioSelecionado, setSorteioSelecionado] = useState<Sorteio | null>(null);
+  const [detalhesAberto, setDetalhesAberto] = useState(false);
 
   const [stageOpen, setStageOpen] = useState(false);
   const [stageEstado, setStageEstado] = useState<"idle" | "spinning" | "revealing" | "done">("idle");
@@ -43,14 +53,20 @@ export function PadariaSorteio() {
   const { user } = useAuth();
   const { toast } = useToast();
 
-  const { data: cuponsData, isLoading: cuponsLoading, refetch: refetchCupons } = useCuponsParaSorteio(user?.padarias_id || "");
+  const padariaId = user?.padarias_id ?? undefined;
+
+  const {
+    data: cuponsData,
+    isLoading: cuponsLoading,
+    refetch: refetchCupons,
+  } = useCuponsParaSorteio(padariaId);
   const { data: participantesData, isLoading: participantesLoading } = useParticipantesSorteio();
   const {
     data: historicoData,
     isLoading: historicoLoading,
     error: historicoError,
-  } = useHistoricoSorteios();
-  const { mutateAsync: salvarSorteioPadaria } = useSalvarSorteioPadaria();
+  } = useHistoricoSorteios(padariaId);
+  const { mutateAsync: salvarSorteioPadaria } = useSalvarSorteioPadaria(padariaId);
 
   useEffect(() => {
     if (!historicoData?.sorteios?.length) {
@@ -116,12 +132,17 @@ export function PadariaSorteio() {
       await new Promise((resolve) => setTimeout(resolve, 1800));
 
       const cupomSorteado = cuponsDisponiveis[Math.floor(Math.random() * cuponsDisponiveis.length)];
+      if (!padariaId) {
+        throw new Error("Padaria não encontrada para registrar o sorteio.");
+      }
+
       const dataSorteio = new Date().toISOString();
 
       const resultado = await salvarSorteioPadaria({
         numero_sorteado: cupomSorteado.numero_sorte,
         ganhador_id: cupomSorteado.cliente.id,
         data_sorteio: dataSorteio,
+        padaria_id: padariaId,
       });
 
       const clienteDoSorteio = resultado?.insert_sorteios_one?.cliente ?? cupomSorteado.cliente;
@@ -161,7 +182,10 @@ export function PadariaSorteio() {
       console.error("Erro ao realizar sorteio:", error);
       toast({
         title: "Erro",
-        description: "Erro ao realizar o sorteio. Tente novamente.",
+        description:
+          error instanceof Error && error.message
+            ? error.message
+            : "Erro ao realizar o sorteio. Tente novamente.",
         variant: "destructive",
       });
       setStageOpen(false);
@@ -169,7 +193,7 @@ export function PadariaSorteio() {
     } finally {
       setIsSorteando(false);
     }
-  }, [cuponsDisponiveis, salvarSorteioPadaria, toast]);
+  }, [cuponsDisponiveis, padariaId, salvarSorteioPadaria, toast]);
 
   const iniciarNovoSorteio = useCallback(() => {
     setCuponsSorteados(new Set());
@@ -430,7 +454,19 @@ export function PadariaSorteio() {
                             </div>
                           </div>
                         </div>
-                        <Badge variant="outline">Ganhador</Badge>
+                        <div className="flex flex-col items-end gap-2 sm:flex-row sm:items-center">
+                          <Badge variant="outline">Ganhador</Badge>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setSorteioSelecionado(sorteio);
+                              setDetalhesAberto(true);
+                            }}
+                          >
+                            Ver detalhes
+                          </Button>
+                        </div>
                       </div>
                     );
                   })}
@@ -451,6 +487,63 @@ export function PadariaSorteio() {
         canSortearNovamente={cuponsDisponiveisCount > 0}
         isProcessing={isSorteando}
       />
+
+      <Dialog
+        open={detalhesAberto}
+        onOpenChange={(open) => {
+          setDetalhesAberto(open);
+          if (!open) {
+            setSorteioSelecionado(null);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Detalhes do ganhador</DialogTitle>
+            <DialogDescription>Informações completas do sorteio selecionado.</DialogDescription>
+          </DialogHeader>
+          {sorteioSelecionado ? (
+            <div className="space-y-3">
+              <div>
+                <p className="text-sm text-muted-foreground">Nome</p>
+                <p className="text-base font-medium">{sorteioSelecionado.cliente?.nome ?? "Cliente não encontrado"}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">CPF</p>
+                <p className="text-base font-medium">
+                  {sorteioSelecionado.cliente?.cpf
+                    ? formatCPF(sorteioSelecionado.cliente.cpf)
+                    : "CPF não informado"}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">WhatsApp</p>
+                <p className="text-base font-medium">
+                  {sorteioSelecionado.cliente?.whatsapp
+                    ? formatPhone(sorteioSelecionado.cliente.whatsapp)
+                    : "WhatsApp não informado"}
+                </p>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <div>
+                  <p className="text-sm text-muted-foreground">Número do cupom</p>
+                  <p className="text-base font-medium">{sorteioSelecionado.numero_sorteado}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Data do sorteio</p>
+                  <p className="text-base font-medium">
+                    {sorteioSelecionado.data_sorteio
+                      ? new Date(sorteioSelecionado.data_sorteio).toLocaleString("pt-BR")
+                      : "Data não disponível"}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">Nenhum sorteio selecionado.</p>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

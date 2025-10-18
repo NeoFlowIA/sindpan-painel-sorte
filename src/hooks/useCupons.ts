@@ -373,6 +373,7 @@ export interface Sorteio {
   numero_sorteado: string;
   ganhador_id: string;
   tipo?: string | null;
+  padaria_id?: string | null;
   cliente: {
     id: string;
     nome: string;
@@ -393,13 +394,13 @@ export interface ParticipanteSorteio {
 }
 
 // Hook para obter cupons para sorteio
-export const useCuponsParaSorteio = (padariaId: string) => {
+export const useCuponsParaSorteio = (padariaId: string | undefined) => {
   return useGraphQLQuery<{
     cupons: Array<CupomParaSorteio>;
   }>(
     ['cupons-para-sorteio', padariaId],
     GET_CUPONS_PARA_SORTEIO,
-    { padaria_id: padariaId },
+    padariaId ? { padaria_id: padariaId } : undefined,
     {
       staleTime: 1 * 60 * 1000, // 1 minuto
       enabled: !!padariaId,
@@ -408,7 +409,7 @@ export const useCuponsParaSorteio = (padariaId: string) => {
 };
 
 // Hook para obter histórico de sorteios
-export const useHistoricoSorteios = () => {
+export const useHistoricoSorteios = (padariaId: string | undefined) => {
   return useGraphQLQuery<{
     sorteios: Array<{
       id: string;
@@ -416,6 +417,7 @@ export const useHistoricoSorteios = () => {
       numero_sorteado: string;
       ganhador_id: string;
       tipo: string | null;
+      padaria_id: string | null;
       cliente: {
         id: string;
         nome: string;
@@ -424,12 +426,12 @@ export const useHistoricoSorteios = () => {
       } | null;
     }>;
   }>(
-    ['historico-sorteios'],
+    ['historico-sorteios', padariaId],
     GET_HISTORICO_SORTEIOS,
-    {},
+    padariaId ? { padaria_id: padariaId } : undefined,
     {
       staleTime: 2 * 60 * 1000, // 2 minutos
-      enabled: true,
+      enabled: !!padariaId,
     }
   );
 };
@@ -454,7 +456,7 @@ export const useParticipantesSorteio = () => {
   );
 };
 
-export const useSalvarSorteioPadaria = () => {
+export const useSalvarSorteioPadaria = (padariaId: string | undefined) => {
   return useGraphQLMutation<
     {
       insert_sorteios_one: {
@@ -463,6 +465,7 @@ export const useSalvarSorteioPadaria = () => {
         data_sorteio: string;
         ganhador_id: string;
         tipo: string | null;
+        padaria_id: string | null;
         cliente: {
           id: string;
           nome: string;
@@ -475,11 +478,12 @@ export const useSalvarSorteioPadaria = () => {
       numero_sorteado: string;
       ganhador_id: string;
       data_sorteio: string;
+      padaria_id: string;
     }
   >(
     SALVAR_SORTEIO_PADARIA,
     {
-      invalidateQueries: [['historico-sorteios']],
+      invalidateQueries: padariaId ? [['historico-sorteios', padariaId]] : undefined,
     }
   );
 };
