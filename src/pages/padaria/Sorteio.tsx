@@ -5,8 +5,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { CupomParaSorteio, useCuponsParaSorteio, useHistoricoSorteios, useParticipantesSorteio } from "@/hooks/useCupons";
-import { formatPhone, maskCPF } from "@/utils/formatters";
+import {
+  CupomParaSorteio,
+  Sorteio,
+  useCuponsParaSorteio,
+  useHistoricoSorteios,
+  useParticipantesSorteio,
+  useSalvarSorteioPadaria,
+} from "@/hooks/useCupons";
+import { formatCPF, formatPhone, maskCPF } from "@/utils/formatters";
 import {
   Gift,
   History,
@@ -19,6 +26,13 @@ import {
 import { cn } from "@/lib/utils";
 import { RaffleFullscreenStage, type RaffleWinner } from "@/components/sorteio/RaffleFullscreenStage";
 import { SortearButton } from "@/components/sorteio/SortearButton";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 const COLUMN_STAGGER = 140;
 
@@ -27,19 +41,9 @@ export function PadariaSorteio() {
   const [cuponsSorteados, setCuponsSorteados] = useState<Set<string>>(new Set());
   const [ultimoGanhador, setUltimoGanhador] = useState<CupomParaSorteio | null>(null);
   const [isSorteando, setIsSorteando] = useState(false);
-  const [usuariosGanhadores, setUsuariosGanhadores] = useState<Set<number>>(new Set());
-  const [historicoLocal, setHistoricoLocal] = useState<Array<{
-    id: string;
-    data_sorteio: string;
-    numero_sorteado: string;
-    ganhador_id: number;
-    cliente: {
-      id: number;
-      nome: string;
-      cpf: string;
-      whatsapp: string;
-    };
-  }>>([]);
+  const [usuariosGanhadores, setUsuariosGanhadores] = useState<Set<string>>(new Set());
+  const [sorteioSelecionado, setSorteioSelecionado] = useState<Sorteio | null>(null);
+  const [detalhesAberto, setDetalhesAberto] = useState(false);
 
   const [stageOpen, setStageOpen] = useState(false);
   const [stageEstado, setStageEstado] = useState<"idle" | "spinning" | "revealing" | "done">("idle");
@@ -49,16 +53,46 @@ export function PadariaSorteio() {
   const { user } = useAuth();
   const { toast } = useToast();
 
-  const { data: cuponsData, isLoading: cuponsLoading, refetch: refetchCupons } = useCuponsParaSorteio(user?.padarias_id || "");
+  const padariaId = user?.padarias_id ?? undefined;
+
+  const {
+    data: cuponsData,
+    isLoading: cuponsLoading,
+    refetch: refetchCupons,
+  } = useCuponsParaSorteio(padariaId);
   const { data: participantesData, isLoading: participantesLoading } = useParticipantesSorteio();
-  useHistoricoSorteios();
+  const {
+    data: historicoData,
+    isLoading: historicoLoading,
+    error: historicoError,
+  } = useHistoricoSorteios(padariaId);
+  const { mutateAsync: salvarSorteioPadaria } = useSalvarSorteioPadaria(padariaId);
 
   useEffect(() => {
-    if (historicoLocal.length > 0) {
-      const cupons = new Set(historicoLocal.map((s) => s.numero_sorteado));
-      setCuponsSorteados(cupons);
+    if (!historicoData?.sorteios?.length) {
+      return;
     }
-  }, [historicoLocal]);
+
+    setCuponsSorteados((prev) => {
+      const atualizados = new Set(prev);
+      historicoData.sorteios.forEach((sorteio) => {
+        if (sorteio?.numero_sorteado) {
+          atualizados.add(sorteio.numero_sorteado);
+        }
+      });
+      return atualizados;
+    });
+
+    setUsuariosGanhadores((prev) => {
+      const atualizados = new Set(prev);
+      historicoData.sorteios.forEach((sorteio) => {
+        if (sorteio?.ganhador_id) {
+          atualizados.add(sorteio.ganhador_id);
+        }
+      });
+      return atualizados;
+    });
+  }, [historicoData?.sorteios]);
 
   const cuponsDisponiveis = useMemo(
     () =>
@@ -71,6 +105,7 @@ export function PadariaSorteio() {
   const totalCupons = cuponsData?.cupons?.length || 0;
   const cuponsDisponiveisCount = cuponsDisponiveis.length;
   const cuponsSorteadosCount = cuponsSorteados.size;
+  const historicoSorteios = historicoData?.sorteios ?? [];
 
   useEffect(() => () => {
     if (revealTimeoutRef.current) {
@@ -97,24 +132,37 @@ export function PadariaSorteio() {
       await new Promise((resolve) => setTimeout(resolve, 1800));
 
       const cupomSorteado = cuponsDisponiveis[Math.floor(Math.random() * cuponsDisponiveis.length)];
+      if (!padariaId) {
+        throw new Error("Padaria não encontrada para registrar o sorteio.");
+      }
 
-      const novoSorteio = {
-        id: `sorteio_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
-        data_sorteio: new Date().toISOString(),
+      const dataSorteio = new Date().toISOString();
+
+      const resultado = await salvarSorteioPadaria({
         numero_sorteado: cupomSorteado.numero_sorte,
-        ganhador_id: cupomSorteado.cliente_id,
-        cliente: cupomSorteado.cliente,
-      };
+        ganhador_id: cupomSorteado.cliente.id,
+        data_sorteio: dataSorteio,
+        padaria_id: padariaId,
+      });
 
-      setHistoricoLocal((prev) => [novoSorteio, ...prev]);
+      const clienteDoSorteio = resultado?.insert_sorteios_one?.cliente ?? cupomSorteado.cliente;
+
       setCuponsSorteados((prev) => new Set([...prev, cupomSorteado.numero_sorte]));
-      setUsuariosGanhadores((prev) => new Set([...prev, cupomSorteado.cliente_id]));
-      setUltimoGanhador(cupomSorteado);
+      setUsuariosGanhadores((prev) => {
+        const atualizados = new Set(prev);
+        atualizados.add(cupomSorteado.cliente_id);
+        atualizados.add(clienteDoSorteio.id);
+        return atualizados;
+      });
+      setUltimoGanhador({
+        ...cupomSorteado,
+        cliente: clienteDoSorteio,
+      });
 
       setStageWinner({
         numero: String(cupomSorteado.numero_sorte).padStart(5, "0"),
-        nome: cupomSorteado.cliente.nome,
-        telefone: formatPhone(cupomSorteado.cliente.whatsapp),
+        nome: clienteDoSorteio.nome,
+        telefone: clienteDoSorteio.whatsapp ? formatPhone(clienteDoSorteio.whatsapp) : "",
         cupom: cupomSorteado.numero_sorte,
       });
 
@@ -127,14 +175,17 @@ export function PadariaSorteio() {
         setStageEstado("done");
         toast({
           title: "Sorteio realizado!",
-          description: `${cupomSorteado.cliente.nome} foi sorteado com o cupom ${cupomSorteado.numero_sorte}`,
+          description: `${clienteDoSorteio.nome} foi sorteado com o cupom ${cupomSorteado.numero_sorte}`,
         });
       }, COLUMN_STAGGER * 4 + 900);
     } catch (error) {
       console.error("Erro ao realizar sorteio:", error);
       toast({
         title: "Erro",
-        description: "Erro ao realizar o sorteio. Tente novamente.",
+        description:
+          error instanceof Error && error.message
+            ? error.message
+            : "Erro ao realizar o sorteio. Tente novamente.",
         variant: "destructive",
       });
       setStageOpen(false);
@@ -142,13 +193,12 @@ export function PadariaSorteio() {
     } finally {
       setIsSorteando(false);
     }
-  }, [cuponsDisponiveis, toast]);
+  }, [cuponsDisponiveis, padariaId, salvarSorteioPadaria, toast]);
 
   const iniciarNovoSorteio = useCallback(() => {
     setCuponsSorteados(new Set());
     setUsuariosGanhadores(new Set());
     setUltimoGanhador(null);
-    setHistoricoLocal([]);
     refetchCupons();
     toast({
       title: "Novo sorteio iniciado",
@@ -167,6 +217,7 @@ export function PadariaSorteio() {
 
     setUsuariosGanhadores((prev) => {
       const novos = new Set(prev);
+      novos.delete(ultimoGanhador.cliente.id);
       novos.delete(ultimoGanhador.cliente_id);
       return novos;
     });
@@ -368,26 +419,57 @@ export function PadariaSorteio() {
               <CardDescription>Todos os sorteios realizados</CardDescription>
             </CardHeader>
             <CardContent>
-              {historicoLocal.length === 0 ? (
-                <div className="py-8 text-center text-muted-foreground">Nenhum sorteio realizado ainda</div>
+              {historicoLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-primary" />
+                </div>
+              ) : historicoError ? (
+                <div className="py-8 text-center text-destructive">
+                  Não foi possível carregar o histórico de sorteios.
+                </div>
+              ) : historicoSorteios.length === 0 ? (
+                <div className="py-8 text-center text-muted-foreground">Nenhum sorteio registrado ainda</div>
               ) : (
                 <div className="space-y-3">
-                  {historicoLocal.map((sorteio) => (
-                    <div key={sorteio.id} className="flex items-center justify-between rounded-lg border p-3">
-                      <div className="flex items-center gap-3">
-                        <div>
-                          <div className="font-medium">{sorteio.cliente.nome}</div>
-                          <div className="text-sm text-muted-foreground">
-                            {formatPhone(sorteio.cliente.whatsapp)} • Cupom: {sorteio.numero_sorteado}
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            {new Date(sorteio.data_sorteio).toLocaleString("pt-BR")} • ID: {sorteio.id.toString().slice(0, 4)}
+                  {historicoSorteios.map((sorteio) => {
+                    const cliente = sorteio.cliente;
+                    const dataSorteio = sorteio.data_sorteio
+                      ? new Date(sorteio.data_sorteio).toLocaleString("pt-BR")
+                      : "Data não disponível";
+
+                    return (
+                      <div key={sorteio.id} className="flex items-center justify-between rounded-lg border p-3">
+                        <div className="flex items-center gap-3">
+                          <div>
+                            <div className="font-medium">{cliente?.nome || "Cliente não encontrado"}</div>
+                            <div className="text-sm text-muted-foreground">
+                              {cliente?.whatsapp ? `${formatPhone(cliente.whatsapp)} • ` : ""}
+                              Cupom: {sorteio.numero_sorteado || "N/A"}
+                            </div>
+                            {cliente?.cpf && (
+                              <div className="text-sm text-muted-foreground">CPF: {maskCPF(cliente.cpf)}</div>
+                            )}
+                            <div className="text-xs text-muted-foreground">
+                              {dataSorteio} • ID: {sorteio.id?.slice(0, 4) || "--"}
+                            </div>
                           </div>
                         </div>
+                        <div className="flex flex-col items-end gap-2 sm:flex-row sm:items-center">
+                          <Badge variant="outline">Ganhador</Badge>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setSorteioSelecionado(sorteio);
+                              setDetalhesAberto(true);
+                            }}
+                          >
+                            Ver detalhes
+                          </Button>
+                        </div>
                       </div>
-                      <Badge variant="outline">Ganhador</Badge>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </CardContent>
@@ -405,6 +487,63 @@ export function PadariaSorteio() {
         canSortearNovamente={cuponsDisponiveisCount > 0}
         isProcessing={isSorteando}
       />
+
+      <Dialog
+        open={detalhesAberto}
+        onOpenChange={(open) => {
+          setDetalhesAberto(open);
+          if (!open) {
+            setSorteioSelecionado(null);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Detalhes do ganhador</DialogTitle>
+            <DialogDescription>Informações completas do sorteio selecionado.</DialogDescription>
+          </DialogHeader>
+          {sorteioSelecionado ? (
+            <div className="space-y-3">
+              <div>
+                <p className="text-sm text-muted-foreground">Nome</p>
+                <p className="text-base font-medium">{sorteioSelecionado.cliente?.nome ?? "Cliente não encontrado"}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">CPF</p>
+                <p className="text-base font-medium">
+                  {sorteioSelecionado.cliente?.cpf
+                    ? formatCPF(sorteioSelecionado.cliente.cpf)
+                    : "CPF não informado"}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">WhatsApp</p>
+                <p className="text-base font-medium">
+                  {sorteioSelecionado.cliente?.whatsapp
+                    ? formatPhone(sorteioSelecionado.cliente.whatsapp)
+                    : "WhatsApp não informado"}
+                </p>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <div>
+                  <p className="text-sm text-muted-foreground">Número do cupom</p>
+                  <p className="text-base font-medium">{sorteioSelecionado.numero_sorteado}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Data do sorteio</p>
+                  <p className="text-base font-medium">
+                    {sorteioSelecionado.data_sorteio
+                      ? new Date(sorteioSelecionado.data_sorteio).toLocaleString("pt-BR")
+                      : "Data não disponível"}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">Nenhum sorteio selecionado.</p>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

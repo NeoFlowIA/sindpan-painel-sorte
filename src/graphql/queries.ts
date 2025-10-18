@@ -1120,12 +1120,26 @@ export const GET_CUPONS_PARA_SORTEIO = `
 
 // Query para obter histórico de sorteios (simplificada)
 export const GET_HISTORICO_SORTEIOS = `
-  query GetHistoricoSorteios {
-    sorteios(order_by: {data_sorteio: desc}) {
+  query GetHistoricoSorteios($padaria_id: uuid!) {
+    sorteios(
+      where: {
+        tipo: {_eq: "padaria"}
+        padaria_id: {_eq: $padaria_id}
+      }
+      order_by: {data_sorteio: desc}
+    ) {
       id
       data_sorteio
       numero_sorteado
       ganhador_id
+      tipo
+      padaria_id
+      cliente {
+        id
+        nome
+        cpf
+        whatsapp
+      }
     }
   }
 `;
@@ -1141,6 +1155,42 @@ export const GET_PARTICIPANTES_SORTEIO = `
       nome
       cpf
       whatsapp
+    }
+  }
+`;
+
+export const SALVAR_SORTEIO_PADARIA = `
+  mutation SalvarSorteioPadaria(
+    $numero_sorteado: String!,
+    $ganhador_id: uuid!,
+    $data_sorteio: timestamptz!,
+    $padaria_id: uuid!
+  ) {
+    insert_sorteios_one(
+      object: {
+        numero_sorteado: $numero_sorteado,
+        ganhador_id: $ganhador_id,
+        data_sorteio: $data_sorteio,
+        tipo: "padaria",
+        padaria_id: $padaria_id
+      },
+      on_conflict: {
+        constraint: sorteios_ganhador_id_key,
+        update_columns: [numero_sorteado, data_sorteio, tipo, padaria_id]
+      }
+    ) {
+      id
+      numero_sorteado
+      data_sorteio
+      ganhador_id
+      tipo
+      padaria_id
+      cliente {
+        id
+        nome
+        cpf
+        whatsapp
+      }
     }
   }
 `;
