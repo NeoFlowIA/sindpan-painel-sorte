@@ -47,11 +47,11 @@ export function SortearButton({ disabled, onSortear }: SortearButtonProps) {
               disabled && "cursor-not-allowed opacity-60 hover:translate-y-0 hover:shadow-lg"
             )}
           >
-            <div className="flex items-center gap-4">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/15 text-primary shadow-inner">
                 <Sparkles className="h-6 w-6" aria-hidden="true" />
               </div>
-              <div className="flex-1 space-y-1">
+              <div className="flex-1 space-y-1 text-center sm:text-left">
                 <p className="text-xl font-semibold text-foreground">Sortear</p>
                 <p className="text-sm text-muted-foreground">
                   {disabled ? "Sem cupons disponíveis" : "Pronto para iniciar? Pressione S para sortear"}
@@ -63,7 +63,7 @@ export function SortearButton({ disabled, onSortear }: SortearButtonProps) {
                   event.stopPropagation();
                   onSortear();
                 }}
-                className="bg-primary text-primary-foreground shadow-lg transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                className="w-full bg-primary text-primary-foreground shadow-lg transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:w-auto"
               >
                 Sortear
               </Button>

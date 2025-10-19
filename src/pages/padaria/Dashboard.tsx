@@ -252,20 +252,20 @@ export function PadariaDashboard() {
   return (
     <div className="space-y-4 lg:space-y-5">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl lg:text-3xl font-bold text-primary">Dashboard</h1>
             <p className="text-muted-foreground">
               Última atualização: {lastUpdate.toLocaleTimeString()}
             </p>
           </div>
-          <div className="flex gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <CadastrarCupomButton onCupomCadastrado={handleCupomCadastrado} />
-            <Button 
-              onClick={refreshData} 
-              disabled={isLoading} 
+            <Button
+              onClick={refreshData}
+              disabled={isLoading}
               variant="outline"
-              className="transition-all duration-200 hover:scale-105 hover:shadow-sm"
+              className="w-full transition-all duration-200 hover:scale-105 hover:shadow-sm sm:w-auto"
             >
               <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
               Atualizar
@@ -326,7 +326,7 @@ export function PadariaDashboard() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div className="text-sm text-orange-700 dark:text-orange-300">
                   <p>Estes clientes serão anexados automaticamente na próxima atualização:</p>
                   <ul className="mt-2 space-y-1">
@@ -345,11 +345,11 @@ export function PadariaDashboard() {
                     )}
                   </ul>
                 </div>
-                <Button 
+                <Button
                   onClick={anexarClientesAutomatico}
                   disabled={anexarClientesLoading}
                   variant="outline"
-                  className="border-orange-300 text-orange-800 hover:bg-orange-100 dark:border-orange-700 dark:text-orange-200 dark:hover:bg-orange-900"
+                  className="w-full border-orange-300 text-orange-800 hover:bg-orange-100 dark:border-orange-700 dark:text-orange-200 dark:hover:bg-orange-900 sm:w-auto"
                 >
                   {anexarClientesLoading ? "Anexando..." : "Anexar Agora"}
                 </Button>

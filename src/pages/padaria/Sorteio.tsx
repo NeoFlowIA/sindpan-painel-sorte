@@ -265,7 +265,7 @@ export function PadariaSorteio() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-1 gap-2 sm:grid-cols-3">
           <TabsTrigger value="sorteio">Sorteio</TabsTrigger>
           <TabsTrigger value="participantes">Participantes</TabsTrigger>
           <TabsTrigger value="historico">Histórico</TabsTrigger>
@@ -381,11 +381,11 @@ export function PadariaSorteio() {
                       return (
                         <div
                           key={participante.id}
-                          className={`flex items-center justify-between rounded-lg border p-3 ${!podeParticipar ? "bg-muted/60 opacity-60" : ""}`}
+                          className={`flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between ${!podeParticipar ? "bg-muted/60 opacity-60" : ""}`}
                         >
-                          <div className="flex items-center gap-3">
-                            <div>
-                              <div className="flex items-center gap-2 font-medium">
+                          <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+                            <div className="space-y-1">
+                              <div className="flex flex-wrap items-center gap-2 font-medium">
                                 {participante.nome}
                                 {!podeParticipar && (
                                   <Badge variant="destructive" className="text-xs">
@@ -398,7 +398,12 @@ export function PadariaSorteio() {
                               </div>
                             </div>
                           </div>
-                          <Badge variant={podeParticipar ? "secondary" : "outline"}>{cuponsAtivos} cupons</Badge>
+                          <Badge
+                            variant={podeParticipar ? "secondary" : "outline"}
+                            className="self-start sm:self-auto"
+                          >
+                            {cuponsAtivos} cupons
+                          </Badge>
                         </div>
                       );
                     })
@@ -438,8 +443,11 @@ export function PadariaSorteio() {
                       : "Data não disponível";
 
                     return (
-                      <div key={sorteio.id} className="flex items-center justify-between rounded-lg border p-3">
-                        <div className="flex items-center gap-3">
+                      <div
+                        key={sorteio.id}
+                        className="flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between"
+                      >
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-3">
                           <div>
                             <div className="font-medium">{cliente?.nome || "Cliente não encontrado"}</div>
                             <div className="text-sm text-muted-foreground">
@@ -454,8 +462,10 @@ export function PadariaSorteio() {
                             </div>
                           </div>
                         </div>
-                        <div className="flex flex-col items-end gap-2 sm:flex-row sm:items-center">
-                          <Badge variant="outline">Ganhador</Badge>
+                        <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:gap-2">
+                          <Badge variant="outline" className="self-start sm:self-auto">
+                            Ganhador
+                          </Badge>
                           <Button
                             variant="outline"
                             size="sm"
