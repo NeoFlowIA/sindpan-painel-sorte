@@ -53,16 +53,16 @@ export const formatPhone = (phone: string): string => {
   const digits = phone.replace(/\D/g, '');
   
   // Se tem 11 dígitos (com 9): (XX) 9 XXXX-XXXX
-  if (digits.length === 11) {
-    return digits
-      .replace(/(\d{2})(\d{1})(\d{4})(\d{4})/, '($1) $2 $3-$4');
+  if (digits.length === 13) {
+    return digits.replace(/(\d{2})(\d{2})(\d{1})(\d{4})(\d{4})/, '+$1 ($2) $3 $4-$5');
   }
   
-  // Se tem 10 dígitos (sem 9): (XX) XXXX-XXXX
-  if (digits.length === 10) {
-    return digits
-      .replace(/(\d{2})(\d{4})(\d{4})/, '($1) $2-$3');
+  
+  // Se tem 12 dígitos (com 9): +55 (XX) 9 XXXX-XXXX
+  if (digits.length === 12) {
+    return digits.replace(/(\d{2})(\d{2})(\d{4})(\d{4})/, '+$1 ($2) $3-$4');
   }
+  
   
   // Se tem 9 dígitos (apenas o número): 9 XXXX-XXXX
   if (digits.length === 9) {

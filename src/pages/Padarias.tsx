@@ -581,7 +581,7 @@ export default function Padarias() {
   const [isExportOpen, setIsExportOpen] = useState(false);
 
   const queryClient = useQueryClient();
-
+  
   // Buscar dados das padarias
   const { data: padariasData, isLoading: loadingPadarias, error: errorPadarias } = usePadarias();
   const { data: statsData, isLoading: loadingStats, error: errorStats } = usePadariasStats();
@@ -706,7 +706,7 @@ export default function Padarias() {
   }
 
   return (
-    <div className="space-y-6">
+      <div className="space-y-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-3xl font-bold text-primary">Padarias Participantes</h1>
@@ -774,8 +774,8 @@ export default function Padarias() {
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="relative w-full max-w-xl lg:max-w-sm">
             <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar por nome ou CNPJ..."
+            <Input 
+              placeholder="Buscar por nome ou CNPJ..." 
               className="pl-10"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -919,6 +919,6 @@ export default function Padarias() {
             </Table>
           </CardContent>
         </Card>
-    </div>
+      </div>
   );
 }
