@@ -1,5 +1,5 @@
 import { Badge } from "@/components/ui/badge";
-import { isValid, parseISO } from "date-fns";
+import { endOfDay, isValid, parseISO, startOfDay } from "date-fns";
 
 export type CampaignStatus = "Agendada" | "Ativa" | "Encerrada";
 
@@ -28,11 +28,14 @@ export const getCampaignStatus = (
     return "Agendada";
   }
 
-  if (referenceDate < start) {
+  const periodStart = startOfDay(start);
+  const periodEnd = endOfDay(end);
+
+  if (referenceDate < periodStart) {
     return "Agendada";
   }
 
-  if (referenceDate > end) {
+  if (referenceDate > periodEnd) {
     return "Encerrada";
   }
 
