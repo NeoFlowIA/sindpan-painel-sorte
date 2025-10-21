@@ -1029,7 +1029,8 @@ export const SALVAR_GANHADOR = `
     $data_sorteio: timestamptz!,
     $ganhador_id: uuid!,
     $cupom_vencedor_id: uuid!,
-    $cliente_id: uuid!
+    $cliente_id: uuid!,
+    $campanha_id: uuid
   ) {
     sorteio: insert_sorteios_one(object: {
       numero_sorteado: $numero_sorteado
@@ -1038,6 +1039,7 @@ export const SALVAR_GANHADOR = `
       cupom_vencedor_id: $cupom_vencedor_id
       status: "realizado"
       nome: "Sorteio Digital"
+      campanha_id: $campanha_id
     }) {
       id
       numero_sorteado
