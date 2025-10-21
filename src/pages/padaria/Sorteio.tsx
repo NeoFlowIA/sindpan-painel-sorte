@@ -179,7 +179,6 @@ export function PadariaSorteio() {
         });
       }, COLUMN_STAGGER * 4 + 900);
     } catch (error) {
-      console.error("Erro ao realizar sorteio:", error);
       toast({
         title: "Erro",
         description:

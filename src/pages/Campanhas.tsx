@@ -33,7 +33,7 @@ export default function Campanhas() {
   const [campaignToDelete, setCampaignToDelete] = useState<Campaign | null>(null);
 
   const { data, isLoading } = useGraphQLQuery<ListCampanhasResponse>(['campanhas'], LIST_CAMPANHAS);
-  const campaigns = data?.campanha ?? [];
+  const campaigns = (data as any)?.campanha ?? [];
 
   const {
     mutateAsync: createCampanha,

@@ -588,7 +588,7 @@ export default function Padarias() {
   const updatePadaria = useUpdatePadaria();
 
   // Filtrar padarias baseado na busca
-  const padarias = padariasData?.padarias ?? EMPTY_PADARIAS;
+  const padarias = (padariasData as any)?.padarias ?? EMPTY_PADARIAS;
   const filteredPadarias = useMemo(() => {
     if (!searchTerm.trim()) {
       return padarias;
@@ -680,10 +680,10 @@ export default function Padarias() {
   const canExport = selectedColumns.length > 0 && filteredPadarias.length > 0;
 
   // Calcular estatísticas
-  const totalPadarias = statsData?.padarias_aggregate?.aggregate?.count || 0;
-  const padariasAtivas = statsData?.padarias_ativas?.aggregate?.count || 0;
-  const padariasPendentes = statsData?.padarias_pendentes?.aggregate?.count || 0;
-  const ticketMedio = statsData?.ticket_medio?.aggregate?.avg?.ticket_medio || 0;
+  const totalPadarias = (statsData as any)?.padarias_aggregate?.aggregate?.count || 0;
+  const padariasAtivas = (statsData as any)?.padarias_ativas?.aggregate?.count || 0;
+  const padariasPendentes = (statsData as any)?.padarias_pendentes?.aggregate?.count || 0;
+  const ticketMedio = (statsData as any)?.ticket_medio?.aggregate?.avg?.ticket_medio || 0;
 
   if (loadingPadarias || loadingStats) {
     return (
@@ -858,10 +858,10 @@ export default function Padarias() {
                   filteredPadarias.map((padaria, index) => (
                     <TableRow key={`${padaria.cnpj}-${index}`}>
                       <TableCell className="font-medium">{padaria.nome}</TableCell>
-                      <TableCell className="font-mono text-sm">{formatCNPJ(padaria.cnpj)}</TableCell>
+                      <TableCell className="font-mono text-sm w-60">{formatCNPJ(padaria.cnpj)}</TableCell>
                       <TableCell className="max-w-xs truncate">{padaria.endereco}</TableCell>
                       <TableCell>{padaria.email || '-'}</TableCell>
-                      <TableCell>{formatPhone(padaria.telefone || '')}</TableCell>
+                      <TableCell className="w-40">{formatPhone(padaria.telefone || '')}</TableCell>
                       <TableCell className="font-semibold text-secondary">
                         {formatCurrency(padaria.ticket_medio || 0)}
                       </TableCell>
@@ -875,10 +875,10 @@ export default function Padarias() {
                               : "text-red-600 border-red-600"
                           }
                         >
-                          {formatStatus(padaria.status)}
+                          {formatStatus(padaria.status === "ativa" ? "Ativa" : padaria.status === "pendente" ? "Pendente" : "Inativa")}
                         </Badge>
                       </TableCell>
-                      <TableCell className="min-w-[10rem]">
+                      <TableCell className="min-w-[5rem]">
                         <PaymentDropdown
                           currentStatus={padaria.status_pagamento || 'em_aberto'}
                           onStatusChange={(newStatus) => handlePaymentStatusChange(padaria, newStatus)}
@@ -899,9 +899,7 @@ export default function Padarias() {
                               <Edit className="w-4 h-4" />
                             </Button>
                           </EditarPadariaModal>
-                          <Button variant="ghost" size="sm">
-                            <QrCode className="w-4 h-4" />
-                          </Button>
+                    
                           <ExcluirPadariaModal 
                             padaria={{
                               cnpj: padaria.cnpj, // CNPJ sem formatação para a mutation

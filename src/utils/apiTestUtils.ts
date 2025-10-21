@@ -38,7 +38,7 @@ export class ApiTester {
         data.cnpj = identifier;
       }
 
-      const response = await sindpanAuthApi.register(data);
+      const response = await sindpanAuthApi.register(data as RegisterData);
       
       return {
         endpoint: 'POST /auth/register',
@@ -87,7 +87,7 @@ export class ApiTester {
         data.cnpj = identifier;
       }
 
-      const response = await sindpanAuthApi.login(data);
+      const response = await sindpanAuthApi.login(data as LoginData);
       
       return {
         endpoint: 'POST /auth/login',

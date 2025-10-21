@@ -729,6 +729,7 @@ export const GET_CLIENTE_BY_CPF_OR_WHATSAPP = `
       cupons {
         id
         numero_sorte
+        serie
         status
         padaria_id
         valor_compra
@@ -789,6 +790,7 @@ export const GET_CUPONS_BY_PADARIA = `
     ) {
       id
       numero_sorte
+      serie
       valor_compra
       data_compra
       status
@@ -811,6 +813,7 @@ export const GET_CUPONS_BY_CLIENTE = `
     cupons(where: {cliente_id: {_eq: $cliente_id}}, order_by: {data_compra: desc}) {
       id
       numero_sorte
+      serie
       valor_compra
       data_compra
       status
@@ -1315,6 +1318,7 @@ export const GET_ALL_CLIENTES_ADMIN_SIMPLE = `
         data_compra
         valor_compra
         numero_sorte
+        serie
         campanha_id
         status
         padaria_id
@@ -1331,14 +1335,15 @@ export const GET_ADMIN_DASHBOARD_METRICS = `
         count
       }
     }
-    cupons_aggregate {
+    cupons_aggregate(where: {status: {_eq: "ativo"}}) {
       aggregate {
         count
       }
     }
-    cupons(order_by: {data_compra: desc}, limit: 100) {
+    cupons(order_by: {data_compra: desc}, where: {status: {_eq: "ativo"}}) {
       id
       data_compra
+      serie
       valor_compra
       status
     }
@@ -1404,6 +1409,7 @@ export const GET_CLIENTES_WITH_ACTIVE_CUPONS_BY_CAMPANHA = `
       ) {
         id
         numero_sorte
+        serie
         valor_compra
         data_compra
         status

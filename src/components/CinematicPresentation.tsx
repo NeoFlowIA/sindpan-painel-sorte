@@ -82,7 +82,6 @@ export function CinematicPresentation({
   const playSound = useCallback((soundName: string) => {
     if (!isMuted && audioRefs.current[soundName]) {
       audioRefs.current[soundName].currentTime = 0;
-      audioRefs.current[soundName].play().catch(console.warn);
     }
   }, [isMuted]);
 

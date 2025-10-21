@@ -65,7 +65,7 @@ export default function Login() {
         <CardHeader className="space-y-1">
           <div className="flex justify-center mb-4">
             <img 
-              src="/src/assets/sindpan-logo.png" 
+              src="/src/assets/sindpan-logo.svg" 
               alt="SINDPAN" 
               className="h-12 w-auto"
             />

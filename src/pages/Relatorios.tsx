@@ -138,7 +138,6 @@ export default function Relatorios() {
 
       toast.success(`Relatório exportado com ${rows.length} registros!`);
     } catch (error) {
-      console.error("Error generating CSV:", error);
       toast.error("Erro ao gerar relatório");
     } finally {
       setIsExporting(false);
@@ -266,7 +265,6 @@ export default function Relatorios() {
       doc.save(`historico_sorteios_${new Date().toISOString().split('T')[0]}.pdf`);
       toast.success(`PDF gerado com ${data.sorteios.length} sorteios!`);
     } catch (error) {
-      console.error("Error generating PDF:", error);
       toast.error("Erro ao gerar PDF");
     } finally {
       setIsExporting(false);
@@ -334,7 +332,6 @@ export default function Relatorios() {
 
       toast.success(`Planilha exportada com ${data.padarias.length} padarias!`);
     } catch (error) {
-      console.error("Error generating XLSX:", error);
       toast.error("Erro ao gerar planilha");
     } finally {
       setIsExporting(false);
