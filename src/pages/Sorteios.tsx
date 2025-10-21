@@ -668,26 +668,27 @@ export default function Sorteios() {
       return;
     }
     
+    if (!selectedCampaignId) {
+      toast.error("Selecione uma campanha antes de salvar o ganhador.");
+      return;
+    }
+
     console.log('🔍 Dados do cupom ganhador:', {
-      cupom_id: cupomSorteadoId,
-      cliente_id: cupomGanhador.cliente.id,
-      numero_sorteado: cupomGanhador.numero_sorte,  // Usa numero_sorte do cupom vencedor
-      numero_digitado: numeroDigitado,
-      campanha_id: selectedCampaignIdNumber
+      cupom_vencedor_id: cupomSorteadoId,
+      ganhador_id: cupomGanhador.cliente.id,
+      numero_sorteado: numeroDigitado,
+      numero_sorte: cupomGanhador.numero_sorte,
+      campanha_id: selectedCampaignId,
     });
-    
-    // Salvar o ganhador na tabela sorteios (usa numero_sorte como numero_sorteado)
+
+    // Salvar o ganhador na tabela sorteios
     salvarGanhador({
       numero_sorteado: cupomGanhador.numero_sorte,  // Salva o numero_sorte do cupom vencedor
       data_sorteio: new Date().toISOString(),
       ganhador_id: cupomGanhador.cliente.id,
+      cupom_vencedor_id: cupomSorteadoId,
       cliente_id: cupomGanhador.cliente.id,
-      campanha_id: selectedCampaignIdNumber
-    });
-    
-    // Remover todos os cupons do cliente dos próximos sorteios
-    removerCuponsCliente({
-      cliente_id: cupomGanhador.cliente.id
+      campanha_id: selectedCampaignId,
     });
     
     setShowRaffleModal(false);
