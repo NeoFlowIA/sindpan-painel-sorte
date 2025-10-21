@@ -1,11 +1,14 @@
 import { useGraphQLQuery, useGraphQLMutation } from './useGraphQL';
-import { 
-  GET_CLIENTES, 
-  GET_CLIENTE_BY_ID, 
-  CREATE_CLIENTE, 
-  UPDATE_CLIENTE, 
+import {
+  GET_CLIENTES,
+  GET_CLIENTE_BY_ID,
+  CREATE_CLIENTE,
+  UPDATE_CLIENTE,
   DELETE_CLIENTE,
-  GET_PADARIA_BY_NAME 
+  GET_PADARIA_BY_NAME,
+  GET_CLIENTES_PARA_ANEXAR_PADARIA,
+  ANEXAR_CLIENTE_A_PADARIA,
+  UPDATE_CLIENTE_PADARIA,
 } from '@/graphql/queries';
 
 // Tipos baseados no schema real do Hasura
@@ -51,13 +54,6 @@ export interface CreateClienteInput {
   whatsapp: string;
   resposta_pergunta?: string;
   padaria_id: number;
-}
-
-export interface UpdateClienteInput {
-  nome?: string;
-  cpf?: string;
-  whatsapp?: string;
-  resposta_pergunta?: string;
 }
 
 // Hook para buscar padaria pelo nome
@@ -122,10 +118,10 @@ export const useCreateCliente = () => {
 // Hook para atualizar cliente
 export const useUpdateCliente = () => {
   return useGraphQLMutation<
-    { update_clientes_by_pk: Cliente }, 
-    { id: number; changes: UpdateClienteInput }
+    { update_clientes_by_pk: Cliente },
+    { id: string; padaria_id: string }
   >(
-    UPDATE_CLIENTE,
+    UPDATE_CLIENTE_PADARIA,
     {
       onSuccess: () => {
         // Invalidar cache dos clientes para recarregar a lista
@@ -199,5 +195,114 @@ export const useClientesByBakeryName = (bakeryName: string, limit?: number, offs
     error: padariaError || clientesError,
     padariaCnpj,
     padariaId,
+  };
+};
+
+// ===== HOOKS PARA LÓGICA DE ANEXAR CLIENTES =====
+
+// Interface para cliente que pode ser anexado
+export interface ClienteParaAnexar {
+  id: string;
+  nome: string;
+  cpf: string;
+  whatsapp?: string;
+  padaria_id?: string;
+  padaria?: {
+    id: string;
+    nome: string;
+  };
+  cupons: Array<{
+    id: string;
+    data_compra: string;
+    valor_compra: string;
+  }>;
+}
+
+// Hook para buscar clientes que podem ser anexados a uma padaria
+export const useClientesParaAnexar = (padariaId: string) => {
+  return useGraphQLQuery<{
+    clientes: ClienteParaAnexar[];
+  }>(
+    ['clientes-para-anexar', padariaId],
+    GET_CLIENTES_PARA_ANEXAR_PADARIA,
+    { padaria_id: padariaId },
+    {
+      staleTime: 2 * 60 * 1000, // 2 minutos
+      enabled: !!padariaId,
+    }
+  );
+};
+
+// Hook para anexar cliente a uma padaria
+export const useAnexarClienteAPadaria = () => {
+  return useGraphQLMutation<
+    { update_clientes_by_pk: ClienteParaAnexar },
+    { cliente_id: string; padaria_id: string }
+  >(
+    ANEXAR_CLIENTE_A_PADARIA,
+    {
+      onSuccess: () => {
+        // Invalidar cache dos clientes para recarregar as listas
+      },
+      invalidateQueries: [
+        ['clientes'],
+        ['clientes-para-anexar'],
+        ['clientes-by-padaria']
+      ],
+    }
+  );
+};
+
+// Hook para lógica de anexar clientes automaticamente baseado na quantidade de cupons
+export const useAnexarClientesAutomatico = (padariaId: string, limiteCupons: number = 3) => {
+  const { data: clientesData, refetch } = useClientesParaAnexar(padariaId);
+  const anexarClienteMutation = useAnexarClienteAPadaria();
+
+  const anexarClientesAutomatico = async () => {
+    if (!clientesData?.clientes) return;
+
+    const clientesParaAnexar = clientesData.clientes.filter(cliente => {
+      // Cliente deve ter mais cupons na padaria do que o limite definido
+      return cliente.cupons.length >= limiteCupons;
+    });
+
+    console.log('🔍 Clientes para anexar automaticamente:', {
+      padariaId,
+      limiteCupons,
+      totalClientes: clientesData.clientes.length,
+      clientesParaAnexar: clientesParaAnexar.length,
+      clientes: clientesParaAnexar.map(c => ({
+        id: c.id,
+        nome: c.nome,
+        cupons: c.cupons.length,
+        padariaAtual: c.padaria?.nome || 'Nenhuma'
+      }))
+    });
+
+    // Anexar cada cliente que atende aos critérios
+    const promises = clientesParaAnexar.map(cliente => 
+      anexarClienteMutation.mutateAsync({
+        cliente_id: cliente.id,
+        padaria_id: padariaId
+      })
+    );
+
+    try {
+      await Promise.all(promises);
+      console.log(`✅ ${clientesParaAnexar.length} clientes anexados automaticamente à padaria`);
+      return clientesParaAnexar.length;
+    } catch (error) {
+      console.error('❌ Erro ao anexar clientes automaticamente:', error);
+      throw error;
+    }
+  };
+
+  return {
+    clientesParaAnexar: clientesData?.clientes?.filter(cliente => 
+      cliente.cupons.length >= limiteCupons
+    ) || [],
+    anexarClientesAutomatico,
+    isLoading: anexarClienteMutation.isLoading,
+    error: anexarClienteMutation.error
   };
 };

@@ -8,7 +8,7 @@ import {
   Home,
   CalendarRange
 } from "lucide-react";
-import sindpanLogo from "@/assets/sindpan-logo.png";
+import sindpanLogo from "@/assets/sindpan-logo.svg";
 import { NavLink } from "react-router-dom";
 import {
   Sidebar,

@@ -7,6 +7,10 @@ import {
   GET_PADARIA_TICKET_MEDIO,
   GET_CLIENTE_SALDO_DESCONTO,
   GET_CUPONS_CLIENTE_SALDO,
+  GET_CLIENTE_SALDO_POR_PADARIA,
+  GET_CUPONS_DISPONIVEIS_POR_PADARIA,
+  VINCULAR_CUPOM_AO_CLIENTE,
+  REGISTER_RECEIPT_BASIC,
   GET_DASHBOARD_METRICS,
   GET_TOP_CLIENTES,
   GET_CUPONS_RECENTES,
@@ -15,7 +19,8 @@ import {
   GET_EVOLUCAO_DIARIA_CUPONS,
   GET_CUPONS_PARA_SORTEIO,
   GET_HISTORICO_SORTEIOS,
-  GET_PARTICIPANTES_SORTEIO
+  GET_PARTICIPANTES_SORTEIO,
+  SALVAR_SORTEIO_PADARIA
 } from '@/graphql/queries';
 
 // Tipos para cupons
@@ -53,6 +58,8 @@ export interface CreateCupomInput {
   cliente_id: number;
   padaria_id: string; // Campo obrigatório
   valor_desconto?: string | null; // Saldo/desconto para próximas compras
+  campanha_id?: string | null; // ID da campanha vinculada
+  sorteio_id?: string | null; // ID do próximo sorteio agendado
 }
 
 export interface PadariaTicketMedio {
@@ -61,6 +68,25 @@ export interface PadariaTicketMedio {
     ticket_medio: number;
     nome: string;
   };
+}
+
+export interface RegisterReceiptBasicResponse {
+  register_receipt_basic: {
+    receipt_id: string;
+    saldo_atual_centavos: number;
+    cupons_emitidos_agora: number;
+  };
+}
+
+export interface RegisterReceiptBasicVariables {
+  cliente: string;
+  padaria: string;
+  valor: number;
+  data: string;
+  cnpj: string;
+  conf: number;
+  raw: string;
+  img: string;
 }
 
 // Hook para buscar cupons de uma padaria
@@ -106,7 +132,7 @@ export const usePadariaTicketMedio = (padariaId: string) => {
   );
 };
 
-// Hook para obter saldo de desconto acumulado do cliente
+// Hook para obter saldo de desconto acumulado do cliente (TODOS os cupons)
 export const useClienteSaldoDesconto = (clienteId: number | undefined) => {
   return useGraphQLQuery<{
     cupons: Array<{
@@ -119,6 +145,25 @@ export const useClienteSaldoDesconto = (clienteId: number | undefined) => {
     {
       staleTime: 0, // Sempre buscar dados frescos do Hasura
       enabled: !!clienteId,
+    }
+  );
+};
+
+// Hook para obter saldo de desconto do cliente em uma padaria específica
+export const useClienteSaldoPorPadaria = (clienteId: string | undefined, padariaId: string | undefined) => {
+  return useGraphQLQuery<{
+    clientes_padarias_saldos: Array<{
+      id: string;
+      saldo_centavos: number | string;
+      updated_at: string;
+    }>;
+  }>(
+    ['cliente-saldo-por-padaria', clienteId || '', padariaId || ''],
+    GET_CLIENTE_SALDO_POR_PADARIA,
+    { cliente_id: clienteId, padaria_id: padariaId },
+    {
+      staleTime: 0, // Sempre buscar dados frescos do Hasura
+      enabled: !!clienteId && !!padariaId,
     }
   );
 };
@@ -330,13 +375,13 @@ export const useCuponsStats = (padariaId: string) => {
 
 // Tipos para sorteio
 export interface CupomParaSorteio {
-  id: number;
+  id: string;
   numero_sorte: string;
   valor_compra: string;
   data_compra: string;
-  cliente_id: number;
+  cliente_id: string;
   cliente: {
-    id: number;
+    id: string;
     nome: string;
     cpf: string;
     whatsapp: string;
@@ -344,12 +389,14 @@ export interface CupomParaSorteio {
 }
 
 export interface Sorteio {
-  id: number;
+  id: string;
   data_sorteio: string;
   numero_sorteado: string;
-  ganhador_id: number;
+  ganhador_id: string;
+  tipo?: string | null;
+  padaria_id?: string | null;
   cliente: {
-    id: number;
+    id: string;
     nome: string;
     cpf: string;
     whatsapp: string;
@@ -357,7 +404,7 @@ export interface Sorteio {
 }
 
 export interface ParticipanteSorteio {
-  id: number;
+  id: string;
   nome: string;
   cpf: string;
   whatsapp: string;
@@ -368,13 +415,13 @@ export interface ParticipanteSorteio {
 }
 
 // Hook para obter cupons para sorteio
-export const useCuponsParaSorteio = (padariaId: string) => {
+export const useCuponsParaSorteio = (padariaId: string | undefined) => {
   return useGraphQLQuery<{
     cupons: Array<CupomParaSorteio>;
   }>(
     ['cupons-para-sorteio', padariaId],
     GET_CUPONS_PARA_SORTEIO,
-    { padaria_id: padariaId },
+    padariaId ? { padaria_id: padariaId } : undefined,
     {
       staleTime: 1 * 60 * 1000, // 1 minuto
       enabled: !!padariaId,
@@ -383,21 +430,29 @@ export const useCuponsParaSorteio = (padariaId: string) => {
 };
 
 // Hook para obter histórico de sorteios
-export const useHistoricoSorteios = () => {
+export const useHistoricoSorteios = (padariaId: string | undefined) => {
   return useGraphQLQuery<{
     sorteios: Array<{
       id: string;
       data_sorteio: string;
       numero_sorteado: string;
-      ganhador_id: number;
+      ganhador_id: string;
+      tipo: string | null;
+      padaria_id: string | null;
+      cliente: {
+        id: string;
+        nome: string;
+        cpf: string;
+        whatsapp: string;
+      } | null;
     }>;
   }>(
-    ['historico-sorteios'],
+    ['historico-sorteios', padariaId],
     GET_HISTORICO_SORTEIOS,
-    {},
+    padariaId ? { padaria_id: padariaId } : undefined,
     {
       staleTime: 2 * 60 * 1000, // 2 minutos
-      enabled: true,
+      enabled: !!padariaId,
     }
   );
 };
@@ -406,7 +461,7 @@ export const useHistoricoSorteios = () => {
 export const useParticipantesSorteio = () => {
   return useGraphQLQuery<{
     clientes: Array<{
-      id: number;
+      id: string;
       nome: string;
       cpf: string;
       whatsapp: string;
@@ -422,5 +477,174 @@ export const useParticipantesSorteio = () => {
   );
 };
 
+export const useSalvarSorteioPadaria = (padariaId: string | undefined) => {
+  return useGraphQLMutation<
+    {
+      insert_sorteios_one: {
+        id: string;
+        numero_sorteado: string;
+        data_sorteio: string;
+        ganhador_id: string;
+        tipo: string | null;
+        padaria_id: string | null;
+        cliente: {
+          id: string;
+          nome: string;
+          cpf: string;
+          whatsapp: string;
+        } | null;
+      };
+    },
+    {
+      numero_sorteado: string;
+      ganhador_id: string;
+      data_sorteio: string;
+      padaria_id: string;
+    }
+  >(
+    SALVAR_SORTEIO_PADARIA,
+    {
+      invalidateQueries: padariaId ? [['historico-sorteios', padariaId]] : undefined,
+    }
+  );
+};
+
 // Hook removido - mutation não existe no Hasura
 // Sistema de sorteio funcionará apenas no frontend
+
+// ===== HOOKS PARA GERENCIAMENTO DE CUPONS DISPONÍVEIS =====
+
+// Interface para cupom disponível
+export interface CupomDisponivel {
+  id: string;
+  numero_sorte: string;
+  serie: number;
+  status: string;
+}
+
+// Hook para buscar cupons disponíveis de uma padaria
+export const useCuponsDisponiveisPorPadaria = (padariaId: string | undefined) => {
+  return useGraphQLQuery<{
+    cupons: CupomDisponivel[];
+  }>(
+    ['cupons-disponiveis-padaria', padariaId],
+    GET_CUPONS_DISPONIVEIS_POR_PADARIA,
+    { padaria_id: padariaId },
+    {
+      staleTime: 1 * 60 * 1000, // 1 minuto
+      enabled: !!padariaId,
+    }
+  );
+};
+
+// Hook para vincular cupom disponível ao cliente
+export const useVincularCupom = () => {
+  return useGraphQLMutation<
+    { update_cupons_by_pk: any },
+    {
+      id: string;
+      cliente_id: string;
+      padaria_id: string;
+      valor_compra: string;
+      valor_desconto: string;
+      data_compra: string;
+      status: string;
+      campanha_id?: number | null;
+      sorteio_id?: string | null;
+    }
+  >(
+    VINCULAR_CUPOM_AO_CLIENTE,
+    {
+      onSuccess: () => {
+        // Invalidar cache dos cupons disponíveis
+      },
+      invalidateQueries: [
+        ['cupons-disponiveis-padaria'],
+        ['cupons-by-padaria'],
+        ['cliente-saldo-por-padaria']
+      ],
+    }
+  );
+};
+
+export const useRegisterReceiptBasic = () => {
+  return useGraphQLMutation<
+    RegisterReceiptBasicResponse,
+    RegisterReceiptBasicVariables
+  >(
+    REGISTER_RECEIPT_BASIC,
+    {
+      invalidateQueries: [
+        ['cupons-by-padaria'],
+        ['cupons-by-cliente'],
+        ['cliente-saldo-desconto'],
+        ['cliente-saldo-por-padaria'],
+        ['cupons-disponiveis-padaria'],
+        ['cupons-recentes'],
+        ['dashboard-metrics'],
+        ['top-clientes'],
+        ['estatisticas-semanais'],
+        ['cupons-por-dia-semana'],
+        ['evolucao-diaria-cupons'],
+      ],
+    }
+  );
+};
+
+// Hook para alocar múltiplos cupons de uma vez
+export const useAlocarCupons = (padariaId: string | undefined) => {
+  const { data: cuponsDisponiveisData, refetch: refetchCuponsDisponiveis } = useCuponsDisponiveisPorPadaria(padariaId);
+  const vincularCupomMutation = useVincularCupom();
+
+  const alocarCupons = async (
+    clienteId: string,
+    quantidade: number,
+    ticketMedio: number,
+    valorCompra: number,
+    saldoDesconto: number,
+    dataCompra: string
+  ) => {
+    const cuponsDisponiveis = cuponsDisponiveisData?.cupons || [];
+    
+    if (cuponsDisponiveis.length < quantidade) {
+      throw new Error(`Não há cupons disponíveis suficientes. Disponíveis: ${cuponsDisponiveis.length}, Necessários: ${quantidade}`);
+    }
+
+    const numerosSorte: string[] = [];
+    const novoSaldoDesconto = (valorCompra + saldoDesconto) - (quantidade * ticketMedio);
+
+    // Vincular cupons disponíveis ao cliente
+    for (let i = 0; i < quantidade; i++) {
+      const cupomDisponivel = cuponsDisponiveis[i];
+      numerosSorte.push(cupomDisponivel.numero_sorte);
+
+      const ehUltimoCupom = i === quantidade - 1;
+
+      await vincularCupomMutation.mutateAsync({
+        id: cupomDisponivel.id,
+        cliente_id: clienteId,
+        padaria_id: padariaId!,
+        valor_compra: String(ticketMedio.toFixed(2)),
+        valor_desconto: ehUltimoCupom ? String(novoSaldoDesconto.toFixed(2)) : "0",
+        data_compra: dataCompra,
+        status: "ativo",
+        campanha_id: null,
+        sorteio_id: null
+      });
+    }
+
+    return {
+      numerosSorte,
+      quantidade,
+      novoSaldoDesconto
+    };
+  };
+
+  return {
+    cuponsDisponiveis: cuponsDisponiveisData?.cupons || [],
+    alocarCupons,
+    isLoading: vincularCupomMutation.isLoading,
+    error: vincularCupomMutation.error,
+    refetchCuponsDisponiveis
+  };
+};

@@ -1,7 +1,7 @@
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { CalendarRange, Pencil } from "lucide-react";
+import { CalendarRange, Pencil, Ban, Trash2, CheckCircle } from "lucide-react";
 import { format as formatDateFns } from "date-fns";
 import { CampaignStatusBadge, getCampaignStatus, parseCampaignDate } from "./CampaignStatusBadge";
 
@@ -34,9 +34,12 @@ interface CampaignCardProps {
   campaign: Campaign;
   onEdit?: (campaign: Campaign) => void;
   onArchive?: (campaign: Campaign) => void;
+  onDeactivate?: (campaign: Campaign) => void;
+  onActivate?: (campaign: Campaign) => void;
+  onDelete?: (campaign: Campaign) => void;
 }
 
-export const CampaignCard = ({ campaign, onEdit, onArchive }: CampaignCardProps) => {
+export const CampaignCard = ({ campaign, onEdit, onArchive, onDeactivate, onActivate, onDelete }: CampaignCardProps) => {
   const status = getCampaignStatus(campaign.data_inicio, campaign.data_fim);
 
   return (
@@ -48,14 +51,19 @@ export const CampaignCard = ({ campaign, onEdit, onArchive }: CampaignCardProps)
             {campaign.Nome}
           </CardTitle>
           <div className="flex flex-wrap items-center gap-2">
-            <CampaignStatusBadge dataInicio={campaign.data_inicio} dataFim={campaign.data_fim} />
-            {campaign.ativo === false && status !== "Encerrada" && (
+            {/* Se campanha está desativada, mostrar apenas badge Desativada */}
+            {campaign.ativo === false ? (
               <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-700">
                 Desativada
               </Badge>
-            )}
-            {campaign.ativo && status === "Ativa" && (
-              <Badge className="bg-primary text-primary-foreground">Campanha atual</Badge>
+            ) : (
+              <>
+                {/* Se está ativa, mostrar status baseado nas datas */}
+                <CampaignStatusBadge dataInicio={campaign.data_inicio} dataFim={campaign.data_fim} />
+                {status === "Ativa" && (
+                  <Badge className="bg-primary text-primary-foreground">Campanha atual</Badge>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -91,11 +99,31 @@ export const CampaignCard = ({ campaign, onEdit, onArchive }: CampaignCardProps)
           </div>
         )}
       </CardContent>
-      {onArchive && (
-        <CardFooter>
-          <Button variant="ghost" className="text-destructive" onClick={() => onArchive(campaign)}>
-            Arquivar campanha
-          </Button>
+      {(onArchive || onDeactivate || onActivate || onDelete) && (
+        <CardFooter className="flex gap-2">
+          {onArchive && (
+            <Button variant="ghost" className="text-muted-foreground" onClick={() => onArchive(campaign)}>
+              Arquivar campanha
+            </Button>
+          )}
+          {onActivate && !campaign.ativo && (
+            <Button variant="outline" className="gap-2 text-green-600 hover:text-green-700 hover:bg-green-50" onClick={() => onActivate(campaign)}>
+              <CheckCircle className="w-4 h-4" />
+              Ativar
+            </Button>
+          )}
+          {onDeactivate && campaign.ativo && (
+            <Button variant="outline" className="gap-2 text-amber-600 hover:text-amber-700 hover:bg-amber-50" onClick={() => onDeactivate(campaign)}>
+              <Ban className="w-4 h-4" />
+              Desativar
+            </Button>
+          )}
+          {onDelete && (
+            <Button variant="outline" className="gap-2 text-destructive hover:bg-destructive hover:text-destructive-foreground" onClick={() => onDelete(campaign)}>
+              <Trash2 className="w-4 h-4" />
+              Excluir
+            </Button>
+          )}
         </CardFooter>
       )}
     </Card>

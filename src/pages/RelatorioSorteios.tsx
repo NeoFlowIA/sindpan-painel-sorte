@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Download, FileText, User, Calendar, Search, ArrowLeft } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import sindpanLogo from "@/assets/sindpan-logo.png";
+import sindpanLogo from "@/assets/sindpan-logo.svg";
 
 // Mock data for raffle history
 const raffleHistory = [
