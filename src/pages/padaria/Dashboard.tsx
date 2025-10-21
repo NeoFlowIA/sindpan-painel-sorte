@@ -68,7 +68,6 @@ export function PadariaDashboard() {
         try {
           const clientesAnexados = await anexarClientesAutomatico();
           if (clientesAnexados > 0) {
-            console.log(`✅ ${clientesAnexados} clientes anexados automaticamente à padaria`);
             // Recarregar dados após anexar clientes
             await Promise.all([
               refetchMetrics(),
@@ -76,13 +75,11 @@ export function PadariaDashboard() {
             ]);
           }
         } catch (error) {
-          console.error("Erro ao anexar clientes automaticamente:", error);
         }
       }
       
       setLastUpdate(new Date());
     } catch (error) {
-      console.error("Erro ao atualizar dados:", error);
     } finally {
       setIsLoading(false);
     }

@@ -94,12 +94,12 @@ export default function Participantes() {
   // Debug temporário
   console.log('🔍 Debug Participantes:', {
     clientesLoading,
-    clientesData: clientesData?.clientes?.length || 0,
+    clientesData: (clientesData as any)?.clientes?.length || 0,
     padariasLoading,
-    padariasData: padariasData?.padarias?.length || 0,
+    padariasData: (padariasData as any)?.padarias?.length || 0,
     metricsLoading,
     metricsData: metricsData ? 'loaded' : 'not loaded',
-    firstCliente: clientesData?.clientes?.[0]
+    firstCliente: (clientesData as any)?.clientes?.[0]
   });
 
 
@@ -140,12 +140,8 @@ export default function Participantes() {
   const clientesPorPadaria = useMemo(() => {
     const resultado: any[] = [];
     
-    console.log('🔍 Processando clientes:', {
-      totalClientes: clientesData?.clientes?.length || 0,
-      totalPadarias: padariasData?.padarias?.length || 0
-    });
     
-    (clientesData?.clientes || []).forEach((cliente: any) => {
+    ((clientesData as any)?.clientes || []).forEach((cliente: any) => {
       try {
         if (!cliente) return;
         
@@ -154,11 +150,6 @@ export default function Participantes() {
           cupom && cupom.status === "ativo"
         );
         
-        console.log('🔍 Cliente:', cliente.nome, {
-          resposta_pergunta: cliente.resposta_pergunta,
-          totalCupons: cliente.cupons?.length || 0,
-          temCuponsAtivos
-        });
         
         // Se não tem cupons ativos, pular
         if (!temCuponsAtivos) return;
@@ -184,7 +175,7 @@ export default function Participantes() {
         // Criar uma entrada para cada padaria (MESMO CLIENTE PODE APARECER MÚLTIPLAS VEZES)
         cuponsPorPadaria.forEach((cupons, padariaId) => {
           // Buscar nome da padaria
-          const padaria = (padariasData?.padarias || []).find((p: any) => p.id === padariaId);
+          const padaria = ((padariasData as any)?.padarias || []).find((p: any) => p.id === padariaId);
           
           resultado.push({
             ...cliente,
@@ -199,8 +190,8 @@ export default function Participantes() {
             uniqueKey: `${cliente.id}-${padariaId}`
           });
         });
-      } catch (error) {
-        console.error('Erro ao processar cliente:', error, cliente);
+        } catch (error) {
+        // Erro silencioso - cliente será ignorado
       }
     });
     
@@ -229,10 +220,9 @@ export default function Participantes() {
       const matchesPadaria = selectedPadaria === "all" || participante.padariaVinculadaId === selectedPadaria;
       
       return matchesSearch && matchesPadaria;
-    } catch (error) {
-      console.error('Erro ao filtrar participante:', error, participante);
-      return false;
-    }
+      } catch (error) {
+        return false;
+      }
   });
 
   // Fallback: se não há participantes processados, mostrar clientes simples
@@ -420,29 +410,29 @@ export default function Participantes() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-primary">
+          <h1 className="text-2xl md:text-3xl font-bold text-primary">
             {participantesFiltrados.length > 0 ? "Participantes por Padaria" : "Todos os Clientes"}
           </h1>
-          <p className="text-muted-foreground">
+          <p className="text-sm md:text-base text-muted-foreground">
             {participantesFiltrados.length > 0 
               ? "Visualize participantes agrupados por padaria (mesmo cliente pode aparecer múltiplas vezes)" 
               : "Visualize todos os clientes cadastrados (alguns podem não ter cupons ativos)"
             } • Última atualização: {lastUpdate.toLocaleTimeString()}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2 flex-wrap">
           <Button 
             onClick={() => setShowNovoClienteModal(true)}
-            className="bg-green-600 hover:bg-green-700 text-white"
+            className="bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto"
           >
             <UserPlus className="w-4 h-4 mr-2" />
             Criar Cliente
           </Button>
           <Button 
             onClick={() => setShowCupomModal(true)}
-            className="bg-blue-600 hover:bg-blue-700 text-white"
+            className="bg-blue-600 hover:bg-blue-700 text-white w-full sm:w-auto"
           >
             <Receipt className="w-4 h-4 mr-2" />
             Criar Cupom
@@ -451,12 +441,12 @@ export default function Participantes() {
             onClick={refreshData} 
             disabled={isLoading}
             variant="outline"
-            className="transition-all duration-200 hover:scale-105 hover:shadow-sm"
+            className="transition-all duration-200 hover:scale-105 hover:shadow-sm w-full sm:w-auto"
           >
             <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
             Atualizar
           </Button>
-          <Button variant="outline" onClick={exportarCSV}>
+          <Button variant="outline" onClick={exportarCSV} className="w-full sm:w-auto">
             <Download className="w-4 h-4 mr-2" />
             Exportar lista (.CSV)
           </Button>
@@ -509,8 +499,8 @@ export default function Participantes() {
       </div>
 
       {/* Filters */}
-      <div className="flex gap-4 items-center">
-        <div className="relative flex-1 max-w-sm">
+      <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center">
+        <div className="relative flex-1 w-full lg:max-w-sm">
           <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
           <Input 
             placeholder="Buscar por nome, CPF, WhatsApp ou padaria..." 
@@ -521,7 +511,7 @@ export default function Participantes() {
         </div>
         
         {/* Filtro de Padarias com Busca */}
-        <div className="flex flex-col gap-2 w-[300px]">
+        <div className="flex flex-col gap-2 w-full lg:w-[300px]">
           <div className="relative">
             <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
             <Input 
@@ -565,7 +555,7 @@ export default function Participantes() {
             }
           </p>
         </CardHeader>
-        <CardContent>
+        <CardContent className="overflow-x-auto">
           {clientesLoading ? (
             <div className="flex items-center justify-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -577,7 +567,8 @@ export default function Participantes() {
             </div>
           ) : (
             <>
-              <Table>
+              <div className="min-w-[800px]">
+                <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Nome Completo</TableHead>
@@ -625,7 +616,8 @@ export default function Participantes() {
                     </TableRow>
                   ))}
                 </TableBody>
-              </Table>
+                </Table>
+              </div>
 
               {/* Pagination */}
               {totalPages > 1 && (
@@ -890,6 +882,7 @@ export default function Participantes() {
                       <TableHeader>
                         <TableRow>
                           <TableHead>Nº da Sorte</TableHead>
+                          <TableHead>Nº da Série</TableHead>
                           <TableHead>Valor</TableHead>
                           <TableHead>Data</TableHead>
                           <TableHead>Status</TableHead>
@@ -901,13 +894,14 @@ export default function Participantes() {
                           .map((cupom: any) => (
                           <TableRow key={cupom.id}>
                             <TableCell className="font-mono">{cupom.numero_sorte}</TableCell>
-                            <TableCell>R$ {cupom.valor_compra}</TableCell>
+                            <TableCell className="font-mono">{cupom.serie || 'N/A'}</TableCell>
+                            <TableCell>R$ {Number((cupom.valor_compra)/100).toFixed(2).replace('.', ',')}</TableCell>
                             <TableCell>
                               {cupom.data_compra ? format(new Date(cupom.data_compra), 'dd/MM/yyyy HH:mm') : 'N/A'}
                             </TableCell>
                             <TableCell>
                               <Badge variant="default" className="bg-green-100 text-green-800">
-                                Ativo
+                              {cupom.status.toUpperCase() === "ATIVO" ? "Ativo" : "Inativo"}
                               </Badge>
                             </TableCell>
                           </TableRow>

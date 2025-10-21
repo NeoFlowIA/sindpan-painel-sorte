@@ -39,7 +39,6 @@ export function RegisterPadaria() {
       navigate("/padaria/dashboard");
     } catch (error) {
       // Error handling is done in the AuthContext
-      console.error('Registration error:', error);
     }
   };
 

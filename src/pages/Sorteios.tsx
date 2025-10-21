@@ -171,7 +171,7 @@ export default function Sorteios() {
     }>;
   }>(['campanhas'], LIST_CAMPANHAS);
 
-  const campaigns = campanhasData?.campanha || [];
+  const campaigns = (campanhasData as any)?.campanha || [];
   const activeCampaign = useMemo(
     () => campaigns.find((campaign) => getCampaignStatus(campaign.data_inicio, campaign.data_fim) === 'Ativa'),
     [campaigns]
@@ -336,7 +336,11 @@ export default function Sorteios() {
         data_compra: cupom.data_compra,
         status: cupom.status,
         campanha_id: cupom.campanha_id,
-        padaria_id: cupom.padaria_id ?? null,
+        padaria_id: cupom.padaria_id ?? '',
+        padaria: {
+          id: cupom.padaria_id ?? '',
+          nome: 'Padaria não informada'
+        },
         cliente: {
           id: cliente.id,
           nome: cliente.nome ?? null,
@@ -356,11 +360,11 @@ export default function Sorteios() {
   console.log('🔍 Loading state:', participantesLoading);
 
   // Converter cupons para formato de participantes
-  const participants = (cuponsData?.cupons || [])
+  const participants = (campaignCoupons || [])
     .filter(cupom => 
       cupom && 
       cupom.cliente && 
-      cupom.padaria && 
+      cupom.padaria &&
       cupom.cliente.nome && 
       cupom.cliente.cpf &&
       cupom.numero_sorte
@@ -731,17 +735,17 @@ export default function Sorteios() {
 
   return (
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-primary">Sorteios Digitais</h1>
-            <p className="text-muted-foreground">
+            <h1 className="text-2xl md:text-3xl font-bold text-primary">Sorteios Digitais</h1>
+            <p className="text-sm md:text-base text-muted-foreground">
               Gerencie e execute sorteios da campanha • {participants.length} participantes cadastrados
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2 flex-wrap">
             <Button
               variant="outline"
-              className="gap-2"
+              className="gap-2 w-full sm:w-auto"
               onClick={() => setCampaignDialogOpen(true)}
             >
               <PlusCircle className="w-4 h-4" />
@@ -755,7 +759,7 @@ export default function Sorteios() {
                 setSelectedScheduleCampaignId(selectedCampaignId ?? scheduleableCampaigns[0]?.id ?? undefined);
                 setShowScheduleModal(true);
               }}
-              className="bg-primary text-primary-foreground hover:bg-primary/90"
+              className="bg-primary text-primary-foreground hover:bg-primary/90 w-full sm:w-auto"
               disabled={!hasCampaigns || campaignsLoading}
             >
               <CalendarIcon className="w-4 h-4 mr-2" />
@@ -775,7 +779,7 @@ export default function Sorteios() {
                 setTimeout(() => enterFullscreen(), 100);
               }}
               disabled={!canRunRaffle || campaignsLoading}
-              className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white"
+              className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white w-full sm:w-auto"
             >
               <Sparkles className="w-4 h-4 mr-2" />
               Sorteio Ao Vivo
@@ -783,7 +787,7 @@ export default function Sorteios() {
             <Button
               onClick={() => setShowRaffleModal(true)}
               disabled={!canRunRaffle || campaignsLoading}
-              className="bg-green-600 hover:bg-green-700 text-white"
+              className="bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto"
             >
               <Trophy className="w-4 h-4 mr-2" />
               Iniciar Sorteio
@@ -926,15 +930,15 @@ export default function Sorteios() {
           </CardHeader>
           <CardContent>
             {/* Filters */}
-            <div className="flex gap-4 items-center mb-4">
+            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center mb-4">
               <Input 
                 placeholder="Buscar por ganhador..." 
-                className="max-w-sm"
+                className="w-full sm:max-w-sm"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
               <Select value={selectedPadaria} onValueChange={setSelectedPadaria}>
-                <SelectTrigger className="w-[200px]">
+                <SelectTrigger className="w-full sm:w-[200px]">
                   <SelectValue placeholder="Filtrar por padaria" />
                 </SelectTrigger>
                 <SelectContent>
@@ -954,7 +958,8 @@ export default function Sorteios() {
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
               </div>
             ) : (
-              <Table>
+              <div className="overflow-x-auto">
+                <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Nome</TableHead>
@@ -1020,7 +1025,8 @@ export default function Sorteios() {
                       </TableRow>
                     ))}
                 </TableBody>
-              </Table>
+                </Table>
+              </div>
             )}
           </CardContent>
         </Card>

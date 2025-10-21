@@ -106,7 +106,6 @@ export function PadariaSorteio() {
       });
 
     } catch (error) {
-      console.error("Erro ao realizar sorteio:", error);
       toast({
         title: "Erro",
         description: "Erro ao realizar o sorteio. Tente novamente.",

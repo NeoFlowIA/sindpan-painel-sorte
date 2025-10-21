@@ -38,7 +38,7 @@ export function AppSidebar() {
   const collapsed = state === "collapsed";
 
   return (
-    <Sidebar className={collapsed ? "w-14" : "w-64"}>
+    <Sidebar className={`${collapsed ? "w-14" : "w-64"} hidden md:block`}>
       <SidebarHeader className="border-b border-border p-4">
         <div className="flex items-center gap-3">
           <img 
