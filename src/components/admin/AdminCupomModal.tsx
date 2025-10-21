@@ -125,25 +125,25 @@ export function AdminCupomModal({ open, onOpenChange, onCupomCadastrado }: Admin
 
   const ticketMedioPadaria = ticketMedioData?.padarias_by_pk?.ticket_medio || 50;
 
-  // Query para buscar saldo de desconto do cliente na padaria selecionada
+  // Query para buscar saldo do cliente na padaria selecionada a partir da tabela clientes_padarias_saldos
   const { data: saldoData, refetch: refetchSaldo } = useGraphQLQuery<{
-    cupons: Array<{
+    clientes_padarias_saldos: Array<{
       id: string;
-      valor_desconto: string;
+      saldo_centavos: number | string;
+      updated_at: string;
     }>;
   }>(
-    ['cliente-saldo-padaria', String(clienteEncontrado?.id || ''), padariaIdSelecionada],
+    ['cliente-saldo-padaria', clienteEncontrado?.id || '', padariaIdSelecionada || ''],
     GET_CLIENTE_SALDO_POR_PADARIA,
-    { 
+    {
       cliente_id: clienteEncontrado?.id || '',
-      padaria_id: padariaIdSelecionada 
+      padaria_id: padariaIdSelecionada
     },
     { enabled: !!(clienteEncontrado?.id && padariaIdSelecionada) }
   );
 
-  const saldoAcumulado = saldoData?.cupons?.[0]?.valor_desconto 
-    ? parseFloat(saldoData.cupons[0].valor_desconto) 
-    : 0;
+  const saldoCentavosAtual = saldoData?.clientes_padarias_saldos?.[0]?.saldo_centavos;
+  const saldoAcumulado = saldoCentavosAtual ? Number(saldoCentavosAtual) / 100 : 0;
 
   // Query para buscar cupons disponíveis (será habilitada quando necessário)
   const { data: cuponsDisponiveisData, refetch: refetchCuponsDisponiveis } = useGraphQLQuery<{
@@ -413,9 +413,7 @@ export function AdminCupomModal({ open, onOpenChange, onCupomCadastrado }: Admin
         // Atualizar padaria do cliente no banco
         await updateClienteMutation.mutateAsync({
           id: cliente.id,
-          changes: {
-            padaria_id: parseInt(padariaIdNovosCupons)
-          }
+          padaria_id: padariaIdNovosCupons,
         });
         
         console.log("✅ DEBUG - Padaria atualizada com sucesso");

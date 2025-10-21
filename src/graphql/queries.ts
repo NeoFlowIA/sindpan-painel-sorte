@@ -760,7 +760,19 @@ export const UPDATE_CLIENTE = `
       whatsapp
       resposta_pergunta
       padaria_id
-      
+    }
+  }
+`;
+
+export const UPDATE_CLIENTE_PADARIA = `
+  mutation UpdateClientePadaria($id: uuid!, $padaria_id: uuid!) {
+    update_clientes_by_pk(pk_columns: {id: $id}, _set: {padaria_id: $padaria_id}) {
+      id
+      nome
+      cpf
+      whatsapp
+      resposta_pergunta
+      padaria_id
     }
   }
 `;
@@ -1012,17 +1024,17 @@ export const GET_CUPONS_CLIENTE_SALDO = `
 // Query para obter saldo de desconto do cliente em uma padaria específica
 export const GET_CLIENTE_SALDO_POR_PADARIA = `
   query GetClienteSaldoPorPadaria($cliente_id: uuid!, $padaria_id: uuid!) {
-    cupons(
+    clientes_padarias_saldos(
       where: {
-        cliente_id: {_eq: $cliente_id}, 
-        padaria_id: {_eq: $padaria_id},
-        status: {_eq: "ativo"}
+        cliente_id: {_eq: $cliente_id},
+        padaria_id: {_eq: $padaria_id}
       },
-      order_by: {data_compra: desc},
+      order_by: {updated_at: desc},
       limit: 1
     ) {
       id
-      valor_desconto
+      saldo_centavos
+      updated_at
     }
   }
 `;
@@ -1134,6 +1146,36 @@ export const VINCULAR_CUPOM_AO_CLIENTE = `
   }
 `;
 
+export const REGISTER_RECEIPT_BASIC = `
+  mutation Register(
+    $cliente: uuid!
+    $padaria: uuid!
+    $valor: bigint!
+    $data: timestamptz!
+    $cnpj: String!
+    $conf: numeric!
+    $raw: String!
+    $img: String!
+  ) {
+    register_receipt_basic(
+      args: {
+        p_cliente_id: $cliente
+        p_padaria_id: $padaria
+        p_valor_centavos: $valor
+        p_data_compra: $data
+        p_cnpj_extraido: $cnpj
+        p_ocr_confidence: $conf
+        p_ocr_raw: $raw
+        p_image_url: $img
+      }
+    ) {
+      receipt_id
+      saldo_atual_centavos
+      cupons_emitidos_agora
+    }
+  }
+`;
+
 // ===== QUERIES E MUTATIONS PARA SORTEIO =====
 
 // Query para obter todos os cupons de uma padaria para sorteio
@@ -1163,12 +1205,26 @@ export const GET_CUPONS_PARA_SORTEIO = `
 
 // Query para obter histórico de sorteios (simplificada)
 export const GET_HISTORICO_SORTEIOS = `
-  query GetHistoricoSorteios {
-    sorteios(order_by: {data_sorteio: desc}) {
+  query GetHistoricoSorteios($padaria_id: uuid!) {
+    sorteios(
+      where: {
+        tipo: {_eq: "padaria"}
+        padaria_id: {_eq: $padaria_id}
+      }
+      order_by: {data_sorteio: desc}
+    ) {
       id
       data_sorteio
       numero_sorteado
       ganhador_id
+      tipo
+      padaria_id
+      cliente {
+        id
+        nome
+        cpf
+        whatsapp
+      }
     }
   }
 `;
@@ -1184,6 +1240,42 @@ export const GET_PARTICIPANTES_SORTEIO = `
       nome
       cpf
       whatsapp
+    }
+  }
+`;
+
+export const SALVAR_SORTEIO_PADARIA = `
+  mutation SalvarSorteioPadaria(
+    $numero_sorteado: String!,
+    $ganhador_id: uuid!,
+    $data_sorteio: timestamptz!,
+    $padaria_id: uuid!
+  ) {
+    insert_sorteios_one(
+      object: {
+        numero_sorteado: $numero_sorteado,
+        ganhador_id: $ganhador_id,
+        data_sorteio: $data_sorteio,
+        tipo: "padaria",
+        padaria_id: $padaria_id
+      },
+      on_conflict: {
+        constraint: sorteios_ganhador_id_key,
+        update_columns: [numero_sorteado, data_sorteio, tipo, padaria_id]
+      }
+    ) {
+      id
+      numero_sorteado
+      data_sorteio
+      ganhador_id
+      tipo
+      padaria_id
+      cliente {
+        id
+        nome
+        cpf
+        whatsapp
+      }
     }
   }
 `;
@@ -1406,21 +1498,19 @@ export const SALVAR_GANHADOR = `
     $numero_sorteado: String!,
     $data_sorteio: timestamptz!,
     $ganhador_id: uuid!,
+    $cupom_vencedor_id: uuid!,
     $cliente_id: uuid!,
-    $campanha_id: Int!
+    $campanha_id: uuid
   ) {
-    sorteio: insert_sorteios_one(
-      object: {
-        numero_sorteado: $numero_sorteado,
-        data_sorteio: $data_sorteio,
-        ganhador_id: $ganhador_id,
-        campanha_id: $campanha_id
-      },
-      on_conflict: {
-        constraint: sorteios_ganhador_id_key,
-        update_columns: [numero_sorteado, data_sorteio, campanha_id]
-      }
-    ) {
+    sorteio: insert_sorteios_one(object: {
+      numero_sorteado: $numero_sorteado
+      data_sorteio: $data_sorteio
+      ganhador_id: $ganhador_id
+      cupom_vencedor_id: $cupom_vencedor_id
+      status: "realizado"
+      nome: "Sorteio Digital"
+      campanha_id: $campanha_id
+    }) {
       id
       numero_sorteado
       data_sorteio

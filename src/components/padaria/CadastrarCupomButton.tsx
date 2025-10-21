@@ -17,12 +17,12 @@ export function CadastrarCupomButton({ onCupomCadastrado }: CadastrarCupomButton
 
   return (
     <>
-      <Button 
+      <Button
         onClick={() => setIsModalOpen(true)}
         className="transition-all duration-200 hover:scale-105 hover:shadow-sm"
       >
         <Plus className="w-4 h-4 mr-2" />
-        Alocar Cupons
+        Criar Cupom
       </Button>
 
       <CupomModal

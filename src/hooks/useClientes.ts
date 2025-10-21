@@ -1,13 +1,14 @@
 import { useGraphQLQuery, useGraphQLMutation } from './useGraphQL';
-import { 
-  GET_CLIENTES, 
-  GET_CLIENTE_BY_ID, 
-  CREATE_CLIENTE, 
-  UPDATE_CLIENTE, 
+import {
+  GET_CLIENTES,
+  GET_CLIENTE_BY_ID,
+  CREATE_CLIENTE,
+  UPDATE_CLIENTE,
   DELETE_CLIENTE,
   GET_PADARIA_BY_NAME,
   GET_CLIENTES_PARA_ANEXAR_PADARIA,
-  ANEXAR_CLIENTE_A_PADARIA
+  ANEXAR_CLIENTE_A_PADARIA,
+  UPDATE_CLIENTE_PADARIA,
 } from '@/graphql/queries';
 
 // Tipos baseados no schema real do Hasura
@@ -53,14 +54,6 @@ export interface CreateClienteInput {
   whatsapp: string;
   resposta_pergunta?: string;
   padaria_id: number;
-}
-
-export interface UpdateClienteInput {
-  nome?: string;
-  cpf?: string;
-  whatsapp?: string;
-  resposta_pergunta?: string;
-  padaria_id?: number;
 }
 
 // Hook para buscar padaria pelo nome
@@ -125,10 +118,10 @@ export const useCreateCliente = () => {
 // Hook para atualizar cliente
 export const useUpdateCliente = () => {
   return useGraphQLMutation<
-    { update_clientes_by_pk: Cliente }, 
-    { id: number; changes: UpdateClienteInput }
+    { update_clientes_by_pk: Cliente },
+    { id: string; padaria_id: string }
   >(
-    UPDATE_CLIENTE,
+    UPDATE_CLIENTE_PADARIA,
     {
       onSuccess: () => {
         // Invalidar cache dos clientes para recarregar a lista

@@ -101,12 +101,12 @@ export function ClientesTable() {
     return (
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <CardTitle className="text-foreground">Clientes Cadastrados</CardTitle>
               <CardDescription>Gerencie os clientes da sua padaria</CardDescription>
             </div>
-            <Button disabled>
+            <Button disabled className="w-full sm:w-auto">
               <Plus className="w-4 h-4 mr-2" />
               Novo Cliente
             </Button>
@@ -127,12 +127,12 @@ export function ClientesTable() {
     return (
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <CardTitle className="text-foreground">Clientes Cadastrados</CardTitle>
               <CardDescription>Gerencie os clientes da sua padaria</CardDescription>
             </div>
-            <Button onClick={() => setIsModalOpen(true)}>
+            <Button onClick={() => setIsModalOpen(true)} className="w-full sm:w-auto">
               <Plus className="w-4 h-4 mr-2" />
               Novo Cliente
             </Button>
@@ -153,14 +153,14 @@ export function ClientesTable() {
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <CardTitle className="text-foreground">Clientes Cadastrados</CardTitle>
             <CardDescription>
               Gerencie os clientes da sua padaria ({filteredClientes.length} total)
             </CardDescription>
           </div>
-          <Button onClick={() => setIsModalOpen(true)}>
+          <Button onClick={() => setIsModalOpen(true)} className="w-full sm:w-auto">
             <Plus className="w-4 h-4 mr-2" />
             Novo Cliente
           </Button>
@@ -225,11 +225,11 @@ export function ClientesTable() {
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="flex items-center justify-between mt-4">
+          <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-muted-foreground">
               Mostrando {startIndex + 1} a {Math.min(startIndex + itemsPerPage, filteredClientes.length)} de {filteredClientes.length} clientes
             </p>
-            <div className="flex gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row sm:gap-2">
               <Button
                 variant="outline"
                 size="sm"

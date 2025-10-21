@@ -256,7 +256,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         throw new Error('Senha inválida');
       }
 
-      if (!hasuraUser.padarias_id) {
+      if (hasuraUser.role === 'bakery' && !hasuraUser.padarias_id) {
         toast.error('Erro no login', {
           description: 'Padaria ainda não vinculada. Conclua o primeiro acesso.',
         });
