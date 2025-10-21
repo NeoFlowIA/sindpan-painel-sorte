@@ -562,10 +562,20 @@ export const GET_CLIENTES = `
         id
         nome
       }
-        cupons {
-        cliente_id
-        data_compra
+      cupons(
+        where: {
+          padaria_id: {_eq: $padaria_id}
+        }
+      ) {
         id
+        cliente_id
+        padaria_id
+        numero_sorte
+        serie
+        valor_compra
+        valor_desconto
+        data_compra
+        status
       }
       
     }
@@ -908,11 +918,21 @@ export const GET_TOP_CLIENTES = `
       nome
       cpf
       cupons(
-        where: {status: {_eq: "ativo"}}
+        where: {
+          status: {_eq: "ativo"},
+          padaria_id: {_eq: $padaria_id}
+        }
         order_by: {data_compra: desc}
       ) {
         id
+        cliente_id
+        padaria_id
+        numero_sorte
+        serie
+        valor_compra
+        valor_desconto
         data_compra
+        status
       }
     }
   }
@@ -927,9 +947,14 @@ export const GET_CUPONS_RECENTES = `
       limit: 5
     ) {
       id
+      cliente_id
+      padaria_id
       numero_sorte
+      serie
       valor_compra
+      valor_desconto
       data_compra
+      status
       cliente {
         id
         nome
@@ -1064,6 +1089,21 @@ export const GET_CUPONS_DISPONIVEIS_POR_PADARIA = `
       numero_sorte
       serie
       status
+    }
+  }
+`;
+
+// Mutation para criar cupons disponíveis em lote
+export const CREATE_CUPONS_DISPONIVEIS = `
+  mutation CreateCuponsDisponiveis($cupons: [cupons_insert_input!]!) {
+    insert_cupons(objects: $cupons) {
+      affected_rows
+      returning {
+        id
+        numero_sorte
+        serie
+        status
+      }
     }
   }
 `;

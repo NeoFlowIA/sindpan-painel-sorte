@@ -290,6 +290,7 @@ export const useTopClientes = (padariaId: string) => {
 export const useCuponsRecentes = (padariaId: string) => {
   return useGraphQLQuery<{
     cupons: Array<{
+      serie: string;
       id: number;
       numero_sorte: string;
       valor_compra: string;
