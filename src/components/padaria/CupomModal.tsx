@@ -6,7 +6,6 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Badge } from "@/components/ui/badge";
 import { Search, User, Calculator, Receipt, Store } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { ClienteInlineForm } from "./ClienteInlineForm";
@@ -45,6 +44,7 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
   const [valorCompra, setValorCompra] = useState("");
   const [dataHora, setDataHora] = useState("");
   const [statusCupom, setStatusCupom] = useState<'ativo' | 'inativo'>('ativo');
+  const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -186,9 +186,9 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
   const campanhaAtiva = campanhaData?.campanha?.[0];
   const proximoSorteio = sorteioData?.sorteios?.[0];
   
-  // Calcular saldo de desconto - usar apenas o último cupom da padaria (que contém o saldo acumulado)
-  const saldoDescontoAtual = saldoDescontoData?.cupons?.[0]?.valor_desconto 
-    ? parseFloat(saldoDescontoData.cupons[0].valor_desconto) 
+  // Calcular saldo de desconto - usar apenas o último saldo da padaria
+  const saldoDescontoAtual = saldoDescontoData?.clientes_padarias_saldos?.[0]?.saldo_centavos 
+    ? parseFloat(String(saldoDescontoData.clientes_padarias_saldos[0].saldo_centavos)) / 100 
     : 0;
 
   // Debug: Log dos dados para verificar se estão atualizados
@@ -478,9 +478,7 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
         // Atualizar padaria do cliente no banco
         await updateClienteMutation.mutateAsync({
           id: cliente.id,
-          changes: {
-            padaria_id: parseInt(padariaComMaisCupons)
-          }
+          padaria_id: padariaComMaisCupons
         });
         
         console.log("✅ DEBUG - Padaria atualizada com sucesso");
@@ -600,10 +598,11 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
           clienteId: clienteEncontrado.id,
           padariaId: user.padarias_id
         });
+      }
 
-      const receiptData = response.register_receipt_basic;
-      const cuponsEmitidos = receiptData?.cupons_emitidos_agora ?? cuponsGerados;
-      const saldoAtual = (receiptData?.saldo_atual_centavos ?? 0) / 100;
+      // Usar dados calculados localmente
+      const cuponsEmitidos = cuponsGerados;
+      const saldoAtual = novoSaldo;
       const saldoFormatado = new Intl.NumberFormat('pt-BR', {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
@@ -643,6 +642,8 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
         description: "Erro ao criar cupom. Tente novamente.",
         variant: "destructive"
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -761,6 +762,7 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
                     onClienteCriado={(cliente) => {
                       setClienteEncontrado({
                         ...cliente,
+                        id: String(cliente.id), // Converter id para string
                         saldoAcumulado: "0" // Converter para string
                       });
                       setShowClienteForm(false);
@@ -908,7 +910,7 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
               onClick={handleSubmit}
               disabled={!clienteEncontrado || !valorCompra || isLoading}
             >
-              {registerReceiptBasic.isPending ? "Criando..." : "Criar Cupom"}
+              {isLoading ? "Criando..." : "Criar Cupom"}
             </Button>
           </div>
         </div>
