@@ -54,7 +54,16 @@ export function SaldosPorPadaria({ clienteId, className }: SaldosPorPadariaProps
     );
   }
 
-  const saldos = saldosData || [];
+  // Debug: verificar dados recebidos
+  console.log('🔍 SaldosPorPadaria Debug:', {
+    clienteId,
+    saldosData,
+    isArray: Array.isArray(saldosData),
+    type: typeof saldosData,
+    length: Array.isArray(saldosData) ? saldosData.length : 'N/A'
+  });
+
+  const saldos = Array.isArray(saldosData) ? saldosData : [];
   const saldosComValor = saldos.filter(saldo => saldo.saldo_centavos > 0);
 
   if (saldosComValor.length === 0) {
@@ -113,10 +122,10 @@ export function SaldosPorPadaria({ clienteId, className }: SaldosPorPadariaProps
                 <Store className="h-4 w-4 text-muted-foreground" />
                 <div>
                   <div className="font-medium text-sm">
-                    {saldo.padaria?.nome || 'Padaria não encontrada'}
+                    {saldo.padarias_saldos?.nome || `Padaria ID: ${saldo.padaria_id.slice(0, 8)}...`}
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    ID: {saldo.padaria_id.slice(0, 8)}...
+                    Saldo: {saldoUtils.formatarSaldo(saldo.saldo_centavos)}
                   </div>
                 </div>
               </div>
