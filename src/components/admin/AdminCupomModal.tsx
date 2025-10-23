@@ -11,7 +11,8 @@ import { Search, User, Calculator, Receipt, Store } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useGraphQLQuery, useGraphQLMutation } from "@/hooks/useGraphQL";
 import { useUpdateCliente } from "@/hooks/useClientes";
-import { useUpsertSaldoClientePadaria, saldoUtils } from "@/hooks/useSaldosPadarias";
+import { useUpsertSaldoClientePadaria, useInsertSaldoClientePadaria, saldoUtils } from "@/hooks/useSaldosPadarias";
+import { SaldosPorPadaria } from "@/components/SaldosPorPadaria";
 import { GET_CLIENTE_BY_CPF_OR_WHATSAPP, GET_CAMPANHA_ATIVA, GET_PROXIMO_SORTEIO_AGENDADO, GET_PADARIAS, GET_PADARIA_TICKET_MEDIO, GET_CLIENTE_SALDO_POR_PADARIA, ZERAR_SALDO_CUPONS_ANTERIORES, GET_CUPONS_DISPONIVEIS, VINCULAR_CUPOM_AO_CLIENTE } from "@/graphql/queries";
 import { formatCPF, formatPhone, maskCPF } from "@/utils/formatters";
 
@@ -43,6 +44,7 @@ export function AdminCupomModal({ open, onOpenChange, onCupomCadastrado }: Admin
   const [statusCupom, setStatusCupom] = useState<'ativo' | 'inativo'>('ativo');
   const [padariaIdSelecionada, setPadariaIdSelecionada] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
+  const [processingMessage, setProcessingMessage] = useState("");
   const { toast } = useToast();
 
   // Reset automático do modal quando fechado
@@ -56,6 +58,7 @@ export function AdminCupomModal({ open, onOpenChange, onCupomCadastrado }: Admin
       setStatusCupom('ativo');
       setPadariaIdSelecionada("");
       setIsLoading(false);
+      setProcessingMessage("");
     }
   }, [open]);
 
@@ -163,11 +166,13 @@ export function AdminCupomModal({ open, onOpenChange, onCupomCadastrado }: Admin
   // Debug: log do saldo e força reload quando padaria muda
   useEffect(() => {
     if (clienteEncontrado?.id && padariaIdSelecionada) {
-      console.log('🔍 Buscando saldo:', {
+      console.log('🔍 Buscando saldo (Admin):', {
         cliente_id: clienteEncontrado.id,
         padaria_id: padariaIdSelecionada,
         saldoData,
-        saldoAcumulado
+        saldoAcumulado,
+        saldoCentavosAtual,
+        saldoRegistro: saldoData?.clientes_padarias_saldos?.[0]
       });
       // Força refetch do saldo quando padaria muda
       refetchSaldo();
@@ -202,6 +207,7 @@ export function AdminCupomModal({ open, onOpenChange, onCupomCadastrado }: Admin
       ['clientes-admin'],
       ['admin-metrics'],
       ['cliente-saldo-padaria'],
+      ['saldos-cliente'],
       ['cupons-disponiveis']
     ]
   });
@@ -211,6 +217,7 @@ export function AdminCupomModal({ open, onOpenChange, onCupomCadastrado }: Admin
 
   // Hook para gerenciar saldos por padaria
   const upsertSaldoMutation = useUpsertSaldoClientePadaria();
+  const insertSaldoMutation = useInsertSaldoClientePadaria();
 
   // Função para buscar cupons disponíveis quando necessário
   const buscarCuponsDisponiveis = async (quantidade: number) => {
@@ -440,6 +447,7 @@ export function AdminCupomModal({ open, onOpenChange, onCupomCadastrado }: Admin
   };
 
   const handleSubmit = async () => {
+    // VALIDAÇÕES IMEDIATAS (antes de buscar no banco)
     if (!clienteEncontrado || !clienteEncontrado.id || !valorCompra) {
       toast({
         title: "Erro",
@@ -477,6 +485,8 @@ export function AdminCupomModal({ open, onOpenChange, onCupomCadastrado }: Admin
         description: "Não há campanha ativa no momento. Crie ou ative uma campanha antes de gerar cupons.",
         variant: "destructive"
       });
+      setIsLoading(false);
+      setProcessingMessage("");
       return;
     }
 
@@ -491,23 +501,29 @@ export function AdminCupomModal({ open, onOpenChange, onCupomCadastrado }: Admin
       return;
     }
 
-    // Buscar cupons disponíveis
-    const cuponsDisponiveis = await buscarCuponsDisponiveis(cuponsGerados);
-    if (cuponsDisponiveis.length < cuponsGerados) {
-      toast({
-        title: "Erro", 
-        description: `Não há cupons disponíveis suficientes. Disponíveis: ${cuponsDisponiveis.length}, Necessários: ${cuponsGerados}`,
-        variant: "destructive"
-      });
-      return;
-    }
-
+    // AGORA SIM: Iniciar processamento e buscar no banco
     setIsLoading(true);
+    setProcessingMessage("🔄 Iniciando processamento do cupom...");
 
     try {
+      setProcessingMessage("🎫 Buscando cupons disponíveis...");
+      
+      // Buscar cupons disponíveis
+      const cuponsDisponiveis = await buscarCuponsDisponiveis(cuponsGerados);
+      if (cuponsDisponiveis.length < cuponsGerados) {
+        toast({
+          title: "Erro", 
+          description: `Não há cupons disponíveis suficientes. Disponíveis: ${cuponsDisponiveis.length}, Necessários: ${cuponsGerados}`,
+          variant: "destructive"
+        });
+        return;
+      }
+
       const numerosSorte: string[] = [];
       const novoSaldo = calcularNovoSaldo();
 
+      setProcessingMessage("🧹 Zerando saldos anteriores...");
+      
       // PRIMEIRO: Zerar saldo de cupons anteriores desta padaria
       await zerarSaldoAnteriorMutation.mutateAsync({
         cliente_id: clienteEncontrado.id,
@@ -519,6 +535,8 @@ export function AdminCupomModal({ open, onOpenChange, onCupomCadastrado }: Admin
         new Date(dataHora).toISOString() : 
         getBrasiliaTimestamp();
 
+      setProcessingMessage("🔗 Vinculando cupons ao cliente...");
+      
       // Vincular cupons disponíveis ao cliente
       for (let i = 0; i < cuponsGerados; i++) {
         const cupomDisponivel = cuponsDisponiveis[i];
@@ -539,9 +557,11 @@ export function AdminCupomModal({ open, onOpenChange, onCupomCadastrado }: Admin
         });
       }
 
+      setProcessingMessage("💰 Calculando saldos...");
+      
       // Calcular e salvar saldo por padaria (considerando saldo anterior)
-      const saldoAnterior = saldoData?.cupons?.[0]?.valor_desconto 
-        ? parseFloat(saldoData.cupons[0].valor_desconto) 
+      const saldoAnterior = saldoData?.clientes_padarias_saldos?.[0]?.saldo_centavos 
+        ? Number(saldoData.clientes_padarias_saldos[0].saldo_centavos) / 100 
         : 0;
       const trocoCentavos = saldoUtils.calcularTroco(valor, ticketMedioPadaria, saldoAnterior);
       if (trocoCentavos > 0) {
@@ -552,23 +572,57 @@ export function AdminCupomModal({ open, onOpenChange, onCupomCadastrado }: Admin
           ticketMedio: ticketMedioPadaria,
           trocoCentavos,
           clienteId: clienteEncontrado.id,
-          padariaId: padariaId
+          padariaId: padariaId,
+          saldoData: saldoData,
+          saldoCentavosAtual: saldoData?.clientes_padarias_saldos?.[0]?.saldo_centavos
         });
 
         try {
-          await upsertSaldoMutation.mutateAsync({
+          console.log('🔄 Tentando salvar saldo (Admin):', {
+            cliente_id: clienteEncontrado.id,
+            padaria_id: padariaId,
+            saldo_centavos: trocoCentavos,
+            valorCompra: valor,
+            saldoAnterior: saldoAnterior,
+            valorTotal: valor + saldoAnterior,
+            ticketMedio: ticketMedioPadaria
+          });
+          
+          // PRIMEIRO: Tenta atualizar registro existente
+          const updateResult = await upsertSaldoMutation.mutateAsync({
             cliente_id: clienteEncontrado.id,
             padaria_id: padariaId,
             saldo_centavos: trocoCentavos
           });
           
-          console.log('✅ Saldo por padaria salvo com sucesso (Admin):', trocoCentavos, 'centavos');
+          console.log('📊 Resultado do UPDATE (Admin):', {
+            affected_rows: updateResult.update_clientes_padarias_saldos.affected_rows,
+            returning: updateResult.update_clientes_padarias_saldos.returning
+          });
+          
+          // Se não afetou nenhuma linha, insere novo registro
+          if (updateResult.update_clientes_padarias_saldos.affected_rows === 0) {
+            console.log('🆕 Nenhum registro atualizado, criando novo (Admin)...');
+            await insertSaldoMutation.mutateAsync({
+              cliente_id: clienteEncontrado.id,
+              padaria_id: padariaId,
+              saldo_centavos: trocoCentavos
+            });
+            console.log('✅ Novo saldo por padaria criado (Admin):', trocoCentavos, 'centavos');
+          } else {
+            console.log('✅ Saldo por padaria atualizado (Admin):', trocoCentavos, 'centavos');
+          }
+          
+          // Forçar refetch do saldo após salvar
+          await refetchSaldo();
         } catch (saldoError) {
           console.error('❌ Erro ao salvar saldo por padaria (Admin):', saldoError);
           // Não falha o processo principal, apenas loga o erro
         }
       }
 
+      setProcessingMessage("🏪 Validando padaria do cliente...");
+      
       // VALIDAÇÃO E ATUALIZAÇÃO DA PADARIA NO BANCO
       await validarEAtualizarPadaria(clienteEncontrado, padariaId);
 
@@ -592,6 +646,7 @@ export function AdminCupomModal({ open, onOpenChange, onCupomCadastrado }: Admin
       });
     } finally {
       setIsLoading(false);
+      setProcessingMessage("");
     }
   };
 
@@ -677,6 +732,14 @@ export function AdminCupomModal({ open, onOpenChange, onCupomCadastrado }: Admin
               )}
             </CardContent>
           </Card>
+
+          {/* Saldos por Padaria */}
+          {clienteEncontrado && (
+            <SaldosPorPadaria 
+              clienteId={clienteEncontrado.id} 
+              className="border-green-200 bg-green-50/50"
+            />
+          )}
 
           {/* Seleção de Padaria */}
           {clienteEncontrado && (
@@ -893,9 +956,24 @@ export function AdminCupomModal({ open, onOpenChange, onCupomCadastrado }: Admin
             </Card>
           )}
 
+          {/* Mensagem de Processamento */}
+          {isLoading && processingMessage && (
+            <Card className="border-blue-200 bg-blue-50/50">
+              <CardContent className="pt-4">
+                <div className="flex items-center gap-3">
+                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-600 border-t-transparent"></div>
+                  <p className="text-sm text-blue-700 font-medium">{processingMessage}</p>
+                </div>
+                <p className="text-xs text-blue-600 mt-2">
+                  Por favor, aguarde enquanto processamos seu cupom...
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Actions */}
           <div className="flex gap-3 justify-end">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
+            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>
               Cancelar
             </Button>
             <Button 
@@ -907,7 +985,7 @@ export function AdminCupomModal({ open, onOpenChange, onCupomCadastrado }: Admin
                 isLoading
               }
             >
-              {isLoading ? "Cadastrando..." : "Confirmar Cupom"}
+              {isLoading ? "Processando..." : "Confirmar Cupom"}
             </Button>
           </div>
         </div>

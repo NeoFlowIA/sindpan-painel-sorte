@@ -25,6 +25,18 @@ export const DISCOVER_SCHEMA = `
   }
 `;
 
+// Query para testar se a tabela clientes_padarias_saldos existe
+export const TEST_SALDOS_TABLE = `
+  query TestSaldosTable {
+    clientes_padarias_saldos(limit: 1) {
+      id
+      cliente_id
+      padaria_id
+      saldo_centavos
+    }
+  }
+`;
+
 // Query para buscar informações do schema (útil para debug)
 export const INTROSPECTION_QUERY = `
   query IntrospectionQuery {
@@ -1688,10 +1700,6 @@ export const GET_SALDOS_CLIENTE = `
       cliente_id
       padaria_id
       saldo_centavos
-      padaria {
-        id
-        nome
-      }
     }
   }
 `;
@@ -1701,23 +1709,49 @@ export const UPSERT_SALDO_CLIENTE_PADARIA = `
   mutation UpsertSaldoClientePadaria(
     $cliente_id: uuid!,
     $padaria_id: uuid!,
-    $saldo_centavos: Int!
+    $saldo_centavos: bigint!
+  ) {
+    update_clientes_padarias_saldos(
+      where: {
+        cliente_id: {_eq: $cliente_id},
+        padaria_id: {_eq: $padaria_id}
+      },
+      _set: {
+        saldo_centavos: $saldo_centavos,
+        updated_at: "now()"
+      }
+    ) {
+      affected_rows
+      returning {
+        id
+        cliente_id
+        padaria_id
+        saldo_centavos
+        updated_at
+      }
+    }
+  }
+`;
+
+export const INSERT_SALDO_CLIENTE_PADARIA = `
+  mutation InsertSaldoClientePadaria(
+    $cliente_id: uuid!,
+    $padaria_id: uuid!,
+    $saldo_centavos: bigint!
   ) {
     insert_clientes_padarias_saldos_one(
       object: {
         cliente_id: $cliente_id,
         padaria_id: $padaria_id,
-        saldo_centavos: $saldo_centavos
-      },
-      on_conflict: {
-        constraint: clientes_padarias_saldos_cliente_id_padaria_id_key,
-        update_columns: [saldo_centavos]
+        saldo_centavos: $saldo_centavos,
+        updated_at: "now()"
       }
     ) {
       id
       cliente_id
       padaria_id
       saldo_centavos
+      updated_at
     }
   }
 `;

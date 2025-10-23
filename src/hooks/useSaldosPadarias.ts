@@ -3,6 +3,7 @@ import {
   GET_SALDO_CLIENTE_PADARIA,
   GET_SALDOS_CLIENTE,
   UPSERT_SALDO_CLIENTE_PADARIA,
+  INSERT_SALDO_CLIENTE_PADARIA,
   ZERAR_SALDO_CLIENTE_PADARIA,
   ADICIONAR_SALDO_CLIENTE_PADARIA
 } from '@/graphql/queries';
@@ -13,7 +14,8 @@ export interface SaldoClientePadaria {
   cliente_id: string;
   padaria_id: string;
   saldo_centavos: number;
-  padaria?: {
+  updated_at: string;
+  padarias_saldos?: {
     id: string;
     nome: string;
   };
@@ -59,6 +61,11 @@ export function useUpsertSaldoClientePadaria() {
   return useGraphQLMutation(UPSERT_SALDO_CLIENTE_PADARIA);
 }
 
+// Hook para inserir saldo de cliente em uma padaria
+export function useInsertSaldoClientePadaria() {
+  return useGraphQLMutation(INSERT_SALDO_CLIENTE_PADARIA);
+}
+
 // Hook para zerar saldo de cliente em uma padaria
 export function useZerarSaldoClientePadaria() {
   return useGraphQLMutation(ZERAR_SALDO_CLIENTE_PADARIA);
@@ -93,7 +100,9 @@ export const saldoUtils = {
   // Calcular troco/saldo restante
   calcularTroco: (valorCompra: number, ticketMedio: number, saldoAnterior: number = 0): number => {
     const valorTotal = valorCompra + saldoAnterior;
-    const troco = valorTotal - ticketMedio;
+    const cuponsGerados = Math.floor(valorTotal / ticketMedio);
+    const valorUsado = cuponsGerados * ticketMedio;
+    const troco = valorTotal - valorUsado;
     return troco > 0 ? saldoUtils.reaisParaCentavos(troco) : 0;
   }
 };
