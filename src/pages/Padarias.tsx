@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Store, Plus, Edit, QrCode, Trash2, Search, Loader2, FileSpreadsheet } from "lucide-react";
+import { Store, Plus, Edit, QrCode, Trash2, Search, Loader2, FileSpreadsheet, Link } from "lucide-react";
 import { CriarPadariaModal } from "@/components/padaria/CriarPadariaModal";
 import { EditarPadariaModal } from "@/components/padaria/EditarPadariaModal";
 import { ExcluirPadariaModal } from "@/components/padaria/ExcluirPadariaModal";
@@ -17,6 +17,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { formatCNPJ, formatPhone, formatStatus, formatStatusPagamento, formatCurrency, unformatCNPJ } from "@/utils";
 import { exportToXLSX } from "@/utils/xlsx";
+import { useGraphQLQuery, useGraphQLMutation } from "@/hooks/useGraphQL";
+import { GET_ALL_CLIENTES_ADMIN_SIMPLE, UPDATE_CLIENTE_PADARIA } from "@/graphql/queries";
 
 type ColumnKey =
   | "nome"
@@ -579,6 +581,7 @@ export default function Padarias() {
     AVAILABLE_COLUMNS.map((column) => column.key)
   );
   const [isExportOpen, setIsExportOpen] = useState(false);
+  const [isLinking, setIsLinking] = useState(false);
 
   const queryClient = useQueryClient();
   
@@ -586,6 +589,15 @@ export default function Padarias() {
   const { data: padariasData, isLoading: loadingPadarias, error: errorPadarias } = usePadarias();
   const { data: statsData, isLoading: loadingStats, error: errorStats } = usePadariasStats();
   const updatePadaria = useUpdatePadaria();
+
+  // Buscar todos os clientes para vinculação
+  const { data: clientesData, refetch: refetchClientes } = useGraphQLQuery(
+    ['clientes-admin-simple'],
+    GET_ALL_CLIENTES_ADMIN_SIMPLE
+  );
+
+  // Mutation para atualizar padaria do cliente
+  const updateClientePadariaMutation = useGraphQLMutation(UPDATE_CLIENTE_PADARIA);
 
   // Filtrar padarias baseado na busca
   const padarias = (padariasData as any)?.padarias ?? EMPTY_PADARIAS;
@@ -679,6 +691,85 @@ export default function Padarias() {
 
   const canExport = selectedColumns.length > 0 && filteredPadarias.length > 0;
 
+  // Função para calcular padaria com mais cupons (mesma lógica dos modais)
+  const calcularPadariaComMaisCupons = useCallback((cliente: any) => {
+    if (!cliente.cupons || cliente.cupons.length === 0) return null;
+    
+    const cuponsAtivos = cliente.cupons.filter((cupom: any) => cupom.status === "ativo");
+    if (cuponsAtivos.length === 0) return null;
+    
+    // Agrupar cupons por padaria
+    const cuponsPorPadaria = new Map<string, number>();
+    cuponsAtivos.forEach((cupom: any) => {
+      const padariaId = cupom.padaria_id || cliente.padaria_id;
+      if (padariaId) {
+        cuponsPorPadaria.set(padariaId, (cuponsPorPadaria.get(padariaId) || 0) + 1);
+      }
+    });
+    
+    // Encontrar a padaria com mais cupons
+    let padariaComMaisCupons = null;
+    let maxCupons = 0;
+    
+    cuponsPorPadaria.forEach((quantidade, padariaId) => {
+      if (quantidade > maxCupons) {
+        maxCupons = quantidade;
+        padariaComMaisCupons = padariaId;
+      }
+    });
+    
+    return padariaComMaisCupons;
+  }, []);
+
+  // Função para vincular padarias automaticamente
+  const handleVincularPadarias = useCallback(async () => {
+    if (!clientesData?.clientes) {
+      toast.error("Erro ao carregar clientes");
+      return;
+    }
+
+    setIsLinking(true);
+    let vinculados = 0;
+    let erros = 0;
+
+    try {
+      for (const cliente of clientesData.clientes) {
+        try {
+          const padariaComMaisCupons = calcularPadariaComMaisCupons(cliente);
+          
+          // Se encontrou uma padaria diferente da atual, atualizar
+          if (padariaComMaisCupons && padariaComMaisCupons !== cliente.padaria_id) {
+            await updateClientePadariaMutation.mutateAsync({
+              id: cliente.id,
+              padaria_id: padariaComMaisCupons
+            });
+            vinculados++;
+            console.log(`✅ Cliente ${cliente.nome} vinculado à padaria ${padariaComMaisCupons}`);
+          }
+        } catch (error) {
+          console.error(`❌ Erro ao vincular cliente ${cliente.nome}:`, error);
+          erros++;
+        }
+      }
+
+      // Invalidar cache para atualizar dados
+      await queryClient.invalidateQueries({ queryKey: ['clientes-admin-simple'] });
+      await queryClient.invalidateQueries({ queryKey: ['clientes-admin'] });
+
+      toast.success("Vinculação concluída!", {
+        description: `${vinculados} clientes vinculados. ${erros > 0 ? `${erros} erros encontrados.` : ''}`
+      });
+
+    } catch (error) {
+      console.error("Erro na vinculação:", error);
+      toast.error("Erro na vinculação", {
+        description: "Ocorreu um erro durante o processo de vinculação."
+      });
+    } finally {
+      setIsLinking(false);
+    }
+  }, [clientesData, calcularPadariaComMaisCupons, updateClientePadariaMutation, queryClient]);
+
   // Calcular estatísticas
   const totalPadarias = (statsData as any)?.padarias_aggregate?.aggregate?.count || 0;
   const padariasAtivas = (statsData as any)?.padarias_ativas?.aggregate?.count || 0;
@@ -712,12 +803,27 @@ export default function Padarias() {
             <h1 className="text-3xl font-bold text-primary">Padarias Participantes</h1>
             <p className="text-muted-foreground">Gerencie as padarias cadastradas na campanha</p>
           </div>
-          <CriarPadariaModal>
-            <Button className="bg-primary text-primary-foreground hover:bg-primary/90">
-              <Plus className="w-4 h-4 mr-2" />
-              Adicionar padaria
+          <div className="flex gap-2">
+            <Button 
+              onClick={handleVincularPadarias}
+              disabled={isLinking}
+              variant="outline"
+              className="border-blue-200 text-blue-700 hover:bg-blue-50"
+            >
+              {isLinking ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Link className="w-4 h-4 mr-2" />
+              )}
+              {isLinking ? "Vinculando..." : "Vincular Padarias"}
             </Button>
-          </CriarPadariaModal>
+            <CriarPadariaModal>
+              <Button className="bg-primary text-primary-foreground hover:bg-primary/90">
+                <Plus className="w-4 h-4 mr-2" />
+                Adicionar padaria
+              </Button>
+            </CriarPadariaModal>
+          </div>
         </div>
 
         {/* Summary Cards */}
