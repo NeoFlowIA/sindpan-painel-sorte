@@ -1130,7 +1130,6 @@ export const VINCULAR_CUPOM_AO_CLIENTE = `
     $valor_desconto: String!,
     $data_compra: timestamptz!,
     $status: String!,
-    $campanha_id: Int,
     $sorteio_id: uuid
   ) {
     update_cupons_by_pk(
@@ -1142,7 +1141,6 @@ export const VINCULAR_CUPOM_AO_CLIENTE = `
         valor_desconto: $valor_desconto,
         data_compra: $data_compra,
         status: $status,
-        campanha_id: $campanha_id,
         sorteio_id: $sorteio_id
       }
     ) {
@@ -1151,7 +1149,6 @@ export const VINCULAR_CUPOM_AO_CLIENTE = `
       serie
       status
       cliente_id
-      campanha_id
       valor_compra
       valor_desconto
     }
@@ -1197,6 +1194,11 @@ export const GET_CUPONS_PARA_SORTEIO = `
       where: {
         padaria_id: {_eq: $padaria_id}
         status: {_eq: "ativo"}
+        cliente: {
+          cupons: {
+            status: {_neq: "usado_sorteio"}
+          }
+        }
       }
       order_by: {data_compra: desc}
     ) {
@@ -1421,32 +1423,16 @@ export const GET_ADMIN_DASHBOARD_METRICS = `
   }
 `;
 
-// Query para buscar todos os clientes que possuem cupons ativos na campanha selecionada
+// Query para buscar todos os clientes que possuem cupons ativos
 export const GET_CLIENTES_WITH_ACTIVE_CUPONS_BY_CAMPANHA = `
   query GetClientesWithActiveCuponsByCampanha {
-    clientes(
-      where: {
-        status: {_eq: "ativo"},
-        campanha_id: {_eq: $campanhaId},
-        valor_compra: {_neq: "0"},
-        cliente: {
-        
-        }
-      }
-      order_by: {nome: asc}
-    ) {
+    clientes {
       id
-      numero_sorte
-      valor_compra
-      data_compra
-      status
-      campanha_id
-      padaria_id
+      nome
+      cpf
+      whatsapp
+      resposta_pergunta
       padaria {
-        id
-        nome
-      }
-      cliente {
         id
         nome
       }
@@ -1465,7 +1451,6 @@ export const GET_CLIENTES_WITH_ACTIVE_CUPONS_BY_CAMPANHA = `
         valor_compra
         data_compra
         status
-        campanha_id
         padaria_id
       }
     }
@@ -1510,36 +1495,23 @@ export const SALVAR_GANHADOR = `
     $numero_sorteado: String!,
     $data_sorteio: timestamptz!,
     $ganhador_id: uuid!,
-    $cupom_vencedor_id: uuid!,
-    $cliente_id: uuid!,
-    $campanha_id: uuid
+    $cliente_id: uuid!
   ) {
     sorteio: insert_sorteios_one(object: {
       numero_sorteado: $numero_sorteado
       data_sorteio: $data_sorteio
       ganhador_id: $ganhador_id
-      cupom_vencedor_id: $cupom_vencedor_id
-      status: "realizado"
-      nome: "Sorteio Digital"
-      campanha_id: $campanha_id
     }) {
       id
       numero_sorteado
       data_sorteio
       ganhador_id
-      campanha_id
-      campanha {
-        id
-        Nome
-      }
     }
     outros_cupons: update_cupons(
       where: {
         cliente_id: {_eq: $cliente_id}
         status: {_eq: "ativo"}
-        campanha_id: {_eq: $campanha_id}
       }
-      _set: {valor_compra: "0"}
     ) {
       affected_rows
     }
@@ -1551,6 +1523,54 @@ export const MARCAR_CUPOM_SORTEADO = `
     update_cupons(
       where: {cliente_id: {_eq: $cliente_id}}
       _set: {valor_compra: "0"}
+    ) {
+      affected_rows
+    }
+  }
+`;
+
+// Mutation para marcar cupom específico como usado no sorteio
+export const MARCAR_CUPOM_ESPECIFICO_SORTEADO = `
+  mutation MarcarCupomEspecificoSorteado($cupom_id: uuid!) {
+    update_cupons(
+      where: {id: {_eq: $cupom_id}}
+      _set: {status: "usado_sorteio"}
+    ) {
+      affected_rows
+    }
+  }
+`;
+
+// Mutation para reativar cupom específico
+export const REATIVAR_CUPOM_ESPECIFICO = `
+  mutation ReativarCupomEspecifico($cupom_id: uuid!) {
+    update_cupons(
+      where: {id: {_eq: $cupom_id}}
+      _set: {status: "ativo"}
+    ) {
+      affected_rows
+    }
+  }
+`;
+
+// Mutation para reativar todos os cupons de um cliente
+export const REATIVAR_TODOS_CUPONS_CLIENTE = `
+  mutation ReativarTodosCuponsCliente($cliente_id: uuid!) {
+    update_cupons(
+      where: {cliente_id: {_eq: $cliente_id}}
+      _set: {status: "ativo"}
+    ) {
+      affected_rows
+    }
+  }
+`;
+
+// Mutation para reativar todos os cupons usados em sorteios
+export const REATIVAR_TODOS_CUPONS_SORTEADOS = `
+  mutation ReativarTodosCuponsSorteados {
+    update_cupons(
+      where: {status: {_eq: "usado_sorteio"}}
+      _set: {status: "ativo"}
     ) {
       affected_rows
     }
@@ -1605,6 +1625,10 @@ export const GET_GANHADORES_COM_DADOS_COMPLETOS = `
         padaria {
           id
           nome
+        }
+        cupons(where: {status: {_eq: "usado_sorteio"}}) {
+          id
+          status
         }
       }
       campanha {
