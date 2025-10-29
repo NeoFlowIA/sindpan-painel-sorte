@@ -34,9 +34,9 @@ export function AdminNovoClienteModal({ open, onOpenChange, onClienteAdded }: Ad
 
   // Tipar corretamente padariasData para evitar o erro de 'unknown'
   type PadariasData = { padarias: any[] };
-  const padarias = (padariasData as PadariasData | undefined)?.padarias || [];
+  const padarias = ((padariasData as any) as PadariasData | undefined)?.padarias || [];
 
-  console.log('🔍 Padarias carregadas:', (padariasData as PadariasData | undefined)?.padarias);
+  console.log('🔍 Padarias carregadas:', ((padariasData as any) as PadariasData | undefined)?.padarias);
   console.log('🔍 Dados completos:', padariasData);
   console.log('🔍 Array padarias:', padarias);
   console.log('🔍 Loading state:', padariasLoading);

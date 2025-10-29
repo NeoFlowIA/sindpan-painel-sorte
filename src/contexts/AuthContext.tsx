@@ -127,17 +127,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         }
 
         // Buscar dados atualizados do usuário no Hasura
-        const hasuraResponse = await graphqlClient.query<{
-          users: Array<{
-            id: string;
-            email: string;
-            cnpj: string;
-            bakery_name: string;
-            role: string;
-            padarias_id?: string;
-            padarias?: { id: string; nome: string } | null;
-          }>;
-        }>(
+        const hasuraResponse = await (graphqlClient as any).query(
           `
           query GetUserById($id: uuid!) {
             users(where: {id: {_eq: $id}}) {
@@ -200,18 +190,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const isEmail = identifier.includes('@');
       const normalizedIdentifier = isEmail ? identifier : normalizeCnpj(identifier);
 
-      const hasuraResponse = await graphqlClient.query<{
-        users: Array<{
-          id: string;
-          email: string | null;
-          cnpj: string | null;
-          bakery_name: string | null;
-          role: string;
-          padarias_id: string | null;
-          password_hash: string | null;
-          padarias?: { id: string; nome: string } | null;
-        }>;
-      }>(
+      const hasuraResponse = await (graphqlClient as any).query(
         isEmail
           ? `
             query CheckUserByEmail($email: String!) {
@@ -339,14 +318,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         throw new Error('Informe um CNPJ válido com 14 dígitos');
       }
 
-      const padariaResponse = await graphqlClient.query<{
-        padarias: Array<{
-          id: string;
-          nome: string;
-          cnpj: string;
-          status: string;
-        }>;
-      }>(GET_PADARIA_BY_CNPJ, { cnpj: sanitizedCnpj });
+      const padariaResponse = await (graphqlClient as any).query(GET_PADARIA_BY_CNPJ, { cnpj: sanitizedCnpj });
 
       const padaria = padariaResponse.padarias?.[0];
 
@@ -360,17 +332,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       const passwordHash = await bcrypt.hash(password, 10);
 
-      const upsertResponse = await graphqlClient.mutate<{
-        insert_users_one: {
-          email: string | null;
-          id: string;
-          cnpj: string;
-          bakery_name: string | null;
-          role: string;
-          padarias_id: string;
-          password_hash: string;
-        };
-      }>(UPSERT_PADARIA_USER, {
+      const upsertResponse = await (graphqlClient as any).mutate(UPSERT_PADARIA_USER, {
         cnpj: sanitizedCnpj,
         padarias_id: padaria.id,
         password_hash: passwordHash,
@@ -443,9 +405,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // Verificar se usuário já existe
       const isEmail = identifier.includes('@');
 
-      const checkResponse = await graphqlClient.query<{
-        users: Array<{ id: string }>;
-      }>(
+      const checkResponse = await (graphqlClient as any).query(
         isEmail
           ? `
             query CheckExistingUserByEmail($email: String!) {
@@ -473,15 +433,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       const passwordHash = await bcrypt.hash(password, 10);
 
-      const insertResponse = await graphqlClient.mutate<{
-        insert_users_one: {
-          id: string;
-          email: string;
-          cnpj: string;
-          bakery_name: string;
-          role: string;
-        };
-      }>(
+      const insertResponse = await (graphqlClient as any).mutate(
         isEmail
           ? `
             mutation InsertUserWithEmail($email: String!, $bakery_name: String!, $password_hash: String!) {

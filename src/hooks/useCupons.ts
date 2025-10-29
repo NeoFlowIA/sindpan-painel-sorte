@@ -20,7 +20,11 @@ import {
   GET_CUPONS_PARA_SORTEIO,
   GET_HISTORICO_SORTEIOS,
   GET_PARTICIPANTES_SORTEIO,
-  SALVAR_SORTEIO_PADARIA
+  SALVAR_SORTEIO_PADARIA,
+  MARCAR_CUPOM_ESPECIFICO_SORTEADO,
+  REATIVAR_CUPOM_ESPECIFICO,
+  REATIVAR_TODOS_CUPONS_CLIENTE,
+  REATIVAR_TODOS_CUPONS_SORTEADOS
 } from '@/graphql/queries';
 
 // Tipos para cupons
@@ -58,7 +62,6 @@ export interface CreateCupomInput {
   cliente_id: number;
   padaria_id: string; // Campo obrigatório
   valor_desconto?: string | null; // Saldo/desconto para próximas compras
-  campanha_id?: string | null; // ID da campanha vinculada
   sorteio_id?: string | null; // ID do próximo sorteio agendado
 }
 
@@ -290,6 +293,7 @@ export const useTopClientes = (padariaId: string) => {
 export const useCuponsRecentes = (padariaId: string) => {
   return useGraphQLQuery<{
     cupons: Array<{
+      serie: string;
       id: number;
       numero_sorte: string;
       valor_compra: string;
@@ -549,7 +553,6 @@ export const useVincularCupom = () => {
       valor_desconto: string;
       data_compra: string;
       status: string;
-      campanha_id?: number | null;
       sorteio_id?: string | null;
     }
   >(
@@ -570,7 +573,7 @@ export const useVincularCupom = () => {
 export const useRegisterReceiptBasic = () => {
   return useGraphQLMutation<
     RegisterReceiptBasicResponse,
-    RegisterReceiptBasicVariables
+    Record<string, unknown>
   >(
     REGISTER_RECEIPT_BASIC,
     {
@@ -628,7 +631,6 @@ export const useAlocarCupons = (padariaId: string | undefined) => {
         valor_desconto: ehUltimoCupom ? String(novoSaldoDesconto.toFixed(2)) : "0",
         data_compra: dataCompra,
         status: "ativo",
-        campanha_id: null,
         sorteio_id: null
       });
     }
@@ -643,8 +645,91 @@ export const useAlocarCupons = (padariaId: string | undefined) => {
   return {
     cuponsDisponiveis: cuponsDisponiveisData?.cupons || [],
     alocarCupons,
-    isLoading: vincularCupomMutation.isLoading,
+    isLoading: vincularCupomMutation.isPending,
     error: vincularCupomMutation.error,
     refetchCuponsDisponiveis
   };
+};
+
+// ===== HOOKS PARA REATIVAÇÃO DE CUPONS =====
+
+// Hook para marcar cupom específico como sorteado
+export const useMarcarCupomSorteado = () => {
+  return useGraphQLMutation<
+    { affected_rows: number },
+    { cupom_id: string }
+  >(
+    MARCAR_CUPOM_ESPECIFICO_SORTEADO,
+    {
+      onSuccess: () => {
+        // Invalidar cache dos cupons para recarregar as listas
+        console.log('✅ Cupom marcado como usado_sorteio - invalidando cache');
+      },
+      invalidateQueries: [
+        ['cupons-para-sorteio'],
+        ['cupons-by-padaria'],
+        ['historico-sorteios']
+      ],
+    }
+  );
+};
+
+// Hook para reativar cupom específico
+export const useReativarCupomEspecifico = () => {
+  return useGraphQLMutation<
+    { affected_rows: number },
+    { cupom_id: string }
+  >(
+    REATIVAR_CUPOM_ESPECIFICO,
+    {
+      onSuccess: () => {
+        // Invalidar cache dos cupons para recarregar as listas
+      },
+      invalidateQueries: [
+        ['cupons-para-sorteio'],
+        ['cupons-by-padaria'],
+        ['historico-sorteios']
+      ],
+    }
+  );
+};
+
+// Hook para reativar todos os cupons de um cliente
+export const useReativarTodosCuponsCliente = () => {
+  return useGraphQLMutation<
+    { affected_rows: number },
+    { cliente_id: string }
+  >(
+    REATIVAR_TODOS_CUPONS_CLIENTE,
+    {
+      onSuccess: () => {
+        // Invalidar cache dos cupons para recarregar as listas
+      },
+      invalidateQueries: [
+        ['cupons-para-sorteio'],
+        ['cupons-by-padaria'],
+        ['historico-sorteios']
+      ],
+    }
+  );
+};
+
+// Hook para reativar todos os cupons sorteados
+export const useReativarTodosCuponsSorteados = () => {
+  return useGraphQLMutation<
+    { affected_rows: number },
+    Record<string, never>
+  >(
+    REATIVAR_TODOS_CUPONS_SORTEADOS,
+    {
+      onSuccess: () => {
+        // Invalidar cache dos cupons para recarregar as listas
+      },
+      invalidateQueries: [
+        ['cupons-para-sorteio'],
+        ['cupons-by-padaria'],
+        ['historico-sorteios']
+      ],
+    }
+  );
 };

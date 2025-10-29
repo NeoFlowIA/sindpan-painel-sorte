@@ -68,7 +68,6 @@ export function PadariaDashboard() {
         try {
           const clientesAnexados = await anexarClientesAutomatico();
           if (clientesAnexados > 0) {
-            console.log(`✅ ${clientesAnexados} clientes anexados automaticamente à padaria`);
             // Recarregar dados após anexar clientes
             await Promise.all([
               refetchMetrics(),
@@ -76,13 +75,11 @@ export function PadariaDashboard() {
             ]);
           }
         } catch (error) {
-          console.error("Erro ao anexar clientes automaticamente:", error);
         }
       }
       
       setLastUpdate(new Date());
     } catch (error) {
-      console.error("Erro ao atualizar dados:", error);
     } finally {
       setIsLoading(false);
     }
@@ -246,6 +243,7 @@ export function PadariaDashboard() {
     cliente: cupom.cliente.nome,
     cpf: maskCPF(cupom.cliente.cpf), // ✅ CPF mascarado para proteção de dados
     valor: parseFloat(cupom.valor_compra || '0'),
+    serie: cupom.serie || 'N/A',
     dataHora: new Date(cupom.data_compra).toLocaleString('pt-BR')
   })) || [];
 

@@ -25,6 +25,18 @@ export const DISCOVER_SCHEMA = `
   }
 `;
 
+// Query para testar se a tabela clientes_padarias_saldos existe
+export const TEST_SALDOS_TABLE = `
+  query TestSaldosTable {
+    clientes_padarias_saldos(limit: 1) {
+      id
+      cliente_id
+      padaria_id
+      saldo_centavos
+    }
+  }
+`;
+
 // Query para buscar informações do schema (útil para debug)
 export const INTROSPECTION_QUERY = `
   query IntrospectionQuery {
@@ -562,10 +574,20 @@ export const GET_CLIENTES = `
         id
         nome
       }
-        cupons {
-        cliente_id
-        data_compra
+      cupons(
+        where: {
+          padaria_id: {_eq: $padaria_id}
+        }
+      ) {
         id
+        cliente_id
+        padaria_id
+        numero_sorte
+        serie
+        valor_compra
+        valor_desconto
+        data_compra
+        status
       }
       
     }
@@ -729,6 +751,7 @@ export const GET_CLIENTE_BY_CPF_OR_WHATSAPP = `
       cupons {
         id
         numero_sorte
+        serie
         status
         padaria_id
         valor_compra
@@ -789,6 +812,7 @@ export const GET_CUPONS_BY_PADARIA = `
     ) {
       id
       numero_sorte
+      serie
       valor_compra
       data_compra
       status
@@ -811,6 +835,7 @@ export const GET_CUPONS_BY_CLIENTE = `
     cupons(where: {cliente_id: {_eq: $cliente_id}}, order_by: {data_compra: desc}) {
       id
       numero_sorte
+      serie
       valor_compra
       data_compra
       status
@@ -905,11 +930,21 @@ export const GET_TOP_CLIENTES = `
       nome
       cpf
       cupons(
-        where: {status: {_eq: "ativo"}}
+        where: {
+          status: {_eq: "ativo"},
+          padaria_id: {_eq: $padaria_id}
+        }
         order_by: {data_compra: desc}
       ) {
         id
+        cliente_id
+        padaria_id
+        numero_sorte
+        serie
+        valor_compra
+        valor_desconto
         data_compra
+        status
       }
     }
   }
@@ -924,9 +959,14 @@ export const GET_CUPONS_RECENTES = `
       limit: 5
     ) {
       id
+      cliente_id
+      padaria_id
       numero_sorte
+      serie
       valor_compra
+      valor_desconto
       data_compra
+      status
       cliente {
         id
         nome
@@ -1065,6 +1105,21 @@ export const GET_CUPONS_DISPONIVEIS_POR_PADARIA = `
   }
 `;
 
+// Mutation para criar cupons disponíveis em lote
+export const CREATE_CUPONS_DISPONIVEIS = `
+  mutation CreateCuponsDisponiveis($cupons: [cupons_insert_input!]!) {
+    insert_cupons(objects: $cupons) {
+      affected_rows
+      returning {
+        id
+        numero_sorte
+        serie
+        status
+      }
+    }
+  }
+`;
+
 // Mutation para vincular cupom disponível ao cliente
 export const VINCULAR_CUPOM_AO_CLIENTE = `
   mutation VincularCupomAoCliente(
@@ -1075,7 +1130,6 @@ export const VINCULAR_CUPOM_AO_CLIENTE = `
     $valor_desconto: String!,
     $data_compra: timestamptz!,
     $status: String!,
-    $campanha_id: Int,
     $sorteio_id: uuid
   ) {
     update_cupons_by_pk(
@@ -1087,7 +1141,6 @@ export const VINCULAR_CUPOM_AO_CLIENTE = `
         valor_desconto: $valor_desconto,
         data_compra: $data_compra,
         status: $status,
-        campanha_id: $campanha_id,
         sorteio_id: $sorteio_id
       }
     ) {
@@ -1096,7 +1149,6 @@ export const VINCULAR_CUPOM_AO_CLIENTE = `
       serie
       status
       cliente_id
-      campanha_id
       valor_compra
       valor_desconto
     }
@@ -1142,6 +1194,11 @@ export const GET_CUPONS_PARA_SORTEIO = `
       where: {
         padaria_id: {_eq: $padaria_id}
         status: {_eq: "ativo"}
+        cliente: {
+          cupons: {
+            status: {_neq: "usado_sorteio"}
+          }
+        }
       }
       order_by: {data_compra: desc}
     ) {
@@ -1315,6 +1372,7 @@ export const GET_ALL_CLIENTES_ADMIN_SIMPLE = `
         data_compra
         valor_compra
         numero_sorte
+        serie
         campanha_id
         status
         padaria_id
@@ -1331,14 +1389,15 @@ export const GET_ADMIN_DASHBOARD_METRICS = `
         count
       }
     }
-    cupons_aggregate {
+    cupons_aggregate(where: {status: {_eq: "ativo"}}) {
       aggregate {
         count
       }
     }
-    cupons(order_by: {data_compra: desc}, limit: 100) {
+    cupons(order_by: {data_compra: desc}, where: {status: {_eq: "ativo"}}) {
       id
       data_compra
+      serie
       valor_compra
       status
     }
@@ -1364,32 +1423,16 @@ export const GET_ADMIN_DASHBOARD_METRICS = `
   }
 `;
 
-// Query para buscar todos os clientes que possuem cupons ativos na campanha selecionada
+// Query para buscar todos os clientes que possuem cupons ativos
 export const GET_CLIENTES_WITH_ACTIVE_CUPONS_BY_CAMPANHA = `
   query GetClientesWithActiveCuponsByCampanha {
-    clientes(
-      where: {
-        status: {_eq: "ativo"},
-        campanha_id: {_eq: $campanhaId},
-        valor_compra: {_neq: "0"},
-        cliente: {
-        
-        }
-      }
-      order_by: {nome: asc}
-    ) {
+    clientes {
       id
-      numero_sorte
-      valor_compra
-      data_compra
-      status
-      campanha_id
-      padaria_id
+      nome
+      cpf
+      whatsapp
+      resposta_pergunta
       padaria {
-        id
-        nome
-      }
-      cliente {
         id
         nome
       }
@@ -1404,10 +1447,10 @@ export const GET_CLIENTES_WITH_ACTIVE_CUPONS_BY_CAMPANHA = `
       ) {
         id
         numero_sorte
+        serie
         valor_compra
         data_compra
         status
-        campanha_id
         padaria_id
       }
     }
@@ -1452,36 +1495,23 @@ export const SALVAR_GANHADOR = `
     $numero_sorteado: String!,
     $data_sorteio: timestamptz!,
     $ganhador_id: uuid!,
-    $cupom_vencedor_id: uuid!,
-    $cliente_id: uuid!,
-    $campanha_id: uuid
+    $cliente_id: uuid!
   ) {
     sorteio: insert_sorteios_one(object: {
       numero_sorteado: $numero_sorteado
       data_sorteio: $data_sorteio
       ganhador_id: $ganhador_id
-      cupom_vencedor_id: $cupom_vencedor_id
-      status: "realizado"
-      nome: "Sorteio Digital"
-      campanha_id: $campanha_id
     }) {
       id
       numero_sorteado
       data_sorteio
       ganhador_id
-      campanha_id
-      campanha {
-        id
-        Nome
-      }
     }
     outros_cupons: update_cupons(
       where: {
         cliente_id: {_eq: $cliente_id}
         status: {_eq: "ativo"}
-        campanha_id: {_eq: $campanha_id}
       }
-      _set: {valor_compra: "0"}
     ) {
       affected_rows
     }
@@ -1493,6 +1523,54 @@ export const MARCAR_CUPOM_SORTEADO = `
     update_cupons(
       where: {cliente_id: {_eq: $cliente_id}}
       _set: {valor_compra: "0"}
+    ) {
+      affected_rows
+    }
+  }
+`;
+
+// Mutation para marcar cupom específico como usado no sorteio
+export const MARCAR_CUPOM_ESPECIFICO_SORTEADO = `
+  mutation MarcarCupomEspecificoSorteado($cupom_id: uuid!) {
+    update_cupons(
+      where: {id: {_eq: $cupom_id}}
+      _set: {status: "usado_sorteio"}
+    ) {
+      affected_rows
+    }
+  }
+`;
+
+// Mutation para reativar cupom específico
+export const REATIVAR_CUPOM_ESPECIFICO = `
+  mutation ReativarCupomEspecifico($cupom_id: uuid!) {
+    update_cupons(
+      where: {id: {_eq: $cupom_id}}
+      _set: {status: "ativo"}
+    ) {
+      affected_rows
+    }
+  }
+`;
+
+// Mutation para reativar todos os cupons de um cliente
+export const REATIVAR_TODOS_CUPONS_CLIENTE = `
+  mutation ReativarTodosCuponsCliente($cliente_id: uuid!) {
+    update_cupons(
+      where: {cliente_id: {_eq: $cliente_id}}
+      _set: {status: "ativo"}
+    ) {
+      affected_rows
+    }
+  }
+`;
+
+// Mutation para reativar todos os cupons usados em sorteios
+export const REATIVAR_TODOS_CUPONS_SORTEADOS = `
+  mutation ReativarTodosCuponsSorteados {
+    update_cupons(
+      where: {status: {_eq: "usado_sorteio"}}
+      _set: {status: "ativo"}
     ) {
       affected_rows
     }
@@ -1547,6 +1625,10 @@ export const GET_GANHADORES_COM_DADOS_COMPLETOS = `
         padaria {
           id
           nome
+        }
+        cupons(where: {status: {_eq: "usado_sorteio"}}) {
+          id
+          status
         }
       }
       campanha {
@@ -1642,10 +1724,6 @@ export const GET_SALDOS_CLIENTE = `
       cliente_id
       padaria_id
       saldo_centavos
-      padaria {
-        id
-        nome
-      }
     }
   }
 `;
@@ -1655,23 +1733,49 @@ export const UPSERT_SALDO_CLIENTE_PADARIA = `
   mutation UpsertSaldoClientePadaria(
     $cliente_id: uuid!,
     $padaria_id: uuid!,
-    $saldo_centavos: Int!
+    $saldo_centavos: bigint!
+  ) {
+    update_clientes_padarias_saldos(
+      where: {
+        cliente_id: {_eq: $cliente_id},
+        padaria_id: {_eq: $padaria_id}
+      },
+      _set: {
+        saldo_centavos: $saldo_centavos,
+        updated_at: "now()"
+      }
+    ) {
+      affected_rows
+      returning {
+        id
+        cliente_id
+        padaria_id
+        saldo_centavos
+        updated_at
+      }
+    }
+  }
+`;
+
+export const INSERT_SALDO_CLIENTE_PADARIA = `
+  mutation InsertSaldoClientePadaria(
+    $cliente_id: uuid!,
+    $padaria_id: uuid!,
+    $saldo_centavos: bigint!
   ) {
     insert_clientes_padarias_saldos_one(
       object: {
         cliente_id: $cliente_id,
         padaria_id: $padaria_id,
-        saldo_centavos: $saldo_centavos
-      },
-      on_conflict: {
-        constraint: clientes_padarias_saldos_cliente_id_padaria_id_key,
-        update_columns: [saldo_centavos]
+        saldo_centavos: $saldo_centavos,
+        updated_at: "now()"
       }
     ) {
       id
       cliente_id
       padaria_id
       saldo_centavos
+      updated_at
     }
   }
 `;

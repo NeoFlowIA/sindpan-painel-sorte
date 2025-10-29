@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Store, Plus, Edit, QrCode, Trash2, Search, Loader2, FileSpreadsheet } from "lucide-react";
+import { Store, Plus, Edit, QrCode, Trash2, Search, Loader2, FileSpreadsheet, Link } from "lucide-react";
 import { CriarPadariaModal } from "@/components/padaria/CriarPadariaModal";
 import { EditarPadariaModal } from "@/components/padaria/EditarPadariaModal";
 import { ExcluirPadariaModal } from "@/components/padaria/ExcluirPadariaModal";
@@ -17,6 +17,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { formatCNPJ, formatPhone, formatStatus, formatStatusPagamento, formatCurrency, unformatCNPJ } from "@/utils";
 import { exportToXLSX } from "@/utils/xlsx";
+import { useGraphQLQuery, useGraphQLMutation } from "@/hooks/useGraphQL";
+import { GET_ALL_CLIENTES_ADMIN_SIMPLE, UPDATE_CLIENTE_PADARIA } from "@/graphql/queries";
 
 type ColumnKey =
   | "nome"
@@ -579,16 +581,26 @@ export default function Padarias() {
     AVAILABLE_COLUMNS.map((column) => column.key)
   );
   const [isExportOpen, setIsExportOpen] = useState(false);
+  const [isLinking, setIsLinking] = useState(false);
 
   const queryClient = useQueryClient();
-
+  
   // Buscar dados das padarias
   const { data: padariasData, isLoading: loadingPadarias, error: errorPadarias } = usePadarias();
   const { data: statsData, isLoading: loadingStats, error: errorStats } = usePadariasStats();
   const updatePadaria = useUpdatePadaria();
 
+  // Buscar todos os clientes para vinculação
+  const { data: clientesData, refetch: refetchClientes } = useGraphQLQuery(
+    ['clientes-admin-simple'],
+    GET_ALL_CLIENTES_ADMIN_SIMPLE
+  );
+
+  // Mutation para atualizar padaria do cliente
+  const updateClientePadariaMutation = useGraphQLMutation(UPDATE_CLIENTE_PADARIA);
+
   // Filtrar padarias baseado na busca
-  const padarias = padariasData?.padarias ?? EMPTY_PADARIAS;
+  const padarias = (padariasData as any)?.padarias ?? EMPTY_PADARIAS;
   const filteredPadarias = useMemo(() => {
     if (!searchTerm.trim()) {
       return padarias;
@@ -679,11 +691,90 @@ export default function Padarias() {
 
   const canExport = selectedColumns.length > 0 && filteredPadarias.length > 0;
 
+  // Função para calcular padaria com mais cupons (mesma lógica dos modais)
+  const calcularPadariaComMaisCupons = useCallback((cliente: any) => {
+    if (!cliente.cupons || cliente.cupons.length === 0) return null;
+    
+    const cuponsAtivos = cliente.cupons.filter((cupom: any) => cupom.status === "ativo");
+    if (cuponsAtivos.length === 0) return null;
+    
+    // Agrupar cupons por padaria
+    const cuponsPorPadaria = new Map<string, number>();
+    cuponsAtivos.forEach((cupom: any) => {
+      const padariaId = cupom.padaria_id || cliente.padaria_id;
+      if (padariaId) {
+        cuponsPorPadaria.set(padariaId, (cuponsPorPadaria.get(padariaId) || 0) + 1);
+      }
+    });
+    
+    // Encontrar a padaria com mais cupons
+    let padariaComMaisCupons = null;
+    let maxCupons = 0;
+    
+    cuponsPorPadaria.forEach((quantidade, padariaId) => {
+      if (quantidade > maxCupons) {
+        maxCupons = quantidade;
+        padariaComMaisCupons = padariaId;
+      }
+    });
+    
+    return padariaComMaisCupons;
+  }, []);
+
+  // Função para vincular padarias automaticamente
+  const handleVincularPadarias = useCallback(async () => {
+    if (!clientesData?.clientes) {
+      toast.error("Erro ao carregar clientes");
+      return;
+    }
+
+    setIsLinking(true);
+    let vinculados = 0;
+    let erros = 0;
+
+    try {
+      for (const cliente of clientesData.clientes) {
+        try {
+          const padariaComMaisCupons = calcularPadariaComMaisCupons(cliente);
+          
+          // Se encontrou uma padaria diferente da atual, atualizar
+          if (padariaComMaisCupons && padariaComMaisCupons !== cliente.padaria_id) {
+            await updateClientePadariaMutation.mutateAsync({
+              id: cliente.id,
+              padaria_id: padariaComMaisCupons
+            });
+            vinculados++;
+            console.log(`✅ Cliente ${cliente.nome} vinculado à padaria ${padariaComMaisCupons}`);
+          }
+        } catch (error) {
+          console.error(`❌ Erro ao vincular cliente ${cliente.nome}:`, error);
+          erros++;
+        }
+      }
+
+      // Invalidar cache para atualizar dados
+      await queryClient.invalidateQueries({ queryKey: ['clientes-admin-simple'] });
+      await queryClient.invalidateQueries({ queryKey: ['clientes-admin'] });
+
+      toast.success("Vinculação concluída!", {
+        description: `${vinculados} clientes vinculados. ${erros > 0 ? `${erros} erros encontrados.` : ''}`
+      });
+
+    } catch (error) {
+      console.error("Erro na vinculação:", error);
+      toast.error("Erro na vinculação", {
+        description: "Ocorreu um erro durante o processo de vinculação."
+      });
+    } finally {
+      setIsLinking(false);
+    }
+  }, [clientesData, calcularPadariaComMaisCupons, updateClientePadariaMutation, queryClient]);
+
   // Calcular estatísticas
-  const totalPadarias = statsData?.padarias_aggregate?.aggregate?.count || 0;
-  const padariasAtivas = statsData?.padarias_ativas?.aggregate?.count || 0;
-  const padariasPendentes = statsData?.padarias_pendentes?.aggregate?.count || 0;
-  const ticketMedio = statsData?.ticket_medio?.aggregate?.avg?.ticket_medio || 0;
+  const totalPadarias = (statsData as any)?.padarias_aggregate?.aggregate?.count || 0;
+  const padariasAtivas = (statsData as any)?.padarias_ativas?.aggregate?.count || 0;
+  const padariasPendentes = (statsData as any)?.padarias_pendentes?.aggregate?.count || 0;
+  const ticketMedio = (statsData as any)?.ticket_medio?.aggregate?.avg?.ticket_medio || 0;
 
   if (loadingPadarias || loadingStats) {
     return (
@@ -706,18 +797,33 @@ export default function Padarias() {
   }
 
   return (
-    <div className="space-y-6">
+      <div className="space-y-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-3xl font-bold text-primary">Padarias Participantes</h1>
             <p className="text-muted-foreground">Gerencie as padarias cadastradas na campanha</p>
           </div>
-          <CriarPadariaModal>
-            <Button className="bg-primary text-primary-foreground hover:bg-primary/90">
-              <Plus className="w-4 h-4 mr-2" />
-              Adicionar padaria
+          <div className="flex gap-2">
+            <Button 
+              onClick={handleVincularPadarias}
+              disabled={isLinking}
+              variant="outline"
+              className="border-blue-200 text-blue-700 hover:bg-blue-50"
+            >
+              {isLinking ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Link className="w-4 h-4 mr-2" />
+              )}
+              {isLinking ? "Vinculando..." : "Vincular Padarias"}
             </Button>
-          </CriarPadariaModal>
+            <CriarPadariaModal>
+              <Button className="bg-primary text-primary-foreground hover:bg-primary/90">
+                <Plus className="w-4 h-4 mr-2" />
+                Adicionar padaria
+              </Button>
+            </CriarPadariaModal>
+          </div>
         </div>
 
         {/* Summary Cards */}
@@ -774,8 +880,8 @@ export default function Padarias() {
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="relative w-full max-w-xl lg:max-w-sm">
             <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar por nome ou CNPJ..."
+            <Input 
+              placeholder="Buscar por nome ou CNPJ..." 
               className="pl-10"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -858,10 +964,10 @@ export default function Padarias() {
                   filteredPadarias.map((padaria, index) => (
                     <TableRow key={`${padaria.cnpj}-${index}`}>
                       <TableCell className="font-medium">{padaria.nome}</TableCell>
-                      <TableCell className="font-mono text-sm">{formatCNPJ(padaria.cnpj)}</TableCell>
+                      <TableCell className="font-mono text-sm w-60">{formatCNPJ(padaria.cnpj)}</TableCell>
                       <TableCell className="max-w-xs truncate">{padaria.endereco}</TableCell>
                       <TableCell>{padaria.email || '-'}</TableCell>
-                      <TableCell>{formatPhone(padaria.telefone || '')}</TableCell>
+                      <TableCell className="w-40">{formatPhone(padaria.telefone || '')}</TableCell>
                       <TableCell className="font-semibold text-secondary">
                         {formatCurrency(padaria.ticket_medio || 0)}
                       </TableCell>
@@ -875,10 +981,10 @@ export default function Padarias() {
                               : "text-red-600 border-red-600"
                           }
                         >
-                          {formatStatus(padaria.status)}
+                          {formatStatus(padaria.status === "ativa" ? "Ativa" : padaria.status === "pendente" ? "Pendente" : "Inativa")}
                         </Badge>
                       </TableCell>
-                      <TableCell className="min-w-[10rem]">
+                      <TableCell className="min-w-[5rem]">
                         <PaymentDropdown
                           currentStatus={padaria.status_pagamento || 'em_aberto'}
                           onStatusChange={(newStatus) => handlePaymentStatusChange(padaria, newStatus)}
@@ -899,9 +1005,7 @@ export default function Padarias() {
                               <Edit className="w-4 h-4" />
                             </Button>
                           </EditarPadariaModal>
-                          <Button variant="ghost" size="sm">
-                            <QrCode className="w-4 h-4" />
-                          </Button>
+                    
                           <ExcluirPadariaModal 
                             padaria={{
                               cnpj: padaria.cnpj, // CNPJ sem formatação para a mutation
@@ -921,6 +1025,6 @@ export default function Padarias() {
             </Table>
           </CardContent>
         </Card>
-    </div>
+      </div>
   );
 }

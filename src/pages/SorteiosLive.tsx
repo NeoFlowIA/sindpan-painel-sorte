@@ -57,7 +57,6 @@ export default function SorteiosLive() {
     if (isMuted) return;
     
     // Mock sound playing - in real implementation, you'd have actual audio files
-    console.log(`Playing sound: ${soundType}`);
   }, [isMuted]);
 
   const startRaffle = useCallback(() => {

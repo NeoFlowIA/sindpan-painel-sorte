@@ -52,6 +52,7 @@ export function ClientesTable() {
     nome: string;
     cpf: string;
     whatsapp?: string;
+    serie?: any;
     // adicione outros campos conforme necessário
   };
 

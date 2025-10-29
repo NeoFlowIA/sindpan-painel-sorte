@@ -27,25 +27,25 @@ const Index = () => {
   );
 
   // Calcular estatísticas
-  const totalPadarias = metricsData?.padarias_aggregate?.aggregate?.count || 0;
-  const totalCupons = metricsData?.cupons_aggregate?.aggregate?.count || 0;
-  const totalClientes = metricsData?.clientes_aggregate?.aggregate?.count || 0;
-  const totalSorteios = metricsData?.sorteios_aggregate?.aggregate?.count || 0;
+  const totalPadarias = (metricsData as any)?.padarias_aggregate?.aggregate?.count || 0;
+  const totalCupons = (metricsData as any)?.cupons_aggregate?.aggregate?.count || 0;
+  const totalClientes = (metricsData as any)?.clientes_aggregate?.aggregate?.count || 0;
+  const totalSorteios = (metricsData as any)?.sorteios_aggregate?.aggregate?.count || 0;
 
   // Calcular crescimento mensal
   const calcularCrescimento = () => {
-    if (!metricsData?.cupons) return { value: 0, isPositive: true };
+    if (!(metricsData as any)?.cupons) return { value: 0, isPositive: true };
 
     const agora = new Date();
     const trintaDiasAtras = new Date(agora.getTime() - 30 * 24 * 60 * 60 * 1000);
     const sessentaDiasAtras = new Date(agora.getTime() - 60 * 24 * 60 * 60 * 1000);
 
-    const cuponsUltimos30 = metricsData.cupons.filter(c => {
+    const cuponsUltimos30 = (metricsData as any).cupons.filter((c: any) => {
       const data = new Date(c.data_compra);
       return data >= trintaDiasAtras && data <= agora;
     }).length;
 
-    const cupons30Anteriores = metricsData.cupons.filter(c => {
+    const cupons30Anteriores = (metricsData as any).cupons.filter((c: any) => {
       const data = new Date(c.data_compra);
       return data >= sessentaDiasAtras && data < trintaDiasAtras;
     }).length;
@@ -62,7 +62,7 @@ const Index = () => {
   const crescimento = calcularCrescimento();
 
   // Formatar próximo sorteio
-  const proximoSorteio = metricsData?.proximo_sorteio?.[0];
+  const proximoSorteio = (metricsData as any)?.proximo_sorteio?.[0];
   const proximoSorteioData = proximoSorteio 
     ? format(new Date(proximoSorteio.data_sorteio), "dd/MM", { locale: ptBR })
     : "--/--";
@@ -71,20 +71,19 @@ const Index = () => {
     : "Não agendado";
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       {/* Header Section */}
       <div>
-        <h1 className="text-3xl font-bold text-foreground mb-2">Dashboard</h1>
-        <p className="text-muted-foreground">
+        <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-2">Dashboard</h1>
+        <p className="text-sm md:text-base text-muted-foreground">
           Acompanhe o desempenho da campanha promocional das padarias
         </p>
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
         {metricsLoading ? (
           <>
-            <Skeleton className="h-32" />
             <Skeleton className="h-32" />
             <Skeleton className="h-32" />
             <Skeleton className="h-32" />
@@ -115,13 +114,13 @@ const Index = () => {
               variant="accent"
               trend={{ value: 15, isPositive: true }}
             />
-            <KPICard
+            {/* <KPICard
               title="Próximo Sorteio"
               value={proximoSorteioData}
               subtitle={proximoSorteioLabel}
               icon={Calendar}
               variant="default"
-            />
+            /> */}
           </>
         )}
       </div>

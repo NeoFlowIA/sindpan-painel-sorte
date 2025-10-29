@@ -43,7 +43,7 @@ class GraphQLClient {
     const token = sindpanAuthApi.getToken();
 
     // Log para debug
-    console.log('🔍 GraphQL Client Debug:', {
+    console.log('GraphQL Request:', {
       hasToken: !!token,
       tokenExpired: token ? isTokenExpired(token) : 'no token',
       endpoint: this.endpoint,
@@ -78,7 +78,6 @@ class GraphQLClient {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('🔍 GraphQL Error Response:', errorText);
       throw new Error(`HTTP Error: ${response.status} ${response.statusText} - ${errorText}`);
     }
 
@@ -86,7 +85,7 @@ class GraphQLClient {
     
     // Log apenas se houver erros
     if (result.errors && result.errors.length > 0) {
-      console.error('🔍 GraphQL Errors:', result.errors);
+      console.error('GraphQL Errors:', result.errors);
     }
 
     return result;
@@ -97,7 +96,7 @@ class GraphQLClient {
     const response = await this.request<T>(query, variables);
 
     if (response.errors && response.errors.length > 0) {
-      console.error('🔍 GraphQL Query Error Details:', {
+      console.error('GraphQL Query Errors:', {
         errors: response.errors,
         query: query.substring(0, 200),
         variables
@@ -113,7 +112,7 @@ class GraphQLClient {
     const response = await this.request<T>(mutation, variables);
 
     if (response.errors && response.errors.length > 0) {
-      console.error('🔍 GraphQL Mutation Error Details:', {
+      console.error('GraphQL Mutation Errors:', {
         errors: response.errors,
         mutation: mutation.substring(0, 200),
         variables

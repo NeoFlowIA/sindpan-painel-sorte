@@ -7,6 +7,7 @@ interface CupomRecente {
   cliente: string;
   cpf: string;
   valor: number;
+  serie: string;
   dataHora: string;
 }
 
@@ -36,6 +37,7 @@ export function CuponsRecentesTable({ cuponsRecentes, isLoading }: CuponsRecente
               <thead>
                 <tr className="border-b border-border">
                   <th className="text-left p-3 font-medium text-muted-foreground">Número da Sorte</th>
+                  <th className="text-center p-3 font-medium text-muted-foreground">Serie</th>
                   <th className="text-left p-3 font-medium text-muted-foreground">Cliente</th>
                   <th className="text-left p-3 font-medium text-muted-foreground">CPF</th>
                   <th className="text-center p-3 font-medium text-muted-foreground">Valor</th>
@@ -51,10 +53,15 @@ export function CuponsRecentesTable({ cuponsRecentes, isLoading }: CuponsRecente
                           {cupom.numeroSorte}
                         </span>
                       </td>
+                      <td className="p-3">
+                        <span className="font-mono text-lg font-bold text-primary bg-primary/10 px-2 py-1 rounded">
+                          {cupom.serie}
+                        </span>
+                      </td>
                       <td className="p-3 font-medium">{cupom.cliente}</td>
                       <td className="p-3 font-mono text-sm text-muted-foreground">{maskCPF(cupom.cpf)}</td>
                       <td className="p-3 text-center font-medium">
-                        R$ {cupom.valor.toFixed(2)}
+                        R$ {cupom.valor.toFixed(2).replace('.', ',')}
                       </td>
                       <td className="p-3 text-center text-muted-foreground text-sm">
                         {cupom.dataHora}

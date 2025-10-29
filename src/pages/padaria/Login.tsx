@@ -48,7 +48,6 @@ export function LoginPadaria() {
       navigate("/padaria/dashboard");
     } catch (error) {
       // Error handling is done in the AuthContext
-      console.error('Login error:', error);
     }
   };
 

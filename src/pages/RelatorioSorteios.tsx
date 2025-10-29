@@ -19,7 +19,7 @@ const raffleHistory = [
     winner: "Maria Silva Santos",
     cpf: "123.456.789-01",
     bakery: "Padaria Central",
-    answer: "Na padaria"
+    answer: "Na Padaria"
   },
   {
     id: 2,
@@ -71,12 +71,10 @@ export default function RelatorioSorteios() {
 
   const exportToPDF = () => {
     // Mock export functionality
-    console.log("Exporting to PDF...");
   };
 
   const exportToCSV = () => {
     // Mock export functionality
-    console.log("Exporting to CSV...");
   };
 
   return (
@@ -167,9 +165,9 @@ export default function RelatorioSorteios() {
           <Card>
             <CardContent className="p-4">
               <div className="text-2xl font-bold text-secondary">
-                {raffleHistory.filter(r => r.answer === "Na padaria").length}
+                {raffleHistory.filter(r => r.answer === "Na Padaria").length}
               </div>
-              <p className="text-muted-foreground">Responderam "Na padaria"</p>
+              <p className="text-muted-foreground">Responderam "Na Padaria"</p>
             </CardContent>
           </Card>
           <Card>
@@ -218,7 +216,7 @@ export default function RelatorioSorteios() {
                     <TableCell>
                       <Badge 
                         className={
-                          raffle.answer === "Na padaria" 
+                          raffle.answer === "Na Padaria" 
                             ? "bg-green-500 text-white" 
                             : raffle.answer === "Outro lugar"
                             ? "bg-yellow-500 text-black"
