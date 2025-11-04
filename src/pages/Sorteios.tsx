@@ -4,7 +4,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogOverlay, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Calendar as DatePicker } from "@/components/ui/calendar";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
@@ -15,6 +15,7 @@ import { format } from "date-fns";
 import { Trophy, Calendar as CalendarIcon, X, Save, RotateCcw, Sparkles, Clock, Pencil, PlusCircle } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useState, useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { CampaignSelect } from "@/components/CampaignSelect";
 import { CampaignFormDialog, type CampaignFormValues } from "@/components/CampaignFormDialog";
 import { getCampaignStatus } from "@/components/CampaignStatusBadge";
@@ -422,6 +423,38 @@ export default function Sorteios() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [showLiveRaffle]);
+
+  // Bloquear scroll do body e esconder header quando modal estiver aberto
+  useEffect(() => {
+    if (showRaffleModal || showLiveRaffle) {
+      document.body.style.overflow = "hidden";
+      document.body.classList.add("modal-fullscreen-open");
+      document.documentElement.classList.add("modal-fullscreen-open");
+      // Esconder header via CSS
+      const header = document.querySelector("header");
+      if (header) {
+        (header as HTMLElement).style.display = "none";
+      }
+    } else {
+      document.body.style.overflow = "";
+      document.body.classList.remove("modal-fullscreen-open");
+      document.documentElement.classList.remove("modal-fullscreen-open");
+      // Mostrar header novamente
+      const header = document.querySelector("header");
+      if (header) {
+        (header as HTMLElement).style.display = "";
+      }
+    }
+    return () => {
+      document.body.style.overflow = "";
+      document.body.classList.remove("modal-fullscreen-open");
+      document.documentElement.classList.remove("modal-fullscreen-open");
+      const header = document.querySelector("header");
+      if (header) {
+        (header as HTMLElement).style.display = "";
+      }
+    };
+  }, [showRaffleModal, showLiveRaffle]);
 
   // Query para buscar campanhas
   const { data: campanhasData, isLoading: campaignsLoading } = useGraphQLQuery<{
@@ -1005,12 +1038,13 @@ export default function Sorteios() {
     setShowConfetti(false);
     setCountdown(3);
 
-    // 5. Inicia o countdown
+    // 5. Inicia o countdown - passa os resultados diretamente para evitar problemas de closure
     const countdownInterval = setInterval(() => {
       setCountdown(prev => {
         if (prev <= 1) {
           clearInterval(countdownInterval);
-          animateNumbers(); // Chama animateNumbers (agora ele lê do estado)
+          // Passa os resultados diretamente para evitar problemas de closure/stale state
+          animateNumbers(0, todosOs5Ganhadores);
           return 0;
         }
         return prev - 1;
@@ -1051,15 +1085,20 @@ export default function Sorteios() {
    * === REFEITO: animateNumbers ===
    * Apenas anima. Lê o próximo ganhador da lista 'resultadosCalculados'.
    * @param indiceProximoGanhador - Índice do próximo ganhador (opcional, usa ganhadoresSorteio.length se não fornecido)
+   * @param resultadosParaUsar - Resultados para usar (opcional, usa resultadosCalculados do estado se não fornecido)
    */
-  const animateNumbers = (indiceProximoGanhador?: number) => {
+  const animateNumbers = (indiceProximoGanhador?: number, resultadosParaUsar?: ResultadoSorteio[]) => {
     let iterations = 0;
     const maxIterations = 30;
     
     // Capturar o índice correto - usar o fornecido ou calcular do estado
+    // Se não fornecido, usa o tamanho atual de ganhadores revelados (próximo índice)
     const indice = indiceProximoGanhador !== undefined 
       ? indiceProximoGanhador 
       : ganhadoresSorteio.length;
+    
+    // Usa os resultados fornecidos ou do estado
+    const resultados = resultadosParaUsar || resultadosCalculados;
     
     const numberInterval = setInterval(() => {
       setCurrentNumber(generateRandomNumber());
@@ -1068,13 +1107,30 @@ export default function Sorteios() {
       if (iterations >= maxIterations) {
         clearInterval(numberInterval);
         
+        // Verificar se há resultados calculados antes de acessar
+        if (!resultados || resultados.length === 0) {
+          console.error("Erro: resultados está vazio ou não foi inicializado.", { 
+            resultadosParaUsar: !!resultadosParaUsar,
+            resultadosCalculadosLength: resultadosCalculados?.length,
+            resultadosLength: resultados?.length
+          });
+          toast.error('Erro: Nenhum resultado foi calculado. Reinicie o sorteio.');
+          setIsAnimating(false);
+          return;
+        }
+        
         // === NOVA LÓGICA ===
         // 1. Pega o próximo ganhador da lista PRÉ-CALCULADA usando o índice correto
-        const proximoResultado = resultadosCalculados[indice];
+        const proximoResultado = resultados[indice];
 
         if (!proximoResultado) {
-          console.error("Erro: animateNumbers foi chamado, mas não há mais resultados.", { indice, resultadosCalculados });
-          toast.error('Nenhum participante encontrado');
+          console.error("Erro: animateNumbers foi chamado, mas não há mais resultados.", { 
+            indice, 
+            resultadosLength: resultados.length,
+            ganhadoresSorteioLength: ganhadoresSorteio.length,
+            resultados 
+          });
+          toast.error(`Nenhum participante encontrado no índice ${indice}. Total de resultados: ${resultados.length}`);
           setIsAnimating(false);
           return;
         }
@@ -1264,6 +1320,270 @@ export default function Sorteios() {
     setSelectedWinner(winner);
     setShowWinnerDetails(true);
   };
+
+  // Renderiza o modal de sorteio em um portal
+  const renderRaffleModal = () => {
+    if (!showRaffleModal) return null;
+    
+    return createPortal(
+      <div 
+        style={{ 
+          position: 'fixed', 
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          minWidth: '100vw',
+          minHeight: '100vh',
+          maxWidth: '100vw',
+          maxHeight: '100vh',
+          zIndex: 99999, 
+          pointerEvents: 'auto',
+          margin: 0,
+          padding: 0,
+          backgroundColor: 'hsl(var(--background))',
+          overflow: 'hidden',
+          boxSizing: 'border-box'
+        }}
+      >
+        {/* Conteúdo do modal */}
+        <div
+          className="flex items-center justify-center overflow-hidden"
+          style={{ 
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100vw',
+            height: '100vh',
+            minWidth: '100vw',
+            minHeight: '100vh',
+            margin: 0,
+            padding: 0,
+            backgroundColor: 'hsl(var(--background))',
+            boxSizing: 'border-box'
+          }}
+          onClick={(e) => {
+            // Fechar ao clicar fora do conteúdo
+            if (e.target === e.currentTarget) {
+              cancelRaffle();
+            }
+          }}
+        >
+            <div 
+              className="w-full max-w-[920px] px-6 py-8"
+              style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}
+            >
+              <div className="w-full">
+                <div className="bg-gradient-to-br from-primary/10 via-background to-secondary/10 rounded-lg p-8 relative">
+                  {/* Close button */}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={cancelRaffle}
+                    className="absolute top-4 right-4 z-10"
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+
+                  {/* Confetti Effect */}
+                  {showConfetti && (
+                    <div className="absolute inset-0 pointer-events-none overflow-hidden">
+                      {confettiPositions.map((pos, i) => (
+                        <div
+                          key={i}
+                          className="absolute"
+                          style={{
+                            left: pos.left,
+                            top: pos.top,
+                            animationDelay: pos.delay,
+                            animationDuration: pos.duration,
+                            willChange: "transform, opacity",
+                          }}
+                        >
+                          <Sparkles className="w-4 h-4 text-primary" />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Title */}
+                  <div className="text-center mb-8">
+                    <div className="flex items-center justify-center gap-3 mb-4">
+                      <span className="text-4xl">🎄</span>
+                      <h2 className="text-3xl font-bold text-primary">Sorteio Natalino SINDPAN</h2>
+                      <span className="text-4xl">🎄</span>
+                    </div>
+                    <p className="text-lg text-muted-foreground">🎅 Feliz Natal e Boa Sorte! 🎅</p>
+                  </div>
+
+                  {/* Input para número e série do sorteio */}
+                  {!isAnimating && !showResult && countdown === 0 && (
+                    <div className="mb-8 w-full max-w-md mx-auto space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-center mb-2 flex items-center justify-center gap-2">
+                          🎲 Digite o número do sorteio 🎲
+                        </label>
+                        <Input 
+                          type="number"
+                          placeholder="Ex: 12345"
+                          value={numeroDigitado}
+                          onChange={(e) => setNumeroDigitado(e.target.value)}
+                          className="text-center text-2xl font-mono h-14 w-full box-border appearance-none outline-none focus:outline-none focus:ring-2 focus:ring-primary/50"
+                          maxLength={5}
+                          style={{ boxShadow: '0 0 0 3px rgba(255,255,255,0.06)' }}
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-center mb-2 flex items-center justify-center gap-2">
+                          🎯 Digite a série (0-9) 🎯
+                        </label>
+                        <Input 
+                          type="number"
+                          placeholder="Ex: 4"
+                          value={serieDigitada}
+                          onChange={(e) => setSerieDigitada(e.target.value)}
+                          className="text-center text-2xl font-mono h-14 w-full box-border appearance-none outline-none focus:outline-none focus:ring-2 focus:ring-primary/50"
+                          min="0"
+                          max="9"
+                          style={{ boxShadow: '0 0 0 3px rgba(255,255,255,0.06)' }}
+                        />
+                      </div>
+                      
+                      <p className="text-xs text-muted-foreground text-center">
+                        O sistema buscará o número exato ou o mais próximo na série especificada
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Countdown */}
+                  {countdown > 0 && (
+                    <div className="text-8xl font-bold text-primary animate-pulse mb-8 text-center">
+                      {countdown}
+                    </div>
+                  )}
+
+                  {/* Number Display */}
+                  {(isAnimating || showResult) && (
+                    <div className="relative">
+                      <div className={`text-9xl font-mono font-bold text-center p-8 rounded-2xl border-4 transition-all duration-300 ${
+                        isAnimating 
+                          ? 'border-primary bg-primary/10 animate-pulse' 
+                          : 'border-secondary bg-secondary/10 shadow-2xl'
+                      }`}>
+                        {currentNumber}
+                      </div>
+                      
+                      {/* Winner Information */}
+                      {showResult && winner && (
+                        <Card className="mt-8 border-2 border-secondary bg-gradient-to-r from-secondary/20 to-primary/20">
+                          <CardHeader className="text-center">
+                            <CardTitle className="text-2xl text-primary flex items-center justify-center gap-2">
+                              <Trophy className="w-6 h-6" />
+                              Ganhador do Sorteio!
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent className="text-center space-y-2">
+                            <p className="text-xl font-semibold">{winner.name}</p>
+                            <p className="text-muted-foreground">CPF: {winner.cpf}</p>
+                            <p className="text-secondary font-medium">{winner.bakery}</p>
+                            <div className="flex items-center justify-center gap-2">
+                              <Badge variant="outline" className="text-primary border-primary font-mono">
+                                {winner.numero_sorte}
+                              </Badge>
+                              <Badge variant="outline" className="text-secondary border-secondary">
+                                Série {winner.serie}
+                              </Badge>
+                            </div>
+                            <div className="mt-3">
+                              <Badge 
+                                className={
+                                  winner.answer === "Na Padaria" 
+                                    ? "bg-green-500 text-white hover:bg-green-600" 
+                                    : winner.answer === "Outro lugar"
+                                    ? "bg-yellow-500 text-black hover:bg-yellow-600"
+                                    : "bg-gray-300 text-black hover:bg-gray-400"
+                                }
+                                aria-label={`Resposta da pergunta: ${winner.answer || "Não informado"}`}
+                              >
+                                {winner.answer || "Não informado"}
+                              </Badge>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )}
+
+                      {/* Lista de Ganhadores do Sorteio Atual */}
+                      {ganhadoresSorteio.length > 0 && (
+                        <Card className="mt-8 max-w-2xl w-full mx-auto">
+                          <CardHeader>
+                            <CardTitle className="text-lg text-primary flex items-center gap-2">
+                              <Trophy className="w-5 h-5" />
+                              Ganhadores do Sorteio Atual ({ganhadoresSorteio.length}/{resultadosCalculados.length})
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="space-y-2 max-h-60 overflow-y-auto">
+                              {ganhadoresSorteio.map((ganhador, index) => (
+                                <div key={index} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                                  <div className="flex items-center gap-3">
+                                    <Badge variant="outline" className="text-primary border-primary font-mono">
+                                      {ganhador.numero_sorte}
+                                    </Badge>
+                                    <Badge variant="outline" className="text-secondary border-secondary">
+                                      Série {ganhador.serie}
+                                    </Badge>
+                                    <span className="font-medium">{ganhador.name}</span>
+                                  </div>
+                                  <div className="text-sm text-muted-foreground">
+                                    {ganhador.bakery}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Start Button */}
+                  {!isAnimating && !showResult && countdown === 0 && (
+                    <div className="text-center">
+                      <Button 
+                        onClick={startRaffle}
+                        size="lg"
+                        className="text-xl px-12 py-6 bg-gradient-to-r from-red-500 to-green-600 hover:from-red-600 hover:to-green-700 text-white shadow-lg"
+                      >
+                        <span className="text-2xl mr-2">🎄</span>
+                        <Trophy className="w-6 h-6 mr-2" />
+                        <span className="text-2xl ml-2">🎅</span>
+                        Iniciar Sorteio Natalino
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      );
+  };
+
+  // Posições memoizadas do confetti para evitar recálculo a cada render
+  const confettiPositions = useMemo(() => {
+    const count = 20;
+    const out = [];
+    for (let i = 0; i < count; i++) {
+      const left = (i * (100 / count) + (i % 3) * 2) % 100;
+      const top = 10 + (i % 5) * 12;
+      const delay = `${(i % 6) * 0.12}s`;
+      const duration = `${1.2 + (i % 3) * 0.4}s`;
+      out.push({ left: `${left}%`, top: `${top}%`, delay, duration });
+    }
+    return out;
+  }, []);
   
   return (
       <div className="space-y-6">
@@ -1645,197 +1965,7 @@ export default function Sorteios() {
         />
 
         {/* Raffle Animation Modal */}
-        <Dialog open={showRaffleModal} onOpenChange={setShowRaffleModal}>
-          <DialogContent className="max-w-4xl w-full h-[80vh] p-0 overflow-hidden">
-            <div className="relative h-full bg-gradient-to-br from-primary/10 via-background to-secondary/10 flex flex-col items-center justify-center">
-              {/* Close button */}
-              <Button
-                 variant="ghost"
-                size="icon"
-                onClick={cancelRaffle}
-                className="absolute top-4 right-4 z-10"
-              >
-                <X className="w-4 h-4" />
-               </Button>
-
-              {/* Confetti Effect */}
-              {showConfetti && (
-                <div className="absolute inset-0 pointer-events-none overflow-hidden">
-                  {Array.from({ length: 20 }).map((_, i) => (
-                     <div
-                      key={i}
-                      className="absolute animate-bounce"
-                      style={{
-                        left: `${Math.random() * 100}%`,
-                        top: `${Math.random() * 100}%`,
-                        animationDelay: `${Math.random() * 2}s`,
-                        animationDuration: `${1 + Math.random()}s`
-                       }}
-                    >
-                      <Sparkles className="w-4 h-4 text-primary" />
-                    </div>
-                  ))}
-                 </div>
-              )}
-
-              {/* Title */}
-              <div className="text-center mb-8">
-                <div className="flex items-center justify-center gap-3 mb-4">
-                  <span className="text-4xl animate-bounce">🎄</span>
-                   <h2 className="text-3xl font-bold text-primary">Sorteio Natalino SINDPAN</h2>
-                  <span className="text-4xl animate-bounce" style={{ animationDelay: '0.5s' }}>🎄</span>
-                </div>
-                <p className="text-lg text-muted-foreground">🎅 Feliz Natal e Boa Sorte! 🎅</p>
-              </div>
-
-              {/* Input para número e série do sorteio */}
-              {!isAnimating && !showResult && countdown === 0 && (
-                <div className="mb-8 w-full max-w-md space-y-4">
-                  <div>
-                     <label className="block text-sm font-medium text-center mb-2 flex items-center justify-center gap-2">
-                      🎲 Digite o número do sorteio 🎲
-                  </label>
-                  <Input 
-                     type="number"
-                    placeholder="Ex: 12345"
-                    value={numeroDigitado}
-                    onChange={(e) => setNumeroDigitado(e.target.value)}
-                    className="text-center text-2xl font-mono h-14"
-                     maxLength={5}
-                  />
-                  </div>
-                  
-                  <div>
-                     <label className="block text-sm font-medium text-center mb-2 flex items-center justify-center gap-2">
-                      🎯 Digite a série (0-9) 🎯
-                    </label>
-                    <Input 
-                       type="number"
-                      placeholder="Ex: 4"
-                      value={serieDigitada}
-                      onChange={(e) => setSerieDigitada(e.target.value)}
-                      className="text-center text-2xl 
- font-mono h-14"
-                      min="0"
-                      max="9"
-                    />
-                  </div>
-                 
-                  
-                  <p className="text-xs text-muted-foreground text-center">
-                    O sistema buscará o número exato ou o mais próximo na série especificada
-                   </p>
-                 </div>
-              )}
-
-              {/* Countdown */}
-              {countdown > 0 && (
-                <div className="text-8xl font-bold text-primary animate-pulse mb-8">
-                  {countdown}
-                 </div>
-              )}
-
-              {/* Number Display */}
-              {(isAnimating || showResult) && (
-                <div className="relative">
-                  <div className={`text-9xl font-mono font-bold text-center p-8 rounded-2xl border-4 transition-all duration-300 ${
-                    isAnimating 
-                      ? 'border-primary bg-primary/10 animate-pulse' 
-                       : 'border-secondary bg-secondary/10 shadow-2xl'
-                  }`}>
-                    {currentNumber}
-                  </div>
-                  
-                   {/* Winner Information */}
-                  {showResult && winner && (
-                    <Card className="mt-8 border-2 border-secondary bg-gradient-to-r from-secondary/20 to-primary/20">
-                      <CardHeader className="text-center">
-                         <CardTitle className="text-2xl text-primary flex items-center justify-center gap-2">
-                          <Trophy className="w-6 h-6" />
-                          Ganhador do Sorteio!
-                        </CardTitle>
-                       </CardHeader>
-                      <CardContent className="text-center space-y-2">
-                        <p className="text-xl font-semibold">{winner.name}</p>
-                        <p className="text-muted-foreground">CPF: {winner.cpf}</p>
-                         <p className="text-secondary font-medium">{winner.bakery}</p>
-                        <div className="flex items-center justify-center gap-2">
-                          <Badge variant="outline" className="text-primary border-primary font-mono">
-                           {winner.numero_sorte}
-                          </Badge>
-                          <Badge variant="outline" className="text-secondary border-secondary">
-                            Série {winner.serie}
-                           </Badge>
-                        </div>
-                        <div className="mt-3">
-                          <Badge 
-                             className={
-                              winner.answer === "Na Padaria" 
-                                ? "bg-green-500 text-white hover:bg-green-600" 
-                                : winner.answer === "Outro lugar"
-                                ? "bg-yellow-500 text-black hover:bg-yellow-600"
-                                : "bg-gray-300 text-black hover:bg-gray-400"
-                            }
-                            aria-label={`Resposta da pergunta: ${winner.answer || "Não informado"}`}
-                          >
-                            {winner.answer || "Não informado"}
-                          </Badge>
-                        </div>
-                      </CardContent>
-                    </Card>
-                   )}
-
-                  {/* Lista de Ganhadores do Sorteio Atual */}
-                  {ganhadoresSorteio.length > 0 && (
-                    <Card className="mt-8 max-w-2xl w-full">
-                       <CardHeader>
-                        <CardTitle className="text-lg text-primary flex items-center gap-2">
-                          <Trophy className="w-5 h-5" />
-                          Ganhadores do Sorteio Atual ({ganhadoresSorteio.length}/{resultadosCalculados.length})
-                         </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-2 max-h-60 overflow-y-auto">
-                           {ganhadoresSorteio.map((ganhador, index) => (
-                            <div key={index} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                              <div className="flex items-center gap-3">
-                                 <Badge variant="outline" className="text-primary border-primary font-mono">
-                                  {ganhador.numero_sorte}
-                                </Badge>
-                                 <Badge variant="outline" className="text-secondary border-secondary">
-                                  Série {ganhador.serie}
-                                </Badge>
-                                 <span className="font-medium">{ganhador.name}</span>
-                              </div>
-                              <div className="text-sm text-muted-foreground">
-                                 {ganhador.bakery}
-                              </div>
-                            </div>
-                          ))}
-                         </div>
-                      </CardContent>
-                    </Card>
-                  )}
-                </div>
-               )}
-
-              {/* Start Button */}
-              {!isAnimating && !showResult && countdown === 0 && (
-                <Button 
-                  onClick={startRaffle}
-                   size="lg"
-                  className="text-xl px-12 py-6 bg-gradient-to-r from-red-500 to-green-600 hover:from-red-600 hover:to-green-700 text-white shadow-lg"
-                >
-                  <span className="text-2xl mr-2">🎄</span>
-                  <Trophy className="w-6 h-6 mr-2" />
-                   <span className="text-2xl ml-2">🎅</span>
-                  Iniciar Sorteio Natalino
-                </Button>
-              )}
-
-            </div>
-          </DialogContent>
-        </Dialog>
+        {renderRaffleModal()}
 
         {/* Winner Details Modal */}
         <Dialog open={showWinnerDetails} onOpenChange={setShowWinnerDetails}>
@@ -1894,9 +2024,9 @@ export default function Sorteios() {
 
         {/* Live Raffle Fullscreen Modal */}
         {showLiveRaffle && (
-           <div className="fixed inset-0 z-[100] bg-gradient-to-br from-red-900 via-green-900 to-yellow-900 animate-gradient-shift overflow-hidden h-screen w-screen">
-            {/* Animated Background */}
-            <div className="absolute inset-0 overflow-hidden pointer-events-none">
+           <div className="fixed inset-0 z-[100] bg-gradient-to-br from-red-900 via-green-900 to-yellow-900 animate-gradient-shift overflow-hidden h-[110vh] w-screen top-[-2.2vh]">
+            {/* Animated Background - FIXO para não se mover com scroll */}
+            <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
               {/* Snowflakes */}
               {Array.from({ length: 20 }).map((_, i) => (
                 <div
@@ -1939,7 +2069,7 @@ export default function Sorteios() {
             {/* Content */}
             <div className="relative z-10 h-screen w-screen flex flex-col">
               {/* Header */}
-               <div className="flex items-center justify-between p-6 absolute top-0 left-0 right-0 bg-gradient-to-b from-black/30 to-transparent backdrop-blur-sm z-20">
+               <div className="flex items-center justify-between pl-4 pt-2 absolute top-0 left-0 right-0 bg-gradient-to-b from-black/30 to-transparent backdrop-blur-sm z-20">
                 <div className="flex items-center gap-4">
                   <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse" />
                   <span className="text-white/90 text-lg font-semibold uppercase tracking-wider">
@@ -1961,89 +2091,89 @@ export default function Sorteios() {
               </div>
 
                {/* Main Content */}
-              <div className="flex-1 flex flex-col items-center justify-center px-8 py-6 pt-20 pb-24 relative overflow-y-auto overflow-x-hidden">
+              <div className="flex-1 flex flex-col items-center justify-center px-8 py-4 pt-16 pb-4 relative overflow-hidden">
                 {/* Lista lateral de ganhadores */}
                 {ganhadoresSorteio.length > 0 && (
-                  <div className="absolute right-8 top-20 bottom-8 w-80 overflow-y-auto bg-white/10 backdrop-blur-lg rounded-2xl p-4 
- border border-white/20">
-                    <h3 className="text-white text-lg font-bold mb-4 flex items-center gap-2">
-                      <Trophy className="w-5 h-5 text-yellow-400" />
+                  <div className="absolute right-4 top-16 w-64 md:w-72 overflow-y-auto bg-white/10 backdrop-blur-lg rounded-xl p-3 
+ border border-white/20 max-h-[calc(100vh-8rem)]">
+                    <h3 className="text-white text-sm md:text-base font-bold mb-2 flex items-center gap-2">
+                      <Trophy className="w-4 h-4 text-yellow-400" />
                       Ganhadores ({ganhadoresSorteio.length}/{resultadosCalculados.length})
                     </h3>
-                     <div className="space-y-3">
+                     <div className="space-y-2">
                       {ganhadoresSorteio.map((ganhador, index) => (
-                        <div key={index} className="bg-white/20 backdrop-blur-sm rounded-lg p-3 border border-white/30">
-                           <div className="flex items-center gap-2 mb-2">
-                            <Badge className="bg-yellow-500 text-black font-mono text-sm">
+                        <div key={index} className="bg-white/20 backdrop-blur-sm rounded-lg p-2 border border-white/30">
+                           <div className="flex items-center gap-1.5 mb-1">
+                            <Badge className="bg-yellow-500 text-black font-mono text-xs">
                               {ganhador.numero_sorte}
                             </Badge>
-                             <Badge className="bg-blue-500 text-white text-sm">
+                             <Badge className="bg-blue-500 text-white text-xs">
                               Série {ganhador.serie}
                             </Badge>
                            </div>
-                          <p className="text-white font-semibold text-sm">{ganhador.name}</p>
-                          <p className="text-white/80 text-xs">{ganhador.bakery}</p>
+                          <p className="text-white font-semibold text-xs">{ganhador.name}</p>
+                          <p className="text-white/80 text-[10px]">{ganhador.bakery}</p>
                         </div>
                        ))}
                     </div>
                   </div>
                 )}
                 {/* Logo/Title */}
-                 <div className="mb-8 text-center flex-shrink-0">
-                  <div className="flex items-center justify-center gap-4 mb-4">
-                    <span className="text-6xl animate-bounce flex-shrink-0">🎄</span>
-                    <h1 className="text-7xl font-black text-white drop-shadow-2xl animate-fade-in whitespace-nowrap">
+                 <div className="mb-3 text-center flex-shrink-0">
+                  <div className="flex items-center justify-center gap-3 mb-2">
+                    <span className="text-4xl animate-bounce flex-shrink-0">🎄</span>
+                    <h1 className="text-4xl md:text-5xl font-black text-white drop-shadow-2xl animate-fade-in whitespace-nowrap">
                     Natal de Prêmios - SINDPAN
                    </h1>
-                    <span className="text-6xl animate-bounce flex-shrink-0" style={{ animationDelay: '0.5s' }}>🎄</span>
+                    <span className="text-4xl animate-bounce flex-shrink-0" style={{ animationDelay: '0.5s' }}>🎄</span>
                   </div>
-                  <p className="text-2xl text-white/80 font-light tracking-widest uppercase whitespace-nowrap">
+                  <p className="text-lg md:text-xl text-white/80 font-light tracking-widest uppercase whitespace-nowrap">
                     🎅 Sorteio Natalino 🎅
                   </p>
                 </div>
 
                 {/* Input para número e série (antes do sorteio) */}
                 {!isAnimating && !showResult && countdown === 0 && (
-                   <div className="mb-8 w-full max-w-2xl animate-fade-in space-y-8 flex-shrink-0">
+                   <div className="mb-3 w-full max-w-2xl animate-fade-in space-y-4 flex-shrink-0">
                     <div>
-                      <div className="flex items-center justify-center gap-2 mb-6">
-                        <span className="text-3xl flex-shrink-0">🎲</span>
-                        <label className="block text-white text-xl font-semibold text-center whitespace-nowrap">
+                      <div className="flex items-center justify-center gap-2 mb-2">
+                        <span className="text-2xl flex-shrink-0">🎲</span>
+                        <label className="block text-white text-base font-semibold text-center whitespace-nowrap">
                           Digite o número do sorteio
                         </label>
-                        <span className="text-3xl flex-shrink-0">🎲</span>
+                        <span className="text-2xl flex-shrink-0">🎲</span>
                        </div>
                     <Input 
                       type="number"
                       placeholder="00000"
                        value={numeroDigitado}
                       onChange={(e) => setNumeroDigitado(e.target.value)}
-                      className="text-center text-6xl font-mono h-24 bg-white/10 border-white/30 text-white placeholder:text-white/40 backdrop-blur-lg"
+                      className="text-center text-4xl font-mono h-16 bg-white/10 border-white/30 text-white placeholder:text-white/40 backdrop-blur-lg"
                       maxLength={5}
                     />
                      </div>
                     
                     <div>
-                      <div className="flex items-center justify-center gap-2 mb-6">
-                        <span className="text-3xl flex-shrink-0">🎯</span>
-                        <label className="block text-white text-xl font-semibold text-center whitespace-nowrap">
+                      <div className="flex items-center justify-center gap-2 mb-2">
+                        <span className="text-2xl flex-shrink-0">🎯</span>
+                        <label className="block text-white text-base font-semibold text-center whitespace-nowrap">
                           Digite a série (0-9)
                         </label>
-                        <span className="text-3xl flex-shrink-0">🎯</span>
+                        <span className="text-2xl flex-shrink-0">🎯</span>
                       </div>
                       <Input 
                         type="number"
                          placeholder="4"
                         value={serieDigitada}
                         onChange={(e) => setSerieDigitada(e.target.value)}
-                        className="text-center text-6xl font-mono h-24 bg-white/10 border-white/30 text-white placeholder:text-white/40 backdrop-blur-lg"
+                        className="text-center text-4xl font-mono h-16 bg-white/10 border-white/30 text-white placeholder:text-white/40 backdrop-blur-lg"
                         min="0"
                         max="9"
                       />
                     </div>
                   
                      
-                    <p className="text-white/70 text-center text-lg">
+                    <p className="text-white/70 text-center text-sm">
                       O sistema buscará o número exato ou o mais próximo na série especificada
                      </p>
                    </div>
@@ -2051,8 +2181,8 @@ export default function Sorteios() {
 
                 {/* Countdown */}
                 {countdown > 0 && (
-                  <div className="mb-12 animate-bounce-in">
-                     <div className="text-[20rem] font-black text-white drop-shadow-2xl animate-pulse leading-none">
+                  <div className="mb-4 animate-bounce-in">
+                     <div className="text-[12rem] md:text-[16rem] font-black text-white drop-shadow-2xl animate-pulse leading-none">
                       {countdown}
                     </div>
                   </div>
@@ -2060,7 +2190,7 @@ export default function Sorteios() {
 
                  {/* Number Display */}
                 {(isAnimating || showResult) && (
-                  <div className="mb-12 animate-scale-in">
+                  <div className="mb-4 animate-scale-in">
                     {/* Number Container */}
                     <div className={`relative ${isAnimating ? 'animate-shake' : ''}`}>
                       {/* Glow effect */}
@@ -2068,12 +2198,12 @@ export default function Sorteios() {
                       
                       {/* Number Box */}
                       <div className={`relative bg-white/10 
- backdrop-blur-xl rounded-3xl border-4 p-12 transition-all duration-500 ${
+ backdrop-blur-xl rounded-2xl border-4 p-6 transition-all duration-500 ${
                         isAnimating 
                           ? 'border-white/50 shadow-2xl' 
                           : 'border-yellow-400 shadow-[0_0_100px_rgba(250,204,21,0.8)]'
                        }`}>
-                        <div className={`text-[12rem] font-black font-mono text-white leading-none tracking-wider ${
+                        <div className={`text-[8rem] md:text-[10rem] font-black font-mono text-white leading-none tracking-wider ${
                           !isAnimating && 'animate-bounce'
                         }`}>
                            {currentNumber}
@@ -2083,37 +2213,37 @@ export default function Sorteios() {
 
                    {/* Winner Card */}
                     {showResult && winner && (
-                      <div className="mt-12 animate-slide-up">
+                      <div className="mt-4 animate-slide-up">
                         <Card className="bg-gradient-to-br from-yellow-400 to-orange-500 border-4 border-white/50 shadow-2xl max-w-2xl">
-                           <CardHeader className="text-center pb-4">
-                            <div className="flex items-center justify-center gap-3 mb-2">
-                              <Trophy className="w-12 h-12 text-white drop-shadow-lg" />
-                               <CardTitle className="text-5xl font-black text-white drop-shadow-lg">
+                           <CardHeader className="text-center pb-2">
+                            <div className="flex items-center justify-center gap-2 mb-1">
+                              <Trophy className="w-8 h-8 text-white drop-shadow-lg" />
+                               <CardTitle className="text-3xl md:text-4xl font-black text-white drop-shadow-lg">
                                 GANHADOR!
                               </CardTitle>
-                              <Trophy className="w-12 h-12 text-white drop-shadow-lg" />
+                              <Trophy className="w-8 h-8 text-white drop-shadow-lg" />
                             </div>
                           </CardHeader>
-                           <CardContent className="text-center space-y-4 px-12 pb-8">
-                            <div className="bg-white/20 backdrop-blur-lg rounded-2xl p-6">
-                              <p className="text-4xl font-bold text-white mb-2">{winner.name}</p>
-                               <p className="text-2xl text-white/90 font-mono">CPF: {winner.cpf}</p>
-                              <div className="flex items-center justify-center gap-4 mt-4">
-                                <Badge className="text-xl px-6 py-2 bg-yellow-500 text-black">
+                           <CardContent className="text-center space-y-2 px-6 pb-4">
+                            <div className="bg-white/20 backdrop-blur-lg rounded-xl p-4">
+                              <p className="text-2xl md:text-3xl font-bold text-white mb-1">{winner.name}</p>
+                               <p className="text-lg md:text-xl text-white/90 font-mono">CPF: {winner.cpf}</p>
+                              <div className="flex items-center justify-center gap-3 mt-2">
+                                <Badge className="text-base md:text-lg px-4 py-1 bg-yellow-500 text-black">
                                    {winner.numero_sorte}
                                 </Badge>
-                                <Badge className="text-xl px-6 py-2 bg-blue-500 text-white">
+                                <Badge className="text-base md:text-lg px-4 py-1 bg-blue-500 text-white">
                                      Série {winner.serie}
                                 </Badge>
                               </div>
                              </div>
-                            <div className="bg-white/20 backdrop-blur-lg rounded-2xl p-4">
-                              <p className="text-2xl font-semibold text-white">{winner.bakery}</p>
+                            <div className="bg-white/20 backdrop-blur-lg rounded-xl p-3">
+                              <p className="text-xl md:text-2xl font-semibold text-white">{winner.bakery}</p>
                              </div>
                             {winner.answer && (
                               <div className="flex justify-center">
                                  <Badge 
-                                  className={`text-xl px-6 py-2 ${
+                                  className={`text-base md:text-lg px-4 py-1 ${
                                     winner.answer === "Na Padaria" 
                                        ? "bg-green-600 text-white" 
                                       : "bg-blue-600 text-white"
@@ -2163,42 +2293,42 @@ export default function Sorteios() {
                    <Button 
                     onClick={startRaffle}
                     size="lg"
-                    className="text-3xl px-16 py-10 bg-gradient-to-r from-red-500 to-green-600 hover:from-red-600 hover:to-green-700 text-white shadow-2xl rounded-2xl animate-pulse-slow"
+                    className="text-xl md:text-2xl px-8 md:px-12 py-4 md:py-6 bg-gradient-to-r from-red-500 to-green-600 hover:from-red-600 hover:to-green-700 text-white shadow-2xl rounded-xl animate-pulse-slow"
                    >
-                    <span className="text-4xl mr-4">🎄</span>
-                    <Trophy className="w-10 h-10 mr-4" />
-                    <span className="text-4xl ml-4">🎅</span>
+                    <span className="text-2xl md:text-3xl mr-2 md:mr-3">🎄</span>
+                    <Trophy className="w-6 h-6 md:w-8 md:h-8 mr-2 md:mr-3" />
+                    <span className="text-2xl md:text-3xl ml-2 md:ml-3">🎅</span>
                     INICIAR SORTEIO
                    </Button>
                 )}
 
                 {showResult && (
-                  <div className="flex gap-6 mt-8 animate-fade-in">
+                  <div className="flex flex-wrap gap-3 md:gap-4 mt-3 md:mt-4 animate-fade-in justify-center">
                     <Button 
                        onClick={saveResult} 
                       size="lg"
-                      className="text-2xl px-12 py-8 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-2xl rounded-2xl"
+                      className="text-base md:text-lg px-6 md:px-8 py-3 md:py-4 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-2xl rounded-xl"
                       disabled={isMarcandoSorteado}
                      >
-                      <Save className="w-8 h-8 mr-3" />
+                      <Save className="w-5 h-5 md:w-6 md:h-6 mr-2" />
                       {isMarcandoSorteado ? "SALVANDO..." : "SALVAR RESULTADO"}
                     </Button>
                     <Button 
                       onClick={continuarSorteio}
                       size="lg"
-                       className="text-2xl px-12 py-8 bg-gradient-to-r from-blue-500 to-cyan-600 hover:from-blue-600 hover:to-cyan-700 text-white shadow-2xl rounded-2xl"
+                       className="text-base md:text-lg px-6 md:px-8 py-3 md:py-4 bg-gradient-to-r from-blue-500 to-cyan-600 hover:from-blue-600 hover:to-cyan-700 text-white shadow-2xl rounded-xl"
                       disabled={ganhadoresSorteio.length >= resultadosCalculados.length && resultadosCalculados.length > 0}
                     >
-                      <Trophy className="w-8 h-8 mr-3" />
+                      <Trophy className="w-5 h-5 md:w-6 md:h-6 mr-2" />
                       {ganhadoresSorteio.length >= resultadosCalculados.length && resultadosCalculados.length > 0 ? "FINALIZADO" : "PRÓXIMO"}
                      </Button>
                     <Button 
                       onClick={resetRaffle}
                       size="lg"
                       variant="outline"
-                       className="text-2xl px-12 py-8 bg-white/10 backdrop-blur-lg text-white border-white/30 hover:bg-white/20 shadow-2xl rounded-2xl"
+                       className="text-base md:text-lg px-6 md:px-8 py-3 md:py-4 bg-white/10 backdrop-blur-lg text-white border-white/30 hover:bg-white/20 shadow-2xl rounded-xl"
                     >
-                      <RotateCcw className="w-8 h-8 mr-3" />
+                      <RotateCcw className="w-5 h-5 md:w-6 md:h-6 mr-2" />
                       REFAZER
                      </Button>
                   </div>
@@ -2206,8 +2336,8 @@ export default function Sorteios() {
               </div>
 
               {/* Footer Info */}
-              <div className="absolute bottom-0 left-0 right-0 p-4 text-center bg-gradient-to-t from-black/20 to-transparent backdrop-blur-sm">
-                 <p className="text-white/60 text-lg">
+              <div className="absolute bottom-0 left-0 right-0 p-2 text-center bg-gradient-to-t from-black/20 to-transparent backdrop-blur-sm">
+                 <p className="text-white/60 text-sm md:text-base">
                   {participants.length} participantes • Sorteio válido e auditado
                 </p>
               </div>
