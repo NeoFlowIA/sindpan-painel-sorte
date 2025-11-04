@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,9 +13,10 @@ interface AdminNovoClienteModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onClienteAdded: () => void;
+  initialSearchTerm?: string;
 }
 
-export function AdminNovoClienteModal({ open, onOpenChange, onClienteAdded }: AdminNovoClienteModalProps) {
+export function AdminNovoClienteModal({ open, onOpenChange, onClienteAdded, initialSearchTerm }: AdminNovoClienteModalProps) {
   const [formData, setFormData] = useState({
     cpf: "",
     nome: "",
@@ -89,6 +90,39 @@ export function AdminNovoClienteModal({ open, onOpenChange, onClienteAdded }: Ad
     }
     return value;
   };
+
+  // Preencher campos quando o modal abrir com initialSearchTerm
+  useEffect(() => {
+    if (open && initialSearchTerm) {
+      // Verificar se é CPF (apenas números, 11 dígitos) ou WhatsApp
+      const digitsOnly = initialSearchTerm.replace(/\D/g, "");
+      
+      if (digitsOnly.length === 11) {
+        // Provavelmente é CPF - formatar usando a função local
+        const formattedCPF = formatCPF(initialSearchTerm);
+        setFormData(prev => ({
+          ...prev,
+          cpf: formattedCPF
+        }));
+      } else {
+        // Provavelmente é WhatsApp
+        setFormData(prev => ({
+          ...prev,
+          whatsapp: initialSearchTerm
+        }));
+      }
+    } else if (!open) {
+      // Limpar formulário quando fechar o modal
+      setFormData({
+        cpf: "",
+        nome: "",
+        whatsapp: "",
+        resposta_pergunta: "",
+        padaria_id: ""
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, initialSearchTerm]);
 
   const formatWhatsApp = (value: string) => {
     // Retornar exatamente o que o usuário digitou, sem modificações
