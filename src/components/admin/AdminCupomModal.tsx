@@ -7,12 +7,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { Search, User, Calculator, Receipt, Store } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Search, User, Calculator, Receipt, Store, UserPlus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useGraphQLQuery, useGraphQLMutation } from "@/hooks/useGraphQL";
 import { useUpdateCliente } from "@/hooks/useClientes";
 import { useUpsertSaldoClientePadaria, useInsertSaldoClientePadaria, saldoUtils } from "@/hooks/useSaldosPadarias";
 import { SaldosPorPadaria } from "@/components/SaldosPorPadaria";
+import { AdminNovoClienteModal } from "@/components/admin/AdminNovoClienteModal";
 import { GET_CLIENTE_BY_CPF_OR_WHATSAPP, GET_CAMPANHA_ATIVA, GET_PROXIMO_SORTEIO_AGENDADO, GET_PADARIAS, GET_PADARIA_TICKET_MEDIO, GET_CLIENTE_SALDO_POR_PADARIA, ZERAR_SALDO_CUPONS_ANTERIORES, GET_CUPONS_DISPONIVEIS, VINCULAR_CUPOM_AO_CLIENTE } from "@/graphql/queries";
 import { formatCPF, formatPhone, maskCPF } from "@/utils/formatters";
 
@@ -45,6 +47,8 @@ export function AdminCupomModal({ open, onOpenChange, onCupomCadastrado }: Admin
   const [padariaIdSelecionada, setPadariaIdSelecionada] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
   const [processingMessage, setProcessingMessage] = useState("");
+  const [clienteNaoEncontrado, setClienteNaoEncontrado] = useState(false);
+  const [showNovoClienteModal, setShowNovoClienteModal] = useState(false);
   const { toast } = useToast();
 
   // Reset automático do modal quando fechado
@@ -59,6 +63,8 @@ export function AdminCupomModal({ open, onOpenChange, onCupomCadastrado }: Admin
       setPadariaIdSelecionada("");
       setIsLoading(false);
       setProcessingMessage("");
+      setClienteNaoEncontrado(false);
+      setShowNovoClienteModal(false);
     }
   }, [open]);
 
@@ -325,6 +331,7 @@ export function AdminCupomModal({ open, onOpenChange, onCupomCadastrado }: Admin
           ...cliente,
           saldoAcumulado: "0"
         });
+        setClienteNaoEncontrado(false);
         // Calcular padaria com mais cupons automaticamente
         const padariaComMaisCupons = calcularPadariaComMaisCupons(cliente);
         const padariaParaUsar = padariaComMaisCupons || cliente.padaria_id || "";
@@ -346,6 +353,7 @@ export function AdminCupomModal({ open, onOpenChange, onCupomCadastrado }: Admin
         }
       } else {
         setClienteEncontrado(null);
+        setClienteNaoEncontrado(true);
         toast({
           title: "Cliente não encontrado",
           description: "Nenhum cliente encontrado com os dados informados",
@@ -726,6 +734,32 @@ export function AdminCupomModal({ open, onOpenChange, onCupomCadastrado }: Admin
                   <p className="text-sm text-muted-foreground">WhatsApp: {formatPhone(clienteEncontrado.whatsapp || '')}</p>
                 </div>
               )}
+
+              {/* Cliente não encontrado - Opção para criar novo */}
+              {clienteNaoEncontrado && !clienteEncontrado && (
+                <Alert className="mt-4 border-amber-200 bg-amber-50">
+                  <User className="h-4 w-4 text-amber-600" />
+                  <AlertTitle className="text-amber-900">Cliente não encontrado</AlertTitle>
+                  <AlertDescription className="text-amber-800">
+                    <p className="mb-3">
+                      Não foi encontrado nenhum cliente com os dados informados: <strong>{searchTerm}</strong>
+                    </p>
+                    <p className="mb-3 text-sm">
+                      Deseja cadastrar um novo cliente?
+                    </p>
+                    <Button
+                      type="button"
+                      onClick={() => {
+                        setShowNovoClienteModal(true);
+                      }}
+                      className="bg-primary hover:bg-primary/90 text-white"
+                    >
+                      <UserPlus className="w-4 h-4 mr-2" />
+                      Cadastrar Novo Cliente
+                    </Button>
+                  </AlertDescription>
+                </Alert>
+              )}
             </CardContent>
           </Card>
 
@@ -986,6 +1020,28 @@ export function AdminCupomModal({ open, onOpenChange, onCupomCadastrado }: Admin
           </div>
         </div>
       </DialogContent>
+
+      {/* Modal de Novo Cliente */}
+      <AdminNovoClienteModal
+        open={showNovoClienteModal}
+        onOpenChange={(open) => {
+          setShowNovoClienteModal(open);
+          if (!open) {
+            // Se fechar o modal de novo cliente, limpar a flag de não encontrado
+            setClienteNaoEncontrado(false);
+          }
+        }}
+        onClienteAdded={() => {
+          // Quando cliente for adicionado, fechar o modal e buscar novamente
+          setShowNovoClienteModal(false);
+          setClienteNaoEncontrado(false);
+          // Tentar buscar o cliente novamente após criar
+          setTimeout(() => {
+            handleSearch();
+          }, 500);
+        }}
+        initialSearchTerm={searchTerm}
+      />
     </Dialog>
   );
 }
