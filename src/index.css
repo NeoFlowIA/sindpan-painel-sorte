@@ -126,31 +126,4 @@ All colors MUST be HSL.
   body {
     @apply bg-background text-foreground;
   }
-
-  input:focus {
-    outline: none;
-    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.06);
-  }
-
-  /* Esconder header quando modal fullscreen estiver aberto */
-  body.modal-fullscreen-open header {
-    display: none !important;
-    visibility: hidden !important;
-    opacity: 0 !important;
-    pointer-events: none !important;
-    z-index: -1 !important;
-  }
-
-  /* Garantir que modal fullscreen cubra tudo */
-  body.modal-fullscreen-open {
-    overflow: hidden !important;
-    position: fixed !important;
-    width: 100% !important;
-    height: 100% !important;
-  }
-
-  html.modal-fullscreen-open {
-    overflow: hidden !important;
-    height: 100% !important;
-  }
 }

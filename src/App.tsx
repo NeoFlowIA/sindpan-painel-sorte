@@ -7,7 +7,6 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { AdminRoute, BakeryRoute } from "@/components/ProtectedRoute";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { PadariaLayout } from "@/components/padaria/PadariaLayout";
-import { PWAUpdatePrompt } from "@/components/PWAUpdatePrompt";
 import Login from "./pages/Login";
 import Index from "./pages/Index";
 import Sorteios from "./pages/Sorteios";
@@ -32,7 +31,6 @@ const App = () => (
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <PWAUpdatePrompt />
         <BrowserRouter>
         <Routes>
           {/* Public Routes */}
