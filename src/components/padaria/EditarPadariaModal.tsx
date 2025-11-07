@@ -97,7 +97,10 @@ export function EditarPadariaModal({ children, bakery, onUpdate }: EditarPadaria
   const onSubmit = async (data: FormData) => {
     try {
       setIsSubmitting(true);
-      
+
+      const originalCNPJ = unformatCNPJ(bakery.cnpj);
+      const updatedCNPJ = unformatCNPJ(data.cnpj);
+
       // Preparar dados para a mutation
       const updateData = {
         nome: data.nomeFantasia,
@@ -107,11 +110,12 @@ export function EditarPadariaModal({ children, bakery, onUpdate }: EditarPadaria
         ticket_medio: parseFloat(data.ticketMedio.replace(',', '.')),
         status: data.status, // Já está no formato correto
         status_pagamento: data.pagamento, // Já está no formato correto
+        cnpj: updatedCNPJ,
       };
 
       // Executar mutation
       await updatePadaria.mutateAsync({
-        cnpj: unformatCNPJ(bakery.cnpj),
+        cnpj: originalCNPJ,
         changes: updateData
       });
       
@@ -130,6 +134,7 @@ export function EditarPadariaModal({ children, bakery, onUpdate }: EditarPadaria
           ticket_medio: parseFloat(data.ticketMedio.replace(',', '.')),
           status: updateData.status,
           status_pagamento: updateData.status_pagamento,
+          cnpj: updatedCNPJ,
         });
       }
       
