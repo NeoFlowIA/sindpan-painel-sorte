@@ -17,6 +17,7 @@ import { SaldosPorPadaria } from "@/components/SaldosPorPadaria";
 import { useGraphQLQuery } from "@/hooks/useGraphQL";
 import { GET_CLIENTE_BY_CPF_OR_WHATSAPP, GET_PADARIAS, GET_CAMPANHA_ATIVA, GET_PROXIMO_SORTEIO_AGENDADO } from "@/graphql/queries";
 import { formatCPF, formatPhone, maskCPF } from "@/utils/formatters";
+import { NovoClienteModal } from "./NovoClienteModal";
 
 interface CupomModalProps {
   open: boolean;
@@ -32,11 +33,20 @@ interface Cliente {
   padaria_id?: string;
   resposta_pergunta?: string;
   saldoAcumulado?: string; // Calculado dinamicamente se necessário
+  cupons?: Array<{
+    id: string;
+    padaria_id: string;
+    status: string;
+  }>;
   padaria?: {
     id: string;
     nome: string;
   };
 }
+
+type ClienteQueryData = {
+  clientes: Cliente[];
+};
 
 export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModalProps) {
   const [searchTerm, setSearchTerm] = useState("");
@@ -47,6 +57,8 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
   const [statusCupom, setStatusCupom] = useState<'ativo' | 'inativo'>('ativo');
   const [isLoading, setIsLoading] = useState(false);
   const [processingMessage, setProcessingMessage] = useState("");
+  const [novoClienteModalAberto, setNovoClienteModalAberto] = useState(false);
+  const [identificadorNovoCliente, setIdentificadorNovoCliente] = useState<{ cpf?: string; whatsapp?: string }>({});
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -61,6 +73,8 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
       setDataHora("");
       setStatusCupom('ativo');
       setProcessingMessage("");
+      setNovoClienteModalAberto(false);
+      setIdentificadorNovoCliente({});
     }
   }, [open]);
 
@@ -70,25 +84,7 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
   const registerReceiptBasicMutation = useRegisterReceiptBasic();
   
   // Query para buscar cliente por CPF ou WhatsApp (similar ao AdminCupomModal)
-  const { data: clienteData, refetch: refetchCliente } = useGraphQLQuery<{
-    clientes: Array<{
-      id: number;
-      cpf: string;
-      nome: string;
-      whatsapp?: string;
-      padaria_id?: string;
-      resposta_pergunta?: string;
-      cupons?: Array<{
-        id: number;
-        padaria_id: string;
-        status: string;
-      }>;
-      padaria?: {
-        id: string;
-        nome: string;
-      };
-    }>;
-  }>(
+  const { data: clienteData, refetch: refetchCliente } = useGraphQLQuery<ClienteQueryData>(
     ['search-cliente', searchTerm],
     GET_CLIENTE_BY_CPF_OR_WHATSAPP,
     { cpf: searchTerm.replace(/\D/g, ""), whatsapp: searchTerm },
@@ -250,9 +246,19 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
         }
       } else {
         setClienteEncontrado(null);
+
+        const apenasNumeros = searchTerm.replace(/\D/g, "");
+        const ehCPF = apenasNumeros.length === 11 && !searchTerm.includes("@");
+
+        setIdentificadorNovoCliente({
+          cpf: ehCPF ? apenasNumeros : undefined,
+          whatsapp: ehCPF ? undefined : apenasNumeros || searchTerm
+        });
+        setNovoClienteModalAberto(true);
+
         toast({
           title: "Cliente não encontrado",
-          description: "Nenhum cliente encontrado com os dados informados",
+          description: "Cadastre o cliente para continuar o registro do cupom.",
           variant: "destructive"
         });
       }
@@ -515,6 +521,54 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
     } finally {
       setIsLoading(false);
       setProcessingMessage("");
+    }
+  };
+
+  const handleNovoClienteFechado = () => {
+    setNovoClienteModalAberto(false);
+    setIdentificadorNovoCliente({});
+  };
+
+  const handleClienteCriado = async (novoCliente?: Cliente) => {
+    const identificadorAnterior = identificadorNovoCliente;
+    handleNovoClienteFechado();
+
+    if (!novoCliente) {
+      return;
+    }
+
+    const cpfLimpo = novoCliente.cpf?.replace(/\D/g, "");
+    const whatsappNormalizado = novoCliente.whatsapp || identificadorAnterior.whatsapp;
+
+    if (cpfLimpo) {
+      setSearchTerm(maskCPF(cpfLimpo));
+    } else if (whatsappNormalizado) {
+      setSearchTerm(whatsappNormalizado);
+    }
+
+    const clienteId = novoCliente.id ? String(novoCliente.id) : undefined;
+
+    setClienteEncontrado({
+      ...novoCliente,
+      id: clienteId,
+      saldoAcumulado: "0"
+    });
+
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      const resultadoBusca = await refetchCliente();
+      const clientes = (resultadoBusca.data as ClienteQueryData | undefined)?.clientes ?? [];
+      const clienteAtualizado = clientes.find((cliente) => cliente.id === novoCliente.id);
+
+      if (clienteAtualizado) {
+        setClienteEncontrado({
+          ...clienteAtualizado,
+          id: clienteAtualizado.id ? String(clienteAtualizado.id) : clienteAtualizado.id,
+          saldoAcumulado: "0"
+        });
+      }
+    } catch (error) {
+      console.error("Erro ao atualizar cliente recém-criado:", error);
     }
   };
 
@@ -809,6 +863,19 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
           </div>
         </div>
       </DialogContent>
+      <NovoClienteModal
+        open={novoClienteModalAberto}
+        onOpenChange={(estado) => {
+          setNovoClienteModalAberto(estado);
+
+          if (!estado) {
+            setIdentificadorNovoCliente({});
+          }
+        }}
+        onClienteAdded={handleClienteCriado}
+        initialCPF={identificadorNovoCliente.cpf}
+        initialWhatsapp={identificadorNovoCliente.whatsapp}
+      />
     </Dialog>
   );
 }

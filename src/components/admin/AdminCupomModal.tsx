@@ -15,6 +15,7 @@ import { useUpsertSaldoClientePadaria, useInsertSaldoClientePadaria, saldoUtils 
 import { SaldosPorPadaria } from "@/components/SaldosPorPadaria";
 import { GET_CLIENTE_BY_CPF_OR_WHATSAPP, GET_CAMPANHA_ATIVA, GET_PROXIMO_SORTEIO_AGENDADO, GET_PADARIAS, GET_PADARIA_TICKET_MEDIO, GET_CLIENTE_SALDO_POR_PADARIA, ZERAR_SALDO_CUPONS_ANTERIORES, GET_CUPONS_DISPONIVEIS, VINCULAR_CUPOM_AO_CLIENTE } from "@/graphql/queries";
 import { formatCPF, formatPhone, maskCPF } from "@/utils/formatters";
+import { AdminNovoClienteModal } from "./AdminNovoClienteModal";
 
 interface AdminCupomModalProps {
   open: boolean;
@@ -23,7 +24,7 @@ interface AdminCupomModalProps {
 }
 
 interface Cliente {
-  id?: number;
+  id?: string;
   cpf: string;
   nome: string;
   whatsapp?: string;
@@ -36,6 +37,10 @@ interface Cliente {
   };
 }
 
+type ClienteBuscaData = {
+  clientes: Cliente[];
+};
+
 export function AdminCupomModal({ open, onOpenChange, onCupomCadastrado }: AdminCupomModalProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [clienteEncontrado, setClienteEncontrado] = useState<Cliente | null>(null);
@@ -45,6 +50,8 @@ export function AdminCupomModal({ open, onOpenChange, onCupomCadastrado }: Admin
   const [padariaIdSelecionada, setPadariaIdSelecionada] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
   const [processingMessage, setProcessingMessage] = useState("");
+  const [novoClienteModalAberto, setNovoClienteModalAberto] = useState(false);
+  const [identificadorNovoCliente, setIdentificadorNovoCliente] = useState<{ cpf?: string; whatsapp?: string }>({});
   const { toast } = useToast();
 
   // Reset automático do modal quando fechado
@@ -59,11 +66,13 @@ export function AdminCupomModal({ open, onOpenChange, onCupomCadastrado }: Admin
       setPadariaIdSelecionada("");
       setIsLoading(false);
       setProcessingMessage("");
+      setNovoClienteModalAberto(false);
+      setIdentificadorNovoCliente({});
     }
   }, [open]);
 
   // Query para buscar cliente
-  const { data: clienteData, refetch: refetchCliente } = useGraphQLQuery(
+  const { data: clienteData, refetch: refetchCliente } = useGraphQLQuery<ClienteBuscaData>(
     ['search-cliente', searchTerm],
     GET_CLIENTE_BY_CPF_OR_WHATSAPP,
     { cpf: searchTerm.replace(/\D/g, ""), whatsapp: searchTerm },
@@ -315,7 +324,7 @@ export function AdminCupomModal({ open, onOpenChange, onCupomCadastrado }: Admin
 
     try {
       const result = await refetchCliente();
-      const clientes = (result.data as any)?.clientes || [];
+      const clientes = (result.data as ClienteBuscaData | undefined)?.clientes ?? [];
       
       console.log('🔍 Resultado da busca:', { searchTerm, clientes });
       
@@ -346,9 +355,19 @@ export function AdminCupomModal({ open, onOpenChange, onCupomCadastrado }: Admin
         }
       } else {
         setClienteEncontrado(null);
+
+        const apenasNumeros = searchTerm.replace(/\D/g, "");
+        const ehCPF = apenasNumeros.length === 11 && !searchTerm.includes("@");
+
+        setIdentificadorNovoCliente({
+          cpf: ehCPF ? apenasNumeros : undefined,
+          whatsapp: ehCPF ? undefined : apenasNumeros || searchTerm
+        });
+        setNovoClienteModalAberto(true);
+
         toast({
           title: "Cliente não encontrado",
-          description: "Nenhum cliente encontrado com os dados informados",
+          description: "Cadastre o cliente para continuar o registro do cupom.",
           variant: "destructive"
         });
       }
@@ -359,6 +378,62 @@ export function AdminCupomModal({ open, onOpenChange, onCupomCadastrado }: Admin
         description: "Erro ao buscar cliente",
         variant: "destructive"
       });
+    }
+  };
+
+  const handleFecharNovoCliente = () => {
+    setNovoClienteModalAberto(false);
+    setIdentificadorNovoCliente({});
+  };
+
+  const handleClienteCriado = async (novoCliente?: Cliente) => {
+    const identificadorAnterior = identificadorNovoCliente;
+    handleFecharNovoCliente();
+
+    if (!novoCliente) {
+      return;
+    }
+
+    const cpfLimpo = novoCliente.cpf?.replace(/\D/g, "");
+    const whatsappNormalizado = novoCliente.whatsapp || identificadorAnterior.whatsapp;
+
+    if (cpfLimpo) {
+      setSearchTerm(maskCPF(cpfLimpo));
+    } else if (whatsappNormalizado) {
+      setSearchTerm(whatsappNormalizado);
+    }
+
+    const clienteId = novoCliente.id ? String(novoCliente.id) : undefined;
+
+    setClienteEncontrado({
+      ...novoCliente,
+      id: clienteId,
+      saldoAcumulado: "0"
+    });
+
+    if (novoCliente.padaria_id) {
+      setPadariaIdSelecionada(novoCliente.padaria_id);
+    }
+
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      const resultadoBusca = await refetchCliente();
+      const clientes = (resultadoBusca.data as ClienteBuscaData | undefined)?.clientes ?? [];
+      const clienteAtualizado = clientes.find((cliente) => cliente.id === novoCliente.id);
+
+      if (clienteAtualizado) {
+        setClienteEncontrado({
+          ...clienteAtualizado,
+          id: clienteAtualizado.id ? String(clienteAtualizado.id) : clienteAtualizado.id,
+          saldoAcumulado: "0"
+        });
+
+        if (clienteAtualizado.padaria_id) {
+          setPadariaIdSelecionada(clienteAtualizado.padaria_id);
+        }
+      }
+    } catch (error) {
+      console.error("Erro ao atualizar cliente recém-criado (admin):", error);
     }
   };
 
@@ -990,6 +1065,19 @@ export function AdminCupomModal({ open, onOpenChange, onCupomCadastrado }: Admin
           </div>
         </div>
       </DialogContent>
+      <AdminNovoClienteModal
+        open={novoClienteModalAberto}
+        onOpenChange={(estado) => {
+          setNovoClienteModalAberto(estado);
+
+          if (!estado) {
+            setIdentificadorNovoCliente({});
+          }
+        }}
+        onClienteAdded={handleClienteCriado}
+        initialCPF={identificadorNovoCliente.cpf}
+        initialWhatsapp={identificadorNovoCliente.whatsapp}
+      />
     </Dialog>
   );
 }
