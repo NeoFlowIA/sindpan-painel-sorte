@@ -35,15 +35,15 @@ export function PadariaSidebar() {
       className="border-r border-border"
       collapsible="icon"
     >
-      <SidebarHeader className="border-b border-border p-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center flex-shrink-0">
-            <Store className="w-6 h-6 text-primary-foreground" />
+      <SidebarHeader className="border-b border-border p-3 sm:p-4">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <div className="w-8 h-8 sm:w-10 sm:h-10 bg-primary rounded-lg flex items-center justify-center flex-shrink-0">
+            <Store className="w-4 h-4 sm:w-6 sm:h-6 text-primary-foreground" />
           </div>
           {!collapsed && (
-            <div>
-              <h2 className="font-bold text-lg text-primary">Minha Padaria</h2>
-              <p className="text-sm text-muted-foreground">Portal de Gestão</p>
+            <div className="min-w-0">
+              <h2 className="font-bold text-sm sm:text-base md:text-lg text-primary truncate">Minha Padaria</h2>
+              <p className="text-xs sm:text-sm text-muted-foreground truncate">Portal de Gestão</p>
             </div>
           )}
         </div>
@@ -64,15 +64,15 @@ export function PadariaSidebar() {
                       <NavLink
                         to={item.url}
                         className={({ isActive }) =>
-                          `flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
+                          `flex items-center gap-2 sm:gap-3 px-2 sm:px-3 py-2 rounded-lg transition-colors text-sm sm:text-base ${
                             isActive
                               ? "bg-primary text-primary-foreground"
                               : "hover:bg-accent hover:text-accent-foreground"
                           }`
                         }
                       >
-                        <Icon className="w-4 h-4" />
-                        {!collapsed && <span>{item.title}</span>}
+                        <Icon className="w-4 h-4 shrink-0" />
+                        {!collapsed && <span className="truncate">{item.title}</span>}
                       </NavLink>
                     </SidebarMenuButton>
                   </SidebarMenuItem>

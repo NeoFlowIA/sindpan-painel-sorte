@@ -248,39 +248,40 @@ export function PadariaDashboard() {
   })) || [];
 
   return (
-    <div className="space-y-4 lg:space-y-5">
+    <div className="space-y-4 md:space-y-5 lg:space-y-6">
         {/* Header */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-2xl lg:text-3xl font-bold text-primary">Dashboard</h1>
-            <p className="text-muted-foreground">
-              Última atualização: {lastUpdate.toLocaleTimeString()}
+        <div className="flex flex-col gap-3 sm:gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-primary truncate">Dashboard</h1>
+            <p className="text-xs sm:text-sm text-muted-foreground">
+              Última atualização: {lastUpdate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
             </p>
           </div>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center w-full sm:w-auto">
             <CadastrarCupomButton onCupomCadastrado={handleCupomCadastrado} />
             <Button
               onClick={refreshData}
               disabled={isLoading}
               variant="outline"
-              className="w-full transition-all duration-200 hover:scale-105 hover:shadow-sm sm:w-auto"
+              className="w-full sm:w-auto transition-all duration-200 hover:scale-105 hover:shadow-sm"
             >
               <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
-              Atualizar
+              <span className="hidden sm:inline">Atualizar</span>
+              <span className="sm:hidden">Atualizar dados</span>
             </Button>
           </div>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
-            <TabsTrigger value="clientes">Clientes</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-2 h-auto">
+            <TabsTrigger value="dashboard" className="text-sm sm:text-base py-2">Dashboard</TabsTrigger>
+            <TabsTrigger value="clientes" className="text-sm sm:text-base py-2">Clientes</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="dashboard" className="space-y-4 lg:space-y-5 mt-6">
+          <TabsContent value="dashboard" className="space-y-4 md:space-y-5 lg:space-y-6 mt-4 md:mt-6">
 
         {/* KPI Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4 lg:gap-5">
           <KPICard
             title="Clientes Cadastrados"
             value={clientesSemanaAtual}
@@ -314,24 +315,24 @@ export function PadariaDashboard() {
         {/* Indicador de Clientes para Anexar */}
         {clientesParaAnexar.length > 0 && (
           <Card className="border-orange-200 bg-orange-50 dark:border-orange-800 dark:bg-orange-950">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-orange-800 dark:text-orange-200">
-                <Users className="w-5 h-5" />
+            <CardHeader className="p-4 md:p-6">
+              <CardTitle className="flex items-center gap-2 text-sm sm:text-base md:text-lg text-orange-800 dark:text-orange-200">
+                <Users className="w-4 h-4 sm:w-5 sm:h-5" />
                 Clientes para Anexar Automaticamente
               </CardTitle>
-              <CardDescription className="text-orange-700 dark:text-orange-300">
+              <CardDescription className="text-xs sm:text-sm text-orange-700 dark:text-orange-300">
                 {clientesParaAnexar.length} cliente(s) com 3+ cupons podem ser anexados à sua padaria
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                <div className="text-sm text-orange-700 dark:text-orange-300">
+            <CardContent className="p-4 md:p-6 pt-0 md:pt-0">
+              <div className="flex flex-col gap-3 sm:gap-4">
+                <div className="text-xs sm:text-sm text-orange-700 dark:text-orange-300">
                   <p>Estes clientes serão anexados automaticamente na próxima atualização:</p>
                   <ul className="mt-2 space-y-1">
                     {clientesParaAnexar.slice(0, 3).map((cliente, index) => (
-                      <li key={cliente.id} className="flex items-center gap-2">
-                        <span className="font-medium">{cliente.nome}</span>
-                        <span className="text-xs bg-orange-200 dark:bg-orange-800 px-2 py-1 rounded">
+                      <li key={cliente.id} className="flex flex-wrap items-center gap-1 sm:gap-2">
+                        <span className="font-medium text-xs sm:text-sm">{cliente.nome}</span>
+                        <span className="text-xs bg-orange-200 dark:bg-orange-800 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded whitespace-nowrap">
                           {cliente.cupons.length} cupons
                         </span>
                       </li>
@@ -347,7 +348,8 @@ export function PadariaDashboard() {
                   onClick={anexarClientesAutomatico}
                   disabled={anexarClientesLoading}
                   variant="outline"
-                  className="w-full border-orange-300 text-orange-800 hover:bg-orange-100 dark:border-orange-700 dark:text-orange-200 dark:hover:bg-orange-900 sm:w-auto"
+                  size="sm"
+                  className="w-full sm:w-auto border-orange-300 text-orange-800 hover:bg-orange-100 dark:border-orange-700 dark:text-orange-200 dark:hover:bg-orange-900"
                 >
                   {anexarClientesLoading ? "Anexando..." : "Anexar Agora"}
                 </Button>
@@ -357,36 +359,39 @@ export function PadariaDashboard() {
         )}
 
         {/* Charts */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-5 lg:gap-6">
           {/* Weekly Bar Chart */}
           <Card className="transition-all duration-200 hover:shadow-md">
-            <CardHeader>
-              <CardTitle className="text-foreground">Cupons por Dia da Semana</CardTitle>
-              <CardDescription>Últimos 30 dias</CardDescription>
+            <CardHeader className="p-4 md:p-6">
+              <CardTitle className="text-sm sm:text-base md:text-lg text-foreground">Cupons por Dia da Semana</CardTitle>
+              <CardDescription className="text-xs sm:text-sm">Últimos 30 dias</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-4 md:p-6 pt-0 md:pt-0">
               {cuponsPorDiaSemanaLoading ? (
-                <div className="flex items-center justify-center h-[300px]">
+                <div className="flex items-center justify-center h-[250px] sm:h-[300px]">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
                 </div>
               ) : (
-                <ResponsiveContainer width="100%" height={300}>
+                <ResponsiveContainer width="100%" height={250} className="sm:h-[300px]">
                   <BarChart data={cuponsSemanais}>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                     <XAxis 
                       dataKey="dia" 
-                      tick={{ fontSize: 12 }}
+                      tick={{ fontSize: 10 }}
+                      className="sm:text-xs"
                       stroke="hsl(var(--muted-foreground))"
                     />
                     <YAxis 
-                      tick={{ fontSize: 12 }}
+                      tick={{ fontSize: 10 }}
+                      className="sm:text-xs"
                       stroke="hsl(var(--muted-foreground))"
                     />
                     <Tooltip 
                       contentStyle={{
                         backgroundColor: "hsl(var(--card))",
                         border: "1px solid hsl(var(--border))",
-                        borderRadius: "8px"
+                        borderRadius: "8px",
+                        fontSize: "12px"
                       }}
                     />
                     <Bar 
@@ -402,38 +407,41 @@ export function PadariaDashboard() {
 
           {/* Daily Evolution Line Chart */}
           <Card className="transition-all duration-200 hover:shadow-md">
-            <CardHeader>
-              <CardTitle className="text-foreground">Evolução Diária de Cupons</CardTitle>
-              <CardDescription>Última semana</CardDescription>
+            <CardHeader className="p-4 md:p-6">
+              <CardTitle className="text-sm sm:text-base md:text-lg text-foreground">Evolução Diária de Cupons</CardTitle>
+              <CardDescription className="text-xs sm:text-sm">Última semana</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-4 md:p-6 pt-0 md:pt-0">
               {evolucaoDiariaLoading ? (
-                <div className="flex items-center justify-center h-[300px]">
+                <div className="flex items-center justify-center h-[250px] sm:h-[300px]">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
                 </div>
               ) : (
-                <ResponsiveContainer width="100%" height={300}>
+                <ResponsiveContainer width="100%" height={250} className="sm:h-[300px]">
                   <LineChart data={evolucaoDiaria}>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                     <XAxis 
                       dataKey="data" 
-                      tick={{ fontSize: 12 }}
+                      tick={{ fontSize: 10 }}
+                      className="sm:text-xs"
                       stroke="hsl(var(--muted-foreground))"
                     />
                     <YAxis 
-                      tick={{ fontSize: 12 }}
+                      tick={{ fontSize: 10 }}
+                      className="sm:text-xs"
                       stroke="hsl(var(--muted-foreground))"
                     />
                     <Tooltip 
                       contentStyle={{
                         backgroundColor: "hsl(var(--card))",
                         border: "1px solid hsl(var(--border))",
-                        borderRadius: "8px"
-                      }}
+                        borderRadius: "8px",
+                        fontSize: "12px"
+                       }}
                     />
                     <Line 
                       type="monotone" 
-                      dataKey="cupons" 
+                      dataKey="cupons"
                       stroke="hsl(var(--chart-secondary))"
                       strokeWidth={3}
                       dot={{ fill: "hsl(var(--chart-secondary))", r: 6 }}
@@ -446,64 +454,77 @@ export function PadariaDashboard() {
           </Card>
         </div>
 
-        {/* Top Clients Table */}
-        <Card className="transition-all duration-200 hover:shadow-md">
-          <CardHeader>
-            <CardTitle className="text-foreground">TOP 5 Clientes</CardTitle>
-            <CardDescription>Clientes com mais cupons cadastrados</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {topClientesLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-border">
-                      <th className="text-left p-2 font-medium text-muted-foreground">Nome</th>
-                      <th className="text-left p-2 font-medium text-muted-foreground">CPF</th>
-                      <th className="text-center p-2 font-medium text-muted-foreground">Cupons</th>
-                      <th className="text-left p-2 font-medium text-muted-foreground">Última Compra</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {topClientes.length > 0 ? (
-                      topClientes.map((cliente, index) => (
-                        <tr key={index} className="border-b border-border/50 hover:bg-muted/50 transition-colors duration-200">
-                          <td className="p-2 font-medium">{cliente.nome}</td>
-                          <td className="p-2 text-muted-foreground font-mono text-sm">{cliente.cpf}</td>
-                          <td className="p-2 text-center">
-                            <span className="bg-primary/10 text-primary px-2 py-1 rounded-full text-sm font-medium">
-                              {cliente.cupons}
-                            </span>
-                          </td>
-                          <td className="p-2 text-muted-foreground">{cliente.ultimaCompra}</td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan={4} className="p-8 text-center text-muted-foreground">
-                          Nenhum cliente encontrado
-                        </td>
+        {/* Tables Row */}
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-5 lg:gap-6">
+          {/* Top Clients Table */}
+          <Card className="transition-all duration-200 hover:shadow-md overflow-hidden">
+            <CardHeader className="p-4 md:p-6">
+              <CardTitle className="text-sm sm:text-base md:text-lg text-foreground">TOP 5 Clientes</CardTitle>
+              <CardDescription className="text-xs sm:text-sm">Clientes com mais cupons cadastrados</CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+              {topClientesLoading ? (
+                <div className="flex items-center justify-center py-6 sm:py-8 p-4 md:p-6">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-border bg-muted/50">
+                        <th className="text-left p-2 sm:p-3 text-xs font-medium text-muted-foreground">Nome</th>
+                        <th className="text-left p-2 sm:p-3 text-xs font-medium text-muted-foreground hidden sm:table-cell">CPF</th>
+                        <th className="text-center p-2 sm:p-3 text-xs font-medium text-muted-foreground">Cupons</th>
+                        <th className="text-left p-2 sm:p-3 text-xs font-medium text-muted-foreground hidden md:table-cell">Última Compra</th>
                       </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                    </thead>
+                    <tbody className="divide-y">
+                      {topClientes.length > 0 ? (
+                        topClientes.map((cliente, index) => (
+                          <tr key={index} className="hover:bg-muted/30 transition-colors duration-200">
+                            <td className="p-2 sm:p-3 text-xs sm:text-sm">
+                              <div className="font-medium truncate max-w-[120px] sm:max-w-none">{cliente.nome}</div>
+                            </td>
+                            <td className="p-2 sm:p-3 text-muted-foreground font-mono text-xs sm:text-sm hidden sm:table-cell">{cliente.cpf}</td>
+                            <td className="p-2 sm:p-3 text-center">
+                              <span className="inline-flex items-center justify-center px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full bg-primary/10 text-primary font-medium text-xs sm:text-sm">
+                                {cliente.cupons}
+                              </span>
+                            </td>
+                            <td className="p-2 sm:p-3 text-xs sm:text-sm text-muted-foreground hidden md:table-cell">{cliente.ultimaCompra}</td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={4} className="p-6 sm:p-8 text-center text-xs sm:text-sm text-muted-foreground">
+                            Nenhum cliente encontrado
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
-        {/* Cupons Recentes Section */}
-        <CuponsRecentesTable cuponsRecentes={cuponsRecentes} isLoading={cuponsRecentesLoading} />
-          </TabsContent>
+          {/* Cupons Recentes */}
+          <Card className="transition-all duration-200 hover:shadow-md overflow-hidden">
+            <CardHeader className="p-4 md:p-6">
+              <CardTitle className="text-sm sm:text-base md:text-lg text-foreground">Cupons Recentes</CardTitle>
+              <CardDescription className="text-xs sm:text-sm">Últimos cupons cadastrados</CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+              <CuponsRecentesTable cuponsRecentes={cuponsRecentes} isLoading={cuponsRecentesLoading} />
+            </CardContent>
+          </Card>
+        </div>
+      </TabsContent>
 
-          <TabsContent value="clientes" className="mt-6">
-            <ClientesTable />
-          </TabsContent>
-        </Tabs>
-      </div>
+      <TabsContent value="clientes" className="mt-4 md:mt-6">
+        <ClientesTable />
+      </TabsContent>
+    </Tabs>
+    </div>
   );
 }

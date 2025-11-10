@@ -70,12 +70,12 @@ export const usePadariaByName = (bakeryName: string) => {
 };
 
 // Hook para buscar clientes de uma padaria específica
-export const useClientes = (padariasId: string, limit?: number, offset?: number) => {
+export const useClientes = (padariasId: string | number, limit?: number, offset?: number) => {
   return useGraphQLQuery<ClientesResponse>(
-    ['clientes', padariasId, limit, offset],
+    ['clientes', String(padariasId), String(limit || 50), String(offset || 0)],
     GET_CLIENTES,
     {
-      padarias_id: padariasId,
+      padarias_id: String(padariasId),
       limit: limit || 50,
       offset: offset || 0,
     },
@@ -87,11 +87,11 @@ export const useClientes = (padariasId: string, limit?: number, offset?: number)
 };
 
 // Hook para buscar um cliente específico
-export const useCliente = (clienteId: number) => {
+export const useCliente = (clienteId: number | string) => {
   return useGraphQLQuery<ClienteResponse>(
-    ['cliente', clienteId],
+    ['cliente', String(clienteId)],
     GET_CLIENTE_BY_ID,
-    { id: clienteId },
+    { id: String(clienteId) },
     {
       staleTime: 5 * 60 * 1000, // 5 minutos
       enabled: !!clienteId,
@@ -154,7 +154,7 @@ export const useClientesStats = (padariaCnpj: string) => {
   return {
     totalClientes: data?.clientes_aggregate?.aggregate?.count || 0,
     totalCupons: data?.clientes?.reduce((acc, cliente) => 
-      acc + cliente.cupons_aggregate.aggregate.count, 0
+      acc + (cliente.cupons?.length || 0), 0
     ) || 0,
     isLoading,
     error,
@@ -168,7 +168,7 @@ export const useClientesByBakeryName = (bakeryName: string, limit?: number, offs
   const padariaCnpj = padariaData?.padarias?.[0]?.cnpj;
   
   const { data: clientesData, isLoading: clientesLoading, error: clientesError } = useClientes(
-    padariaId || 0, 
+    padariaId || "0",
     limit, 
     offset
   );
@@ -302,7 +302,7 @@ export const useAnexarClientesAutomatico = (padariaId: string, limiteCupons: num
       cliente.cupons.length >= limiteCupons
     ) || [],
     anexarClientesAutomatico,
-    isLoading: anexarClienteMutation.isLoading,
+    isLoading: anexarClienteMutation.isPending,
     error: anexarClienteMutation.error
   };
 };

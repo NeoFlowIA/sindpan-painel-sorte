@@ -53,19 +53,19 @@ export function PadariaLayout({ children }: PadariaLayoutProps) {
     <SidebarProvider>
       <div className="min-h-screen w-full bg-background">
         {/* Header */}
-        <header className="h-16 bg-card border-b border-border flex items-center justify-between px-4 sticky top-0 z-50">
-          <div className="flex items-center gap-4">
-            <SidebarTrigger />
-            <div>
-              <h1 className="text-xl font-bold text-primary">Portal da Padaria</h1>
-              <p className="text-sm text-muted-foreground">
+        <header className="h-14 sm:h-16 bg-card border-b border-border flex items-center justify-between px-3 sm:px-4 sticky top-0 z-50">
+          <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
+            <SidebarTrigger className="shrink-0" />
+            <div className="min-w-0 flex-1">
+              <h1 className="text-base sm:text-lg md:text-xl font-bold text-primary truncate">Portal da Padaria</h1>
+              <p className="text-xs sm:text-sm text-muted-foreground truncate hidden sm:block">
                 {user.bakery_name || 'Campanha SINDPAN 2025'}
               </p>
             </div>
           </div>
           
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            <Button variant="ghost" size="icon" className="hidden sm:flex">
               <Bell className="w-4 h-4" />
             </Button>
             
@@ -75,10 +75,10 @@ export function PadariaLayout({ children }: PadariaLayoutProps) {
                   <User className="w-4 h-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
+              <DropdownMenuContent align="end" className="w-56">
                 <div className="px-2 py-1.5 text-sm">
-                  <p className="font-medium">{user.bakery_name}</p>
-                  <p className="text-muted-foreground">{user.cnpj || user.email}</p>
+                  <p className="font-medium truncate">{user.bakery_name}</p>
+                  <p className="text-muted-foreground text-xs truncate">{user.cnpj || user.email}</p>
                 </div>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleLogout}>
@@ -92,7 +92,7 @@ export function PadariaLayout({ children }: PadariaLayoutProps) {
 
         <div className="flex w-full">
           <PadariaSidebar />
-          <main className="flex-1 p-3 lg:p-4">
+          <main className="flex-1 p-3 sm:p-4 lg:p-6 overflow-x-hidden">
             {children}
           </main>
         </div>
