@@ -241,7 +241,7 @@ export function PadariaDashboard() {
   const cuponsRecentes = cuponsRecentesData?.cupons?.map(cupom => ({
     numeroSorte: cupom.numero_sorte,
     cliente: cupom.cliente.nome,
-    cpf: maskCPF(cupom.cliente.cpf), // ✅ CPF mascarado para proteção de dados
+    cpf: cupom.cliente.cpf,
     valor: Number(cupom.valor_compra || 0) / 100,
     serie: cupom.serie || 'N/A',
     dataHora: new Date(cupom.data_compra).toLocaleString('pt-BR')
