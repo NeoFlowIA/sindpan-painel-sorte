@@ -654,7 +654,7 @@ export default function Participantes() {
       <AdminNovoClienteModal
         open={showNovoClienteModal}
         onOpenChange={setShowNovoClienteModal}
-        onClienteAdded={() => {
+        onClienteAdded={(_novoCliente) => {
           refetchClientes();
           refetchMetrics();
           setLastUpdate(new Date());
