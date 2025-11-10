@@ -1,6 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Clock } from "lucide-react";
-import { maskCPF } from "@/utils/formatters";
+import { maskCPF, formatCurrency } from "@/utils/formatters";
 
 interface CupomRecente {
   numeroSorte: string;
@@ -61,7 +61,7 @@ export function CuponsRecentesTable({ cuponsRecentes, isLoading }: CuponsRecente
                       <td className="p-3 font-medium">{cupom.cliente}</td>
                       <td className="p-3 font-mono text-sm text-muted-foreground">{maskCPF(cupom.cpf)}</td>
                       <td className="p-3 text-center font-medium">
-                        R$ {cupom.valor.toFixed(2).replace('.', ',')}
+                        {formatCurrency(cupom.valor)}
                       </td>
                       <td className="p-3 text-center text-muted-foreground text-sm">
                         {cupom.dataHora}
