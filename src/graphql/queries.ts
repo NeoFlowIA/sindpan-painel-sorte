@@ -111,9 +111,9 @@ export const GET_PADARIAS = `
 
 // Query para ranking de padarias (leaderboard)
 export const GET_PADARIAS_RANKING = `
-  query GetPadariasRanking {
+  query GetPadariasRanking($limit: Int) {
     padarias(
-      limit: 10,
+      limit: $limit,
       order_by: {cupons_aggregate: {count: desc}}
     ) {
       id
