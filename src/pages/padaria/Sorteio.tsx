@@ -56,13 +56,13 @@ export function PadariaSorteio() {
   // Estados para configuração do sorteio
   const [numeroInicial, setNumeroInicial] = useState<string>("");
   const [serieInicial, setSerieInicial] = useState<string>("");
-  const [serieUnica, setSerieUnica] = useState(false);
   const [resultadosSorteio, setResultadosSorteio] = useState<ResultadoSorteio[]>([]);
 
   const [stageOpen, setStageOpen] = useState(false);
   const [stageEstado, setStageEstado] = useState<"idle" | "spinning" | "revealing" | "done">("idle");
   const [stageWinner, setStageWinner] = useState<RaffleWinner | undefined>();
   const revealTimeoutRef = useRef<number>();
+  const [modalSorteioAberto, setModalSorteioAberto] = useState(false);
 
   const { user } = useAuth();
   const { toast } = useToast();
@@ -337,7 +337,7 @@ export function PadariaSorteio() {
     } finally {
       setIsSorteando(false);
     }
-  }, [numeroInicial, serieInicial, serieUnica, cuponsDisponiveis, padariaId, salvarSorteioPadaria, toast, cuponsSorteados, usuariosGanhadores]);
+  }, [numeroInicial, serieInicial, cuponsDisponiveis, padariaId, salvarSorteioPadaria, toast, cuponsSorteados, usuariosGanhadores, marcarCupomSorteado]);
 
   const iniciarNovoSorteio = useCallback(() => {
     setCuponsSorteados(new Set());
@@ -346,7 +346,6 @@ export function PadariaSorteio() {
     setResultadosSorteio([]);
     setNumeroInicial("");
     setSerieInicial("");
-    setSerieUnica(false);
     refetchCupons();
     toast({
       title: "Novo sorteio iniciado",
@@ -379,6 +378,11 @@ export function PadariaSorteio() {
   }, [toast, ultimoGanhador]);
 
   const handleSortear = useCallback(() => {
+    setModalSorteioAberto(true);
+  }, []);
+
+  const handleIniciarSorteio = useCallback(() => {
+    setModalSorteioAberto(false);
     void realizarSorteio();
   }, [realizarSorteio]);
 
@@ -420,65 +424,8 @@ export function PadariaSorteio() {
         </TabsList>
 
         <TabsContent value="sorteio" className="mt-6 space-y-6">
-          {/* Configuração do Sorteio */}
-          <Card className="border-primary/20 bg-primary/5">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-primary">
-                <Settings className="h-5 w-5" />
-                Configuração do Sorteio
-              </CardTitle>
-              <CardDescription>
-                Configure os parâmetros iniciais para o sorteio de 5 ganhadores
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-3">
-                <div className="space-y-2">
-                  <Label htmlFor="numero-inicial">Número Inicial</Label>
-                  <Input
-                    id="numero-inicial"
-                    type="number"
-                    placeholder="Ex: 12345"
-                    value={numeroInicial}
-                    onChange={(e) => setNumeroInicial(e.target.value)}
-                    disabled={isSorteando}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="serie-inicial">Série Inicial</Label>
-                  <Input
-                    id="serie-inicial"
-                    type="number"
-                    placeholder="Ex: 1"
-                    min="0"
-                    max="10"
-                    value={serieInicial}
-                    onChange={(e) => setSerieInicial(e.target.value)}
-                    disabled={isSorteando}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="serie-unica">Série Única</Label>
-                  <div className="flex items-center space-x-2">
-                    <input
-                      id="serie-unica"
-                      type="checkbox"
-                      checked={serieUnica}
-                      onChange={(e) => setSerieUnica(e.target.checked)}
-                      disabled={isSorteando}
-                      className="rounded border-gray-300"
-                    />
-                    <Label htmlFor="serie-unica" className="text-sm">
-                      Manter apenas na série inicial
-                    </Label>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
           <SortearButton 
-            disabled={isSorteando || cuponsDisponiveisCount === 0 || !numeroInicial || !serieInicial} 
+            disabled={isSorteando || cuponsDisponiveisCount === 0} 
             onSortear={handleSortear} 
           />
 
@@ -826,6 +773,90 @@ export function PadariaSorteio() {
         canSortearNovamente={cuponsDisponiveisCount > 0}
         isProcessing={isSorteando}
       />
+
+      {/* Modal Natalino de Configuração do Sorteio */}
+      <Dialog open={modalSorteioAberto} onOpenChange={setModalSorteioAberto}>
+        <DialogContent className="sm:max-w-[600px] bg-gradient-to-br from-red-50 via-white to-green-50 dark:from-red-950 dark:via-gray-900 dark:to-green-950">
+          <button
+            onClick={() => setModalSorteioAberto(false)}
+            className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground"
+          >
+            <span className="text-2xl">×</span>
+            <span className="sr-only">Fechar</span>
+          </button>
+          
+          <div className="space-y-6 py-4">
+            {/* Cabeçalho Natalino */}
+            <div className="text-center space-y-3">
+              <h2 className="text-3xl font-bold text-red-700 dark:text-red-400 flex items-center justify-center gap-2">
+                <span className="text-4xl">🎄</span>
+                Sorteio Natalino SINDPAN
+                <span className="text-4xl">🎄</span>
+              </h2>
+              <p className="text-lg text-amber-600 dark:text-amber-400 flex items-center justify-center gap-2">
+                <span>🎅</span>
+                Feliz Natal e Boa Sorte!
+                <span>🎅</span>
+              </p>
+            </div>
+
+            {/* Formulário */}
+            <div className="space-y-5">
+              {/* Campo Número do Sorteio */}
+              <div className="space-y-2">
+                <Label htmlFor="numero-sorteio-modal" className="text-center flex items-center justify-center gap-2 text-base font-semibold">
+                  <span>🎲</span>
+                  Digite o número do sorteio
+                  <span>🎲</span>
+                </Label>
+                <Input
+                  id="numero-sorteio-modal"
+                  type="number"
+                  placeholder="Ex: 12345"
+                  value={numeroInicial}
+                  onChange={(e) => setNumeroInicial(e.target.value)}
+                  className="text-center text-lg h-12 bg-white dark:bg-gray-800"
+                />
+              </div>
+
+              {/* Campo Série */}
+              <div className="space-y-2">
+                <Label htmlFor="serie-sorteio-modal" className="text-center flex items-center justify-center gap-2 text-base font-semibold">
+                  <span>🎯</span>
+                  Digite a série (0-9)
+                  <span>🎯</span>
+                </Label>
+                <Input
+                  id="serie-sorteio-modal"
+                  type="number"
+                  placeholder="Ex: 4"
+                  min="0"
+                  max="9"
+                  value={serieInicial}
+                  onChange={(e) => setSerieInicial(e.target.value)}
+                  className="text-center text-lg h-12 bg-white dark:bg-gray-800"
+                />
+              </div>
+
+              {/* Texto Explicativo */}
+              <p className="text-center text-sm text-muted-foreground px-4">
+                O sistema buscará o número exato ou o mais próximo na série especificada
+              </p>
+
+              {/* Botão de Iniciar */}
+              <Button
+                onClick={handleIniciarSorteio}
+                disabled={!numeroInicial || !serieInicial || isSorteando}
+                className="w-full h-14 text-lg font-semibold bg-gradient-to-r from-red-500 via-red-600 to-green-600 hover:from-red-600 hover:via-red-700 hover:to-green-700 text-white shadow-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <span className="mr-2">🎄</span>
+                <span className="mr-2">🏆</span>
+                <span>Iniciar Sorteio Natalino</span>
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={detalhesAberto}
