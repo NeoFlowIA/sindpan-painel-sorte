@@ -91,7 +91,7 @@ export function ClientesTable() {
   const startIndex = (currentPage - 1) * itemsPerPage;
   const currentClientes = filteredClientes.slice(startIndex, startIndex + itemsPerPage);
 
-  const handleClienteAdded = () => {
+  const handleClienteAdded = (_novoCliente?: { id: string }) => {
     setIsModalOpen(false);
     // A invalidação da query será feita automaticamente pela mutation no NovoClienteModal
   };

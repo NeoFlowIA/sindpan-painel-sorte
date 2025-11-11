@@ -48,34 +48,40 @@ export const maskCPF = (cpf: string): string => {
  */
 export const formatPhone = (phone: string): string => {
   if (!phone) return '';
-  
+
   // Remove todos os caracteres não numéricos
   const digits = phone.replace(/\D/g, '');
-  
-  // Se tem 11 dígitos (com 9): (XX) 9 XXXX-XXXX
+
+  // Formatos com código do país (13 dígitos: 55 + DDD + 9 dígitos)
   if (digits.length === 13) {
-    return digits.replace(/(\d{2})(\d{2})(\d{1})(\d{4})(\d{4})/, '+$1 ($2) $3 $4-$5');
+    return digits.replace(/(\d{2})(\d{2})(\d{5})(\d{4})/, '+$1 ($2) $3-$4');
   }
-  
-  
-  // Se tem 12 dígitos (com 9): +55 (XX) 9 XXXX-XXXX
+
+  // Formatos com código do país e 8 dígitos locais (12 dígitos)
   if (digits.length === 12) {
     return digits.replace(/(\d{2})(\d{2})(\d{4})(\d{4})/, '+$1 ($2) $3-$4');
   }
-  
-  
-  // Se tem 9 dígitos (apenas o número): 9 XXXX-XXXX
+
+  // 11 dígitos: padrão nacional com nono dígito
+  if (digits.length === 11) {
+    return digits.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3');
+  }
+
+  // 10 dígitos: padrão nacional sem nono dígito
+  if (digits.length === 10) {
+    return digits.replace(/(\d{2})(\d{4})(\d{4})/, '($1) $2-$3');
+  }
+
+  // 9 dígitos: sem DDD, com nono dígito
   if (digits.length === 9) {
-    return digits
-      .replace(/(\d{1})(\d{4})(\d{4})/, '$1 $2-$3');
+    return digits.replace(/(\d{1})(\d{4})(\d{4})/, '$1 $2-$3');
   }
-  
-  // Se tem 8 dígitos (apenas o número): XXXX-XXXX
+
+  // 8 dígitos: sem DDD
   if (digits.length === 8) {
-    return digits
-      .replace(/(\d{4})(\d{4})/, '$1-$2');
+    return digits.replace(/(\d{4})(\d{4})/, '$1-$2');
   }
-  
+
   // Para outros casos, retorna como está
   return phone;
 };

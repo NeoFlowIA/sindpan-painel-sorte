@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,17 +8,25 @@ import { useToast } from "@/hooks/use-toast";
 import { useGraphQLQuery, useGraphQLMutation } from "@/hooks/useGraphQL";
 import { useAuth } from "@/contexts/AuthContext";
 import { CREATE_CLIENTE, CREATE_CLIENTE_SIMPLE, CREATE_CLIENTE_TEST, GET_NEXT_CLIENTE_ID, GET_PADARIA_BY_NAME, GET_ALL_PADARIAS_SIMPLE } from "@/graphql/queries";
-import { graphqlClient } from "@/lib/graphql-client";
 import { validateWhatsAppFormat, normalizeWhatsApp, formatWhatsApp } from "@/utils/formatters";
 
 interface NovoClienteModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onClienteAdded: () => void;
+  onClienteAdded: (cliente?: {
+    id: string;
+    nome: string;
+    cpf: string;
+    whatsapp?: string | null;
+    resposta_pergunta?: string | null;
+    padaria_id?: string | null;
+  }) => void;
   padariaCnpj?: string;
+  initialCPF?: string;
+  initialWhatsapp?: string;
 }
 
-export function NovoClienteModal({ open, onOpenChange, onClienteAdded }: NovoClienteModalProps) {
+export function NovoClienteModal({ open, onOpenChange, onClienteAdded, initialCPF, initialWhatsapp }: NovoClienteModalProps) {
   const [formData, setFormData] = useState({
     cpf: "",
     nome: "",
@@ -39,8 +47,10 @@ export function NovoClienteModal({ open, onOpenChange, onClienteAdded }: NovoCli
         description: "Cliente cadastrado com sucesso!"
       });
       
+      const clienteCriado = (data as any)?.insert_clientes_one;
+
       setFormData({ cpf: "", nome: "", whatsapp: "", resposta_pergunta: "" });
-      onClienteAdded();
+      onClienteAdded(clienteCriado);
     },
     onError: (error: any) => {
       console.error('🔍 Erro ao criar cliente:', error);
@@ -114,6 +124,19 @@ export function NovoClienteModal({ open, onOpenChange, onClienteAdded }: NovoCli
   const validateWhatsApp = (whatsapp: string) => {
     return validateWhatsAppFormat(whatsapp);
   };
+
+  useEffect(() => {
+    if (open) {
+      setFormData({
+        cpf: initialCPF ? formatCPF(initialCPF) : "",
+        nome: "",
+        whatsapp: initialWhatsapp ? formatWhatsApp(initialWhatsapp) : "",
+        resposta_pergunta: ""
+      });
+    } else {
+      setFormData({ cpf: "", nome: "", whatsapp: "", resposta_pergunta: "" });
+    }
+  }, [open, initialCPF, initialWhatsapp]);
 
   const handleInputChange = (field: string, value: string) => {
     let formattedValue = value;

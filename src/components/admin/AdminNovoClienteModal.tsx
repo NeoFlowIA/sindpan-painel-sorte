@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,10 +12,19 @@ import { validateWhatsAppFormat, normalizeWhatsApp, formatWhatsApp } from "@/uti
 interface AdminNovoClienteModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onClienteAdded: () => void;
+  onClienteAdded: (cliente?: {
+    id: string;
+    nome: string;
+    cpf: string;
+    whatsapp?: string | null;
+    resposta_pergunta?: string | null;
+    padaria_id?: string | null;
+  }) => void;
+  initialCPF?: string;
+  initialWhatsapp?: string;
 }
 
-export function AdminNovoClienteModal({ open, onOpenChange, onClienteAdded }: AdminNovoClienteModalProps) {
+export function AdminNovoClienteModal({ open, onOpenChange, onClienteAdded, initialCPF, initialWhatsapp }: AdminNovoClienteModalProps) {
   const [formData, setFormData] = useState({
     cpf: "",
     nome: "",
@@ -51,8 +60,10 @@ export function AdminNovoClienteModal({ open, onOpenChange, onClienteAdded }: Ad
         description: "Cliente cadastrado com sucesso!"
       });
       
+      const clienteCriado = (data as any)?.insert_clientes_one;
+
       setFormData({ cpf: "", nome: "", whatsapp: "", resposta_pergunta: "", padaria_id: "" });
-      onClienteAdded();
+      onClienteAdded(clienteCriado);
     },
     onError: (error: any) => {
       console.error('🔍 Erro ao criar cliente:', error);
@@ -90,11 +101,6 @@ export function AdminNovoClienteModal({ open, onOpenChange, onClienteAdded }: Ad
     return value;
   };
 
-  const formatWhatsApp = (value: string) => {
-    // Retornar exatamente o que o usuário digitou, sem modificações
-    return value;
-  };
-
   const validateCPF = (cpf: string) => {
     const digits = cpf.replace(/\D/g, "");
     return digits.length === 11;
@@ -103,6 +109,20 @@ export function AdminNovoClienteModal({ open, onOpenChange, onClienteAdded }: Ad
   const validateWhatsApp = (whatsapp: string) => {
     return validateWhatsAppFormat(whatsapp);
   };
+
+  useEffect(() => {
+    if (open) {
+      setFormData({
+        cpf: initialCPF ? formatCPF(initialCPF) : "",
+        nome: "",
+        whatsapp: initialWhatsapp ? formatWhatsApp(initialWhatsapp) : "",
+        resposta_pergunta: "",
+        padaria_id: ""
+      });
+    } else {
+      setFormData({ cpf: "", nome: "", whatsapp: "", resposta_pergunta: "", padaria_id: "" });
+    }
+  }, [open, initialCPF, initialWhatsapp]);
 
   const handleInputChange = (field: string, value: string) => {
     let formattedValue = value;
