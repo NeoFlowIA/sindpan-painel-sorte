@@ -26,6 +26,7 @@ export function CuponsRecentesTable({ cuponsRecentes, isLoading }: CuponsRecente
         </CardTitle>
         <CardDescription>Últimos cupons emitidos pela padaria</CardDescription>
       </CardHeader>
+
       <CardContent>
         {isLoading ? (
           <div className="flex items-center justify-center py-6 sm:py-8">
@@ -44,6 +45,7 @@ export function CuponsRecentesTable({ cuponsRecentes, isLoading }: CuponsRecente
                   <th className="text-center p-2 sm:p-3 text-xs font-medium text-muted-foreground hidden lg:table-cell">Data/Hora</th>
                 </tr>
               </thead>
+
               <tbody className="divide-y">
                 {cuponsRecentes.length > 0 ? (
                   cuponsRecentes.map(cupom => (
@@ -56,19 +58,26 @@ export function CuponsRecentesTable({ cuponsRecentes, isLoading }: CuponsRecente
                           {cupom.numeroSorte}
                         </span>
                       </td>
+
                       <td className="p-2 sm:p-3 text-center hidden sm:table-cell">
                         <span className="font-mono text-xs sm:text-sm font-bold text-secondary bg-secondary/10 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded">
                           {cupom.serie}
                         </span>
                       </td>
+
                       <td className="p-2 sm:p-3 text-xs sm:text-sm">
                         <div className="font-medium truncate max-w-[100px] sm:max-w-[150px] md:max-w-none">{cupom.cliente}</div>
                         <div className="text-xs text-muted-foreground sm:hidden">{cupom.serie}</div>
                       </td>
-                      <td className="p-2 sm:p-3 font-mono text-xs sm:text-sm text-muted-foreground hidden md:table-cell">{maskCPF(cupom.cpf)}</td>
+
+                      <td className="p-2 sm:p-3 font-mono text-xs sm:text-sm text-muted-foreground hidden md:table-cell">
+                        {maskCPF(cupom.cpf)}
+                      </td>
+
                       <td className="p-2 sm:p-3 text-center text-xs sm:text-sm font-medium hidden lg:table-cell">
                         {formatCurrency(cupom.valor)}
                       </td>
+
                       <td className="p-2 sm:p-3 text-center text-muted-foreground text-xs hidden lg:table-cell">
                         {cupom.dataHora}
                       </td>
@@ -76,7 +85,10 @@ export function CuponsRecentesTable({ cuponsRecentes, isLoading }: CuponsRecente
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={6} className="p-6 sm:p-8 text-center text-xs sm:text-sm text-muted-foreground">
+                    <td
+                      colSpan={6}
+                      className="p-6 sm:p-8 text-center text-xs sm:text-sm text-muted-foreground"
+                    >
                       Nenhum cupom cadastrado ainda
                     </td>
                   </tr>

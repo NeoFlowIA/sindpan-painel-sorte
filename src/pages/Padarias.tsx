@@ -591,7 +591,19 @@ export default function Padarias() {
   const updatePadaria = useUpdatePadaria();
 
   // Buscar todos os clientes para vinculação
-  const { data: clientesData, refetch: refetchClientes } = useGraphQLQuery(
+  const { data: clientesData, refetch: refetchClientes } = useGraphQLQuery<{
+    clientes: Array<{
+      id: string;
+      nome: string;
+      cpf: string;
+      padaria_id: string;
+      cupons: Array<{
+        id: string;
+        status: string;
+        padaria_id: string;
+      }>;
+    }>;
+  }>(
     ['clientes-admin-simple'],
     GET_ALL_CLIENTES_ADMIN_SIMPLE
   );

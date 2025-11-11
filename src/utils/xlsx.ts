@@ -318,7 +318,7 @@ export function exportToXLSX(filename: string, sheetName: string, rows: string[]
     { name: "xl/worksheets/sheet1.xml", data: toUint8Array(sheetXml) }
   ]);
 
-  const blob = new Blob([zipData], { type: MIME_TYPE });
+  const blob = new Blob([zipData as BlobPart], { type: MIME_TYPE });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
