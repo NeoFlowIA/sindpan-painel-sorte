@@ -46,8 +46,11 @@ export function CuponsRecentesTable({ cuponsRecentes, isLoading }: CuponsRecente
               </thead>
               <tbody className="divide-y">
                 {cuponsRecentes.length > 0 ? (
-                  cuponsRecentes.map((cupom, index) => (
-                    <tr key={index} className="hover:bg-muted/30 transition-colors duration-200">
+                  cuponsRecentes.map(cupom => (
+                    <tr
+                      key={`${cupom.numeroSorte}-${cupom.serie}-${cupom.dataHora}`}
+                      className="hover:bg-muted/30 transition-colors duration-200"
+                    >
                       <td className="p-2 sm:p-3">
                         <span className="font-mono text-xs sm:text-sm md:text-base font-bold text-primary bg-primary/10 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded">
                           {cupom.numeroSorte}
