@@ -180,6 +180,12 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
   }, [saldoDescontoData]);
 
   useEffect(() => {
+    if (clienteEncontrado?.id && user?.padarias_id) {
+      refetchSaldoDesconto();
+    }
+  }, [clienteEncontrado?.id, user?.padarias_id, refetchSaldoDesconto]);
+
+  useEffect(() => {
     if (!clienteEncontrado?.id) {
       setUltimoSaldoCentavos(null);
     }
@@ -482,7 +488,12 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
         }
       }
 
-      await refetchSaldoDesconto();
+      const saldoRefetch = await refetchSaldoDesconto();
+
+      const saldoCentavosRefetch = (saldoRefetch?.data as typeof saldoDescontoData | undefined)?.clientes_padarias_saldos?.[0]?.saldo_centavos;
+      if (saldoCentavosRefetch !== undefined && saldoCentavosRefetch !== null) {
+        setUltimoSaldoCentavos(Number(saldoCentavosRefetch));
+      }
 
       const saldoFormatado = saldoUtils.formatarSaldo(saldoAtualCentavos);
       const cupomLabel = cuponsEmitidosAgora === 1 ? 'cupom' : 'cupons';
