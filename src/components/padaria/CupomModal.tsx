@@ -415,19 +415,6 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
       return;
     }
 
-    const cuponsGerados = calcularCupons();
-    
-    if (cuponsGerados === 0) {
-      toast({
-        title: "Erro", 
-        description: `Valor insuficiente para gerar cupons. Valor mínimo: R$ ${ticketMedio.toFixed(2)}`,
-        variant: "destructive"
-      });
-      setIsLoading(false);
-      setProcessingMessage("");
-      return;
-    }
-
     const cnpjLimpo = (user?.cnpj || "").replace(/\D/g, "");
     if (!cnpjLimpo) {
       toast({
@@ -459,6 +446,7 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
 
       const registro = registerResult?.register_receipt_basic;
       const saldoAtualCentavos = registro?.saldo_atual_centavos ?? 0;
+      const cuponsGerados = calcularCupons();
       const cuponsEmitidosAgora = registro?.cupons_emitidos_agora ?? cuponsGerados;
 
       setProcessingMessage("💾 Sincronizando saldos...");
@@ -489,9 +477,17 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
       const cupomLabel = cuponsEmitidosAgora === 1 ? 'cupom' : 'cupons';
       const emitidoLabel = cuponsEmitidosAgora === 1 ? 'emitido' : 'emitidos';
 
+      const gerouCupons = cuponsEmitidosAgora > 0;
+      const tituloToast = gerouCupons
+        ? "Cupons registrados com sucesso!"
+        : "Compra registrada e saldo atualizado";
+      const descricaoToast = gerouCupons
+        ? `${cuponsEmitidosAgora} ${cupomLabel} ${emitidoLabel}. Saldo atual: ${saldoFormatado}`
+        : `Nenhum cupom emitido por estar abaixo do ticket médio, mas o saldo foi atualizado. Saldo atual: ${saldoFormatado}`;
+
       toast({
-        title: "Cupons registrados com sucesso!",
-        description: `${cuponsEmitidosAgora} ${cupomLabel} ${emitidoLabel}. Saldo atual: ${saldoFormatado}`,
+        title: tituloToast,
+        description: descricaoToast,
       });
 
       setProcessingMessage("🏪 Validando padaria do cliente...");
