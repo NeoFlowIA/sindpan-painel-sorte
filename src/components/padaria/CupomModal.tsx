@@ -59,6 +59,7 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
   const [processingMessage, setProcessingMessage] = useState("");
   const [novoClienteModalAberto, setNovoClienteModalAberto] = useState(false);
   const [identificadorNovoCliente, setIdentificadorNovoCliente] = useState<{ cpf?: string; whatsapp?: string }>({});
+  const [ultimoSaldoCentavos, setUltimoSaldoCentavos] = useState<number | null>(null);
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -152,7 +153,11 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
   const proximoSorteio = sorteioData?.sorteios?.[0];
   
   // Calcular saldo de desconto - usar apenas o último saldo da padaria
-  const saldoDescontoCentavos = Number(saldoDescontoData?.clientes_padarias_saldos?.[0]?.saldo_centavos) || 0;
+  const saldoQueryCentavos = saldoDescontoData?.clientes_padarias_saldos?.[0]?.saldo_centavos;
+  const saldoDescontoCentavos =
+    saldoQueryCentavos !== undefined && saldoQueryCentavos !== null
+      ? Number(saldoQueryCentavos)
+      : ultimoSaldoCentavos ?? 0;
   const saldoDescontoAtual = saldoDescontoCentavos / 100;
   const saldoDescontoFormatado = saldoUtils.formatarSaldo(saldoDescontoCentavos);
 
@@ -163,8 +168,22 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
     saldoDescontoData,
     saldoDescontoAtual,
     saldoRegistro: saldoDescontoData?.clientes_padarias_saldos?.[0],
-    saldoCentavosAtual: saldoDescontoData?.clientes_padarias_saldos?.[0]?.saldo_centavos
+    saldoCentavosAtual: saldoDescontoData?.clientes_padarias_saldos?.[0]?.saldo_centavos,
+    ultimoSaldoCentavos
   });
+
+  useEffect(() => {
+    const saldoAtualizado = saldoDescontoData?.clientes_padarias_saldos?.[0]?.saldo_centavos;
+    if (saldoAtualizado !== undefined && saldoAtualizado !== null) {
+      setUltimoSaldoCentavos(Number(saldoAtualizado));
+    }
+  }, [saldoDescontoData]);
+
+  useEffect(() => {
+    if (!clienteEncontrado?.id) {
+      setUltimoSaldoCentavos(null);
+    }
+  }, [clienteEncontrado?.id]);
 
   // Função para obter timestamp no fuso horário de Brasília
   const getBrasiliaTimestamp = () => {
@@ -438,6 +457,8 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
       const registro = registerResult?.register_receipt_basic;
       const saldoAtualCentavos = registro?.saldo_atual_centavos ?? 0;
       const cuponsEmitidosAgora = registro?.cupons_emitidos_agora ?? 0;
+
+      setUltimoSaldoCentavos(saldoAtualCentavos);
 
       setProcessingMessage("💾 Sincronizando saldos...");
 
@@ -742,7 +763,7 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
           )}
 
           {/* Resumo */}
-          {clienteEncontrado && valorCompra && (
+          {clienteEncontrado && (
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg">
