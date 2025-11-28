@@ -152,9 +152,9 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
   const proximoSorteio = sorteioData?.sorteios?.[0];
   
   // Calcular saldo de desconto - usar apenas o último saldo da padaria
-  const saldoDescontoAtual = saldoDescontoData?.clientes_padarias_saldos?.[0]?.saldo_centavos 
-    ? Number(saldoDescontoData.clientes_padarias_saldos[0].saldo_centavos) / 100 
-    : 0;
+  const saldoDescontoCentavos = Number(saldoDescontoData?.clientes_padarias_saldos?.[0]?.saldo_centavos) || 0;
+  const saldoDescontoAtual = saldoDescontoCentavos / 100;
+  const saldoDescontoFormatado = saldoUtils.formatarSaldo(saldoDescontoCentavos);
 
   // Debug: Log dos dados para verificar se estão atualizados
   console.log('🔍 Debug Saldo Desconto por Padaria (CupomModal):', {
@@ -286,21 +286,12 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
 
 
 
-  const calcularCupons = () => {
-    const valor = parseFloat(valorCompra) || 0;
-    const valorTotal = valor + saldoDescontoAtual;
-    return Math.floor(valorTotal / ticketMedio);
-  };
-
-  const calcularNovoSaldoDesconto = () => {
-    const valor = parseFloat(valorCompra) || 0;
-    const valorTotal = valor + saldoDescontoAtual;
-    const cuponsGerados = Math.floor(valorTotal / ticketMedio);
-    return valorTotal - (cuponsGerados * ticketMedio);
-  };
-
   // Função para validar e atualizar padaria do cliente
-  const validarEAtualizarPadaria = async (cliente: any, padariaIdNovosCupons: string) => {
+  const validarEAtualizarPadaria = async (
+    cliente: any,
+    padariaIdNovosCupons: string,
+    novosCuponsEmitidos: number
+  ) => {
     console.log("🔍 DEBUG - Iniciando validação de padaria:", {
       cliente: cliente.nome,
       padariaIdNovosCupons,
@@ -318,9 +309,9 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
         cuponsPorPadaria.set(padariaId, (cuponsPorPadaria.get(padariaId) || 0) + 1);
       }
     });
-    
-    // Adicionar os novos cupons que serão criados
-    const cuponsGerados = calcularCupons();
+
+    // Adicionar os novos cupons emitidos pela API
+    const cuponsGerados = novosCuponsEmitidos || 0;
     const cuponsAtuaisNovaPadaria = cuponsPorPadaria.get(padariaIdNovosCupons) || 0;
     const totalCuponsNovaPadaria = cuponsAtuaisNovaPadaria + cuponsGerados;
     
@@ -446,8 +437,7 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
 
       const registro = registerResult?.register_receipt_basic;
       const saldoAtualCentavos = registro?.saldo_atual_centavos ?? 0;
-      const cuponsGerados = calcularCupons();
-      const cuponsEmitidosAgora = registro?.cupons_emitidos_agora ?? cuponsGerados;
+      const cuponsEmitidosAgora = registro?.cupons_emitidos_agora ?? 0;
 
       setProcessingMessage("💾 Sincronizando saldos...");
 
@@ -493,7 +483,7 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
       setProcessingMessage("🏪 Validando padaria do cliente...");
 
       // VALIDAÇÃO E ATUALIZAÇÃO DA PADARIA NO BANCO
-      await validarEAtualizarPadaria(clienteEncontrado, padariaId);
+      await validarEAtualizarPadaria(clienteEncontrado, padariaId, cuponsEmitidosAgora);
 
       // Reset form
       setSearchTerm("");
@@ -567,9 +557,6 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
       console.error("Erro ao atualizar cliente recém-criado:", error);
     }
   };
-
-  const cuponsGerados = calcularCupons();
-  const novoSaldoDesconto = calcularNovoSaldoDesconto();
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -656,7 +643,7 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
                    <p className="text-sm text-muted-foreground">CPF: {maskCPF(clienteEncontrado.cpf)}</p>
                    <p className="text-sm text-muted-foreground">WhatsApp: {formatPhone(clienteEncontrado.whatsapp || '')}</p>
                    <p className="text-sm text-muted-foreground">
-                     Saldo de desconto: R$ {saldoDescontoAtual.toFixed(2)}
+                     Saldo de desconto: {saldoDescontoFormatado}
                    </p>
                    
                    {/* Informação sobre vinculação automática */}
@@ -799,32 +786,19 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
                   <Separator />
                   <div className="flex justify-between text-primary font-medium text-lg">
                     <span>Cupons Gerados:</span>
-                    <span>{cuponsGerados}</span>
+                    <span>Será calculado na confirmação</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Cupons disponíveis:</span>
-                    <span className="font-medium text-blue-600">
-                      Verificando...
+                    <span className="text-muted-foreground">Saldo após confirmação:</span>
+                    <span className="font-medium text-green-600">
+                      Atualizado pelo sistema
                     </span>
                   </div>
-                  {cuponsGerados > 0 && (
-                    <div className="bg-blue-50 -mx-4 px-4 py-2 rounded text-xs text-blue-700">
-                      {cuponsGerados} {cuponsGerados === 1 ? 'cupom' : 'cupons'} de R$ {ticketMedio.toFixed(2)} cada
-                    </div>
-                  )}
                   <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
                     <p className="text-sm text-blue-600">
-                      ℹ️ Cupons disponíveis serão verificados ao confirmar.
+                      ℹ️ Cupons e saldo são calculados automaticamente pela confirmação do cupom.
                     </p>
                   </div>
-                  {novoSaldoDesconto > 0 && (
-                    <div className="flex justify-between bg-green-50 -mx-4 px-4 py-2 rounded">
-                      <span className="text-sm font-medium text-green-700">Novo Saldo (próxima compra):</span>
-                      <span className="text-sm font-bold text-green-700">
-                        R$ {novoSaldoDesconto.toFixed(2)}
-                      </span>
-                    </div>
-                  )}
                 </div>
               </CardContent>
             </Card>
