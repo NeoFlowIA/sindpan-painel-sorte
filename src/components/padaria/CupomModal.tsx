@@ -12,7 +12,7 @@ import { ClienteInlineForm } from "./ClienteInlineForm";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePadariaTicketMedio, useClienteSaldoPorPadaria, useRegisterReceiptBasic } from "@/hooks/useCupons";
 import { useUpdateCliente } from "@/hooks/useClientes";
-import { useUpsertSaldoClientePadaria, useInsertSaldoClientePadaria, saldoUtils } from "@/hooks/useSaldosPadarias";
+import { saldoUtils } from "@/hooks/useSaldosPadarias";
 import { SaldosPorPadaria } from "@/components/SaldosPorPadaria";
 import { useGraphQLQuery } from "@/hooks/useGraphQL";
 import { GET_CLIENTE_BY_CPF_OR_WHATSAPP, GET_PADARIAS, GET_CAMPANHA_ATIVA, GET_PROXIMO_SORTEIO_AGENDADO } from "@/graphql/queries";
@@ -142,10 +142,6 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
   // Hook para atualizar cliente
   const updateClienteMutation = useUpdateCliente();
   
-  // Hook para gerenciar saldos por padaria
-  const upsertSaldoMutation = useUpsertSaldoClientePadaria();
-  const insertSaldoMutation = useInsertSaldoClientePadaria();
-
   const ticketMedio = ticketMedioData?.padarias_by_pk?.ticket_medio || 28.65;
   
   // Dados de campanha e sorteio
@@ -461,32 +457,28 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
       });
 
       const registro = registerResult?.register_receipt_basic;
-      const saldoAtualCentavos = registro?.saldo_atual_centavos ?? 0;
-      const cuponsEmitidosAgora = registro?.cupons_emitidos_agora ?? 0;
+      const saldoAtualCentavos =
+        registro?.saldo_atual_centavos !== undefined && registro?.saldo_atual_centavos !== null
+          ? Number(registro.saldo_atual_centavos)
+          : null;
+      const cuponsEmitidosAgora =
+        registro?.cupons_emitidos_agora !== undefined && registro?.cupons_emitidos_agora !== null
+          ? Number(registro.cupons_emitidos_agora)
+          : null;
+
+      if (saldoAtualCentavos === null || cuponsEmitidosAgora === null) {
+        console.error("❌ register_receipt_basic retornou payload inválido:", registerResult);
+        toast({
+          title: "Erro ao registrar compra",
+          description: "Não foi possível obter o saldo e cupons emitidos. Tente novamente.",
+          variant: "destructive",
+        });
+        return;
+      }
 
       setUltimoSaldoCentavos(saldoAtualCentavos);
 
       setProcessingMessage("💾 Sincronizando saldos...");
-
-      if (clienteEncontrado?.id && user?.padarias_id) {
-        try {
-          const updateResult = await upsertSaldoMutation.mutateAsync({
-            cliente_id: clienteEncontrado.id,
-            padaria_id: user.padarias_id,
-            saldo_centavos: saldoAtualCentavos,
-          });
-
-          if ((updateResult as any)?.update_clientes_padarias_saldos?.affected_rows === 0) {
-            await insertSaldoMutation.mutateAsync({
-              cliente_id: clienteEncontrado.id,
-              padaria_id: user.padarias_id,
-              saldo_centavos: saldoAtualCentavos,
-            });
-          }
-        } catch (saldoError) {
-          console.error('❌ Erro ao sincronizar saldo por padaria:', saldoError);
-        }
-      }
 
       const saldoRefetch = await refetchSaldoDesconto();
 
