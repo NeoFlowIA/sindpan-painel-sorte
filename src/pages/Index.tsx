@@ -1,58 +1,115 @@
+import { useMemo, useState } from "react";
 import { KPICard } from "@/components/KPICard";
 import { DashboardCharts } from "@/components/DashboardCharts";
 import { LeaderboardTable } from "@/components/LeaderboardTable";
-import { Store, Target, Users, Calendar } from "lucide-react";
+import { Store, Target, Users, Calendar as CalendarIcon } from "lucide-react";
 import { useGraphQLQuery } from "@/hooks/useGraphQL";
 import { GET_ADMIN_DASHBOARD_METRICS } from "@/graphql/queries";
-import { format } from "date-fns";
+import {
+  addDays,
+  differenceInCalendarDays,
+  endOfDay,
+  format,
+  isWithinInterval,
+  startOfDay,
+  subDays
+} from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Skeleton } from "@/components/ui/skeleton";
+import { DateRange } from "react-day-picker";
+import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { cn } from "@/lib/utils";
+
+type DashboardMetrics = {
+  clientes_aggregate: { aggregate: { count: number } };
+  cupons_aggregate: { aggregate: { count: number } };
+  cupons: Array<{ id: string; data_compra: string; valor_compra: string }>;
+  padarias_aggregate: { aggregate: { count: number } };
+  sorteios_aggregate: { aggregate: { count: number } };
+  proximo_sorteio: Array<{
+    id: string;
+    data_sorteio: string;
+    nome?: string;
+  }>;
+};
 
 const Index = () => {
   // Buscar métricas do dashboard usando hook customizado
-  const { data: metricsData, isLoading: metricsLoading } = useGraphQLQuery<{
-    clientes_aggregate: { aggregate: { count: number } };
-    cupons_aggregate: { aggregate: { count: number } };
-    cupons: Array<{ id: string; data_compra: string; valor_compra: string }>;
-    padarias_aggregate: { aggregate: { count: number } };
-    sorteios_aggregate: { aggregate: { count: number } };
-    proximo_sorteio: Array<{
-      id: string;
-      data_sorteio: string;
-      nome: string;
-    }>;
-  }>(
-    ['admin-dashboard-metrics'],
-    GET_ADMIN_DASHBOARD_METRICS
+  const [dateRange, setDateRange] = useState<DateRange>(() => ({
+    from: subDays(new Date(), 29),
+    to: new Date()
+  }));
+
+  const normalizedRange = useMemo(() => {
+    if (dateRange?.from) {
+      return {
+        from: dateRange.from,
+        to: dateRange.to ?? dateRange.from
+      };
+    }
+
+    const fallbackStart = subDays(new Date(), 29);
+    const fallbackEnd = new Date();
+    return { from: fallbackStart, to: fallbackEnd };
+  }, [dateRange]);
+
+  const periodStart = startOfDay(normalizedRange.from);
+  const periodEnd = endOfDay(normalizedRange.to || normalizedRange.from);
+
+  const metricsQueryVariables = useMemo(
+    () => ({
+      startDate: periodStart?.toISOString() ?? null,
+      endDate: periodEnd?.toISOString() ?? null
+    }),
+    [periodEnd, periodStart]
+  );
+
+  const { data: metricsData, isLoading: metricsLoading } = useGraphQLQuery<DashboardMetrics>(
+    ['admin-dashboard-metrics', metricsQueryVariables.startDate, metricsQueryVariables.endDate],
+    GET_ADMIN_DASHBOARD_METRICS,
+    metricsQueryVariables
   );
 
   // Calcular estatísticas
-  const totalPadarias = (metricsData as any)?.padarias_aggregate?.aggregate?.count || 0;
-  const totalCupons = (metricsData as any)?.cupons_aggregate?.aggregate?.count || 0;
-  const totalClientes = (metricsData as any)?.clientes_aggregate?.aggregate?.count || 0;
-  const totalSorteios = (metricsData as any)?.sorteios_aggregate?.aggregate?.count || 0;
+  const totalPadarias = metricsData?.padarias_aggregate?.aggregate?.count || 0;
+  const totalCupons = metricsData?.cupons_aggregate?.aggregate?.count || 0;
+  const totalClientes = metricsData?.clientes_aggregate?.aggregate?.count || 0;
+  const totalSorteios = metricsData?.sorteios_aggregate?.aggregate?.count || 0;
 
   // Calcular crescimento mensal
   const calcularCrescimento = () => {
-    if (!(metricsData as any)?.cupons) return { value: 0, isPositive: true };
+    const cuponsNoPeriodo = metricsData?.cupons ?? [];
 
-    const agora = new Date();
-    const trintaDiasAtras = new Date(agora.getTime() - 30 * 24 * 60 * 60 * 1000);
-    const sessentaDiasAtras = new Date(agora.getTime() - 60 * 24 * 60 * 60 * 1000);
+    if (!periodStart || !periodEnd || cuponsNoPeriodo.length === 0) {
+      return { value: 0, isPositive: true };
+    }
 
-    const cuponsUltimos30 = (metricsData as any).cupons.filter((c: any) => {
-      const data = new Date(c.data_compra);
-      return data >= trintaDiasAtras && data <= agora;
-    }).length;
+    const totalDias = differenceInCalendarDays(periodEnd, periodStart) + 1;
+    if (totalDias <= 1) {
+      return { value: 0, isPositive: true };
+    }
 
-    const cupons30Anteriores = (metricsData as any).cupons.filter((c: any) => {
-      const data = new Date(c.data_compra);
-      return data >= sessentaDiasAtras && data < trintaDiasAtras;
-    }).length;
+    const metadePeriodo = Math.floor(totalDias / 2);
+    const primeiraMetadeFim = addDays(periodStart, metadePeriodo - 1);
+    const segundaMetadeInicio = addDays(primeiraMetadeFim, 1);
 
-    if (cupons30Anteriores === 0) return { value: 100, isPositive: true };
+    const cuponsPrimeiraMetade = cuponsNoPeriodo.filter((c) =>
+      isWithinInterval(new Date(c.data_compra), { start: periodStart, end: primeiraMetadeFim })
+    ).length;
 
-    const percentual = Math.round(((cuponsUltimos30 - cupons30Anteriores) / cupons30Anteriores) * 100);
+    const cuponsSegundaMetade = cuponsNoPeriodo.filter((c) =>
+      isWithinInterval(new Date(c.data_compra), { start: segundaMetadeInicio, end: periodEnd })
+    ).length;
+
+    if (cuponsPrimeiraMetade === 0) {
+      return { value: cuponsSegundaMetade > 0 ? 100 : 0, isPositive: true };
+    }
+
+    const percentual = Math.round(
+      ((cuponsSegundaMetade - cuponsPrimeiraMetade) / cuponsPrimeiraMetade) * 100
+    );
     return {
       value: Math.abs(percentual),
       isPositive: percentual >= 0
@@ -62,7 +119,7 @@ const Index = () => {
   const crescimento = calcularCrescimento();
 
   // Formatar próximo sorteio
-  const proximoSorteio = (metricsData as any)?.proximo_sorteio?.[0];
+  const proximoSorteio = metricsData?.proximo_sorteio?.[0];
   const proximoSorteioData = proximoSorteio 
     ? format(new Date(proximoSorteio.data_sorteio), "dd/MM", { locale: ptBR })
     : "--/--";
@@ -73,11 +130,53 @@ const Index = () => {
   return (
     <div className="space-y-4 md:space-y-6">
       {/* Header Section */}
-      <div>
-        <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-2">Dashboard</h1>
-        <p className="text-sm md:text-base text-muted-foreground">
-          Acompanhe o desempenho da campanha promocional das padarias
-        </p>
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-2">Dashboard</h1>
+          <p className="text-sm md:text-base text-muted-foreground">
+            Acompanhe o desempenho da campanha promocional das padarias
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                id="date-filter"
+                variant="outline"
+                className={cn(
+                  "w-full md:w-[280px] justify-start text-left font-normal",
+                  !dateRange && "text-muted-foreground"
+                )}
+              >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {normalizedRange?.from ? (
+                  normalizedRange.to ? (
+                    <span>
+                      {format(normalizedRange.from, "dd/MM/yyyy", { locale: ptBR })} - {""}
+                      {format(normalizedRange.to, "dd/MM/yyyy", { locale: ptBR })}
+                    </span>
+                  ) : (
+                    format(normalizedRange.from, "dd/MM/yyyy", { locale: ptBR })
+                  )
+                ) : (
+                  <span>Filtrar por período</span>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="end">
+              <Calendar
+                initialFocus
+                mode="range"
+                defaultMonth={normalizedRange?.from}
+                selected={dateRange}
+                onSelect={setDateRange}
+                numberOfMonths={2}
+                locale={ptBR}
+              />
+            </PopoverContent>
+          </Popover>
+        </div>
       </div>
 
       {/* KPI Cards */}
@@ -126,7 +225,7 @@ const Index = () => {
       </div>
 
       {/* Charts Section */}
-      <DashboardCharts />
+      <DashboardCharts dateRange={dateRange} />
 
       {/* Leaderboard */}
       <LeaderboardTable />

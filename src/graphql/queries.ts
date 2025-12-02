@@ -1383,18 +1383,29 @@ export const GET_ALL_CLIENTES_ADMIN_SIMPLE = `
 
 // Query para métricas do painel administrativo
 export const GET_ADMIN_DASHBOARD_METRICS = `
-  query GetAdminDashboardMetrics {
+  query GetAdminDashboardMetrics($startDate: timestamptz, $endDate: timestamptz) {
     clientes_aggregate {
       aggregate {
         count
       }
     }
-    cupons_aggregate(where: {status: {_eq: "ativo"}}) {
+    cupons_aggregate(
+      where: {
+        status: {_eq: "ativo"}
+        data_compra: {_gte: $startDate, _lte: $endDate}
+      }
+    ) {
       aggregate {
         count
       }
     }
-    cupons(order_by: {data_compra: desc}, where: {status: {_eq: "ativo"}}) {
+    cupons(
+      order_by: {data_compra: desc}
+      where: {
+        status: {_eq: "ativo"}
+        data_compra: {_gte: $startDate, _lte: $endDate}
+      }
+    ) {
       id
       data_compra
       serie
