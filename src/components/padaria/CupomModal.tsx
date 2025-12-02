@@ -457,23 +457,38 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
       });
 
       const registro = registerResult?.register_receipt_basic;
-      const saldoAtualCentavos =
+      let saldoAtualCentavos =
         registro?.saldo_atual_centavos !== undefined && registro?.saldo_atual_centavos !== null
           ? Number(registro.saldo_atual_centavos)
           : null;
-      const cuponsEmitidosAgora =
+      let cuponsEmitidosAgora =
         registro?.cupons_emitidos_agora !== undefined && registro?.cupons_emitidos_agora !== null
           ? Number(registro.cupons_emitidos_agora)
           : null;
 
       if (saldoAtualCentavos === null || cuponsEmitidosAgora === null) {
-        console.error("❌ register_receipt_basic retornou payload inválido:", registerResult);
-        toast({
-          title: "Erro ao registrar compra",
-          description: "Não foi possível obter o saldo e cupons emitidos. Tente novamente.",
-          variant: "destructive",
-        });
-        return;
+        setProcessingMessage("🔄 Sincronizando saldos...");
+
+        const saldoRefetchFallback = await refetchSaldoDesconto();
+        const saldoCentavosRefetch = (saldoRefetchFallback?.data as typeof saldoDescontoData | undefined)?.clientes_padarias_saldos?.[0]?.saldo_centavos;
+
+        if (saldoCentavosRefetch !== undefined && saldoCentavosRefetch !== null) {
+          saldoAtualCentavos = Number(saldoCentavosRefetch);
+        }
+
+        if (cuponsEmitidosAgora === null) {
+          cuponsEmitidosAgora = 0;
+        }
+
+        if (saldoAtualCentavos === null) {
+          console.error("❌ register_receipt_basic não retornou saldo nem refetch produziu valor:", registerResult);
+          toast({
+            title: "Erro ao registrar compra",
+            description: "Não foi possível sincronizar o saldo. Tente novamente.",
+            variant: "destructive",
+          });
+          return;
+        }
       }
 
       setUltimoSaldoCentavos(saldoAtualCentavos);
@@ -485,9 +500,10 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
       const saldoCentavosRefetch = (saldoRefetch?.data as typeof saldoDescontoData | undefined)?.clientes_padarias_saldos?.[0]?.saldo_centavos;
       if (saldoCentavosRefetch !== undefined && saldoCentavosRefetch !== null) {
         setUltimoSaldoCentavos(Number(saldoCentavosRefetch));
+        saldoAtualCentavos = Number(saldoCentavosRefetch);
       }
 
-      const saldoFormatado = saldoUtils.formatarSaldo(saldoAtualCentavos);
+      const saldoFormatado = saldoUtils.formatarSaldo(saldoAtualCentavos ?? 0);
       const cupomLabel = cuponsEmitidosAgora === 1 ? 'cupom' : 'cupons';
       const emitidoLabel = cuponsEmitidosAgora === 1 ? 'emitido' : 'emitidos';
 
@@ -793,12 +809,13 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
                     <span className="text-muted-foreground">Valor da Compra:</span>
                     <span className="font-medium">R$ {parseFloat(valorCompra || "0").toFixed(2)}</span>
                   </div>
-                  {saldoDescontoAtual > 0 && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Saldo Acumulado:</span>
-                      <span className="font-medium text-green-600">+ R$ {saldoDescontoAtual.toFixed(2)}</span>
-                    </div>
-                  )}
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Saldo Acumulado:</span>
+                    <span className="font-medium text-green-600">
+                      + R$ {saldoDescontoAtual.toFixed(2)}
+                      {isLoading && " (atualizando...)"}
+                    </span>
+                  </div>
                   {(parseFloat(valorCompra || "0") + saldoDescontoAtual) > 0 && (
                     <div className="flex justify-between bg-primary/10 -mx-4 px-4 py-2">
                       <span className="font-medium">Valor Total:</span>
