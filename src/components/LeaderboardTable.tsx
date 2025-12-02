@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Trophy, Medal, Award } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -10,6 +11,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import { differenceInDays } from "date-fns";
 import { useQuery } from "@tanstack/react-query";
 import { graphqlClient } from "@/lib/graphql-client";
@@ -47,9 +49,10 @@ const getStatusBadge = (status: string, position: number) => {
 };
 
 export function LeaderboardTable() {
+  const [showAll, setShowAll] = useState(false);
   // Buscar ranking de padarias
   const { data: rankingData, isLoading } = useQuery({
-    queryKey: ['padarias-ranking-table'],
+    queryKey: ['padarias-ranking-table', showAll],
     queryFn: async () => {
       const data = await graphqlClient.query<{
         padarias: Array<{
@@ -57,12 +60,15 @@ export function LeaderboardTable() {
           nome: string;
           status: string;
           cupons_aggregate: { aggregate: { count: number } };
-          cupons: Array<{ 
+          cupons: Array<{
             numero_sorte: string;
             data_compra: string;
           }>;
         }>;
-      }>(GET_PADARIAS_RANKING);
+      }>(
+        GET_PADARIAS_RANKING,
+        showAll ? undefined : { limit: 10 }
+      );
       return data;
     },
     refetchInterval: 60000, // Atualiza a cada 1 minuto
@@ -93,6 +99,13 @@ export function LeaderboardTable() {
       </Card>
     );
   }
+
+  const displayed = showAll
+    ? leaderboard
+    : leaderboard.slice(0, 10);
+
+  const canShowMore = !showAll && leaderboard.length >= 10;
+
   return (
     <Card>
       <CardHeader>
@@ -113,14 +126,14 @@ export function LeaderboardTable() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {leaderboard.length === 0 ? (
+            {displayed.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
                   Nenhuma padaria encontrada
                 </TableCell>
               </TableRow>
             ) : (
-              leaderboard.map((bakery) => (
+              displayed.map((bakery) => (
                 <TableRow key={bakery.position} className="hover:bg-muted/50">
                   <TableCell className="font-medium">
                     {getRankIcon(bakery.position)}
@@ -154,6 +167,13 @@ export function LeaderboardTable() {
             )}
           </TableBody>
         </Table>
+        {canShowMore && (
+          <div className="mt-4 flex justify-center">
+            <Button variant="outline" onClick={() => setShowAll(true)}>
+              Mais
+            </Button>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
