@@ -111,7 +111,7 @@ export const GET_PADARIAS = `
 
 // Query para ranking de padarias (leaderboard)
 export const GET_PADARIAS_RANKING = `
-  query GetPadariasRanking($limit: Int) {
+  query GetPadariasRanking($limit: Int, $startDate: timestamptz, $endDate: timestamptz) {
     padarias(
       limit: $limit,
       order_by: {cupons_aggregate: {count: desc}}
@@ -119,12 +119,18 @@ export const GET_PADARIAS_RANKING = `
       id
       nome
       status
-      cupons_aggregate {
+      cupons_aggregate(
+        where: {data_compra: {_gte: $startDate, _lte: $endDate}, status: {_eq: "ativo"}}
+      ) {
         aggregate {
           count
         }
       }
-      cupons(order_by: {data_compra: desc}, limit: 1) {
+      cupons(
+        order_by: {data_compra: desc},
+        limit: 1,
+        where: {data_compra: {_gte: $startDate, _lte: $endDate}, status: {_eq: "ativo"}}
+      ) {
         numero_sorte
         data_compra
       }

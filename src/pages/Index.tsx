@@ -225,10 +225,10 @@ const Index = () => {
       </div>
 
       {/* Charts Section */}
-      <DashboardCharts dateRange={dateRange} />
+      <DashboardCharts dateRange={normalizedRange} />
 
       {/* Leaderboard */}
-      <LeaderboardTable />
+      <LeaderboardTable dateRange={normalizedRange} />
     </div>
   );
 };
