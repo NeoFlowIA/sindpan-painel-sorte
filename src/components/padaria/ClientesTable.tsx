@@ -2,19 +2,21 @@ import { useState, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, Loader2 } from "lucide-react";
+import { Plus, Search, Loader2, FileDown } from "lucide-react";
 import { NovoClienteModal } from "./NovoClienteModal";
 // import { useClientesByBakeryName } from "@/hooks/useClientes"; // Removido temporariamente para debug
 import { useAuth } from "@/contexts/AuthContext";
 import { maskCPF, formatPhone } from "@/utils/formatters";
 import { useGraphQLQuery } from "@/hooks/useGraphQL";
 import { GET_CLIENTES, GET_ALL_CLIENTES_WITH_CUPONS } from "@/graphql/queries";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { exportToXLSX } from "@/utils/xlsx";
 
 export function ClientesTable() {
   const [searchTerm, setSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const [itemsPerPage, setItemsPerPage] = useState(25);
   
   const { user } = useAuth();
 
@@ -91,6 +93,26 @@ export function ClientesTable() {
   const startIndex = (currentPage - 1) * itemsPerPage;
   const currentClientes = filteredClientes.slice(startIndex, startIndex + itemsPerPage);
 
+  const handleItemsPerPageChange = (value: string) => {
+    const perPage = parseInt(value, 10);
+    setItemsPerPage(perPage);
+    setCurrentPage(1);
+  };
+
+  const handleExport = () => {
+    const headerRow = ["Nome", "CPF", "Padaria", "WhatsApp", "Cupons"];
+    const dataRows = filteredClientes.map((cliente) => [
+      cliente.nome || "",
+      maskCPF(cliente.cpf),
+      cliente.padaria?.nome || "-",
+      cliente.whatsapp ? formatPhone(cliente.whatsapp) : "-",
+      (cliente.cupons?.length || 0).toString()
+    ]);
+
+    const today = new Date().toISOString().split("T")[0];
+    exportToXLSX(`clientes-padaria-${today}.xlsx`, "Clientes", [headerRow, ...dataRows]);
+  };
+
   const handleClienteAdded = (_novoCliente?: { id: string }) => {
     setIsModalOpen(false);
     // A invalidação da query será feita automaticamente pela mutation no NovoClienteModal
@@ -160,15 +182,21 @@ export function ClientesTable() {
               Gerencie os clientes da sua padaria ({filteredClientes.length} total)
             </CardDescription>
           </div>
-          <Button onClick={() => setIsModalOpen(true)} className="w-full sm:w-auto">
-            <Plus className="w-4 h-4 mr-2" />
-            Novo Cliente
-          </Button>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+            <Button variant="outline" onClick={handleExport} className="w-full sm:w-auto">
+              <FileDown className="w-4 h-4 mr-2" />
+              Exportar Excel
+            </Button>
+            <Button onClick={() => setIsModalOpen(true)} className="w-full sm:w-auto">
+              <Plus className="w-4 h-4 mr-2" />
+              Novo Cliente
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent>
         {/* Search */}
-        <div className="flex items-center gap-2 mb-4">
+        <div className="flex flex-col gap-3 mb-4 md:flex-row md:items-center md:justify-between">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
@@ -177,6 +205,19 @@ export function ClientesTable() {
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10"
             />
+          </div>
+          <div className="flex items-center gap-2 md:w-64">
+            <span className="text-sm text-muted-foreground">Itens por página:</span>
+            <Select value={itemsPerPage.toString()} onValueChange={handleItemsPerPageChange}>
+              <SelectTrigger className="w-28">
+                <SelectValue placeholder="Itens" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="25">25</SelectItem>
+                <SelectItem value="50">50</SelectItem>
+                <SelectItem value="100">100</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
@@ -224,31 +265,29 @@ export function ClientesTable() {
         </div>
 
         {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm text-muted-foreground">
-              Mostrando {startIndex + 1} a {Math.min(startIndex + itemsPerPage, filteredClientes.length)} de {filteredClientes.length} clientes
-            </p>
-            <div className="flex flex-col gap-2 sm:flex-row sm:gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={currentPage === 1}
-                onClick={() => setCurrentPage(currentPage - 1)}
-              >
-                Anterior
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={currentPage === totalPages}
-                onClick={() => setCurrentPage(currentPage + 1)}
-              >
-                Próximo
-              </Button>
-            </div>
+        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-muted-foreground">
+            Mostrando {filteredClientes.length === 0 ? 0 : startIndex + 1} a {Math.min(startIndex + itemsPerPage, filteredClientes.length)} de {filteredClientes.length} clientes
+          </p>
+          <div className="flex flex-col gap-2 sm:flex-row sm:gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={currentPage === 1 || filteredClientes.length === 0}
+              onClick={() => setCurrentPage(currentPage - 1)}
+            >
+              Anterior
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={currentPage === totalPages || filteredClientes.length === 0}
+              onClick={() => setCurrentPage(currentPage + 1)}
+            >
+              Próximo
+            </Button>
           </div>
-        )}
+        </div>
       </CardContent>
 
       <NovoClienteModal
