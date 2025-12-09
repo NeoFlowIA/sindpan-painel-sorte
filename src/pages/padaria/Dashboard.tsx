@@ -284,14 +284,14 @@ export function PadariaDashboard() {
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4 lg:gap-5">
           <KPICard
             title="Clientes Cadastrados"
-            value={clientesSemanaAtual}
+            value={clientesTotal}
             icon={Users}
             variant="primary"
             trend={{ value: crescimentoClientes, isPositive: crescimentoClientes >= 0 }}
           />
           <KPICard
             title="Cupons Recebidos"
-            value={cuponsSemanaAtual}
+            value={cuponsTotal}
             icon={Receipt}
             variant="secondary"
             trend={{ value: crescimentoCupons, isPositive: crescimentoCupons >= 0 }}
