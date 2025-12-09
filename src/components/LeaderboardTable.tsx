@@ -12,10 +12,11 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { differenceInDays } from "date-fns";
+import { differenceInDays, endOfDay, startOfDay } from "date-fns";
 import { useQuery } from "@tanstack/react-query";
 import { graphqlClient } from "@/lib/graphql-client";
 import { GET_PADARIAS_RANKING } from "@/graphql/queries";
+import { DateRange } from "react-day-picker";
 
 const getRankIcon = (position: number) => {
   switch (position) {
@@ -48,11 +49,22 @@ const getStatusBadge = (status: string, position: number) => {
   return <Badge variant="outline">{status}</Badge>;
 };
 
-export function LeaderboardTable() {
+type LeaderboardTableProps = {
+  dateRange?: DateRange;
+};
+
+export function LeaderboardTable({ dateRange }: LeaderboardTableProps) {
   const [showAll, setShowAll] = useState(false);
+  const startDate = dateRange?.from ? startOfDay(dateRange.from).toISOString() : null;
+  const endDate = dateRange?.to
+    ? endOfDay(dateRange.to).toISOString()
+    : dateRange?.from
+      ? endOfDay(dateRange.from).toISOString()
+      : null;
+
   // Buscar ranking de padarias
   const { data: rankingData, isLoading } = useQuery({
-    queryKey: ['padarias-ranking-table', showAll],
+    queryKey: ['padarias-ranking-table', showAll, startDate, endDate],
     queryFn: async () => {
       const data = await graphqlClient.query<{
         padarias: Array<{
@@ -65,10 +77,11 @@ export function LeaderboardTable() {
             data_compra: string;
           }>;
         }>;
-      }>(
-        GET_PADARIAS_RANKING,
-        showAll ? undefined : { limit: 10 }
-      );
+      }>(GET_PADARIAS_RANKING, {
+        limit: showAll ? undefined : 10,
+        startDate,
+        endDate,
+      });
       return data;
     },
     refetchInterval: 60000, // Atualiza a cada 1 minuto

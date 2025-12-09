@@ -111,7 +111,7 @@ export const GET_PADARIAS = `
 
 // Query para ranking de padarias (leaderboard)
 export const GET_PADARIAS_RANKING = `
-  query GetPadariasRanking($limit: Int) {
+  query GetPadariasRanking($limit: Int, $startDate: timestamptz, $endDate: timestamptz) {
     padarias(
       limit: $limit,
       order_by: {cupons_aggregate: {count: desc}}
@@ -119,12 +119,18 @@ export const GET_PADARIAS_RANKING = `
       id
       nome
       status
-      cupons_aggregate {
+      cupons_aggregate(
+        where: {data_compra: {_gte: $startDate, _lte: $endDate}, status: {_eq: "ativo"}}
+      ) {
         aggregate {
           count
         }
       }
-      cupons(order_by: {data_compra: desc}, limit: 1) {
+      cupons(
+        order_by: {data_compra: desc},
+        limit: 1,
+        where: {data_compra: {_gte: $startDate, _lte: $endDate}, status: {_eq: "ativo"}}
+      ) {
         numero_sorte
         data_compra
       }
@@ -1383,18 +1389,29 @@ export const GET_ALL_CLIENTES_ADMIN_SIMPLE = `
 
 // Query para métricas do painel administrativo
 export const GET_ADMIN_DASHBOARD_METRICS = `
-  query GetAdminDashboardMetrics {
+  query GetAdminDashboardMetrics($startDate: timestamptz, $endDate: timestamptz) {
     clientes_aggregate {
       aggregate {
         count
       }
     }
-    cupons_aggregate(where: {status: {_eq: "ativo"}}) {
+    cupons_aggregate(
+      where: {
+        status: {_eq: "ativo"}
+        data_compra: {_gte: $startDate, _lte: $endDate}
+      }
+    ) {
       aggregate {
         count
       }
     }
-    cupons(order_by: {data_compra: desc}, where: {status: {_eq: "ativo"}}) {
+    cupons(
+      order_by: {data_compra: desc}
+      where: {
+        status: {_eq: "ativo"}
+        data_compra: {_gte: $startDate, _lte: $endDate}
+      }
+    ) {
       id
       data_compra
       serie

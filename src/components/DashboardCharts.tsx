@@ -17,61 +17,76 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQuery } from "@tanstack/react-query";
 import { graphqlClient } from "@/lib/graphql-client";
-import { format, subDays } from "date-fns";
+import { differenceInCalendarDays, format, subDays, startOfDay, endOfDay } from "date-fns";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { DateRange } from "react-day-picker";
 
-export function DashboardCharts() {
+type DashboardChartsProps = {
+  dateRange?: DateRange;
+};
+
+type DashboardChartsResponse = {
+  cupons: Array<{ id: string; data_compra: string; valor_compra: string }>;
+  padarias: Array<{
+    nome: string;
+    cupons_aggregate: { aggregate: { count: number } };
+  }>;
+};
+
+export function DashboardCharts({ dateRange }: DashboardChartsProps) {
   const isMobile = useIsMobile();
-  
+
+  const startDate = dateRange?.from ? startOfDay(dateRange.from).toISOString() : undefined;
+  const endDate = dateRange?.to
+    ? endOfDay(dateRange.to).toISOString()
+    : dateRange?.from
+      ? endOfDay(dateRange.from).toISOString()
+      : undefined;
+
   // Buscar métricas para os gráficos
-  const { data: metricsData, isLoading } = useQuery({
-    queryKey: ['dashboard-charts-metrics'],
-    queryFn: async () => {
-      const data = await graphqlClient.query<{
-        cupons: Array<{ id: string; data_compra: string; valor_compra: string }>;
-      }>(`
-        query GetCuponsForCharts {
-          cupons(order_by: {data_compra: desc}, limit: 100) {
+  const { data: metricsData, isLoading } = useQuery<DashboardChartsResponse>({
+    queryKey: ['dashboard-charts-metrics', startDate, endDate],
+    queryFn: async (): Promise<DashboardChartsResponse> => {
+      const dateFilters = { startDate: startDate ?? null, endDate: endDate ?? null };
+
+      const data = await graphqlClient.query<DashboardChartsResponse>(`
+        query GetCuponsForCharts($startDate: timestamptz, $endDate: timestamptz) {
+          cupons(
+            order_by: {data_compra: desc}
+            where: {
+              data_compra: {_gte: $startDate, _lte: $endDate}
+              status: {_eq: "ativo"}
+            }
+            limit: 365
+          ) {
             id
             data_compra
             valor_compra
           }
-        }
-      `);
-      return data;
-    }
-  });
-
-  // Buscar padarias com contagem de cupons
-  const { data: padariasData } = useQuery({
-    queryKey: ['padarias-cupons'],
-    queryFn: async () => {
-      const data = await graphqlClient.query<{
-        padarias: Array<{
-          nome: string;
-          cupons_aggregate: { aggregate: { count: number } };
-        }>;
-      }>(`
-        query GetPadariasCupons {
           padarias(
             order_by: {cupons_aggregate: {count: desc}}
             limit: 6
           ) {
             nome
-            cupons_aggregate {
+            cupons_aggregate(
+              where: {
+                data_compra: {_gte: $startDate, _lte: $endDate}
+                status: {_eq: "ativo"}
+              }
+            ) {
               aggregate {
                 count
               }
             }
           }
         }
-      `);
+      `, dateFilters);
       return data;
     }
   });
 
   // Processar dados para gráfico de barras
-  const bakeryData = (padariasData?.padarias || []).map(p => ({
+  const bakeryData = (metricsData?.padarias || []).map(p => ({
     name: p.nome,
     coupons: p.cupons_aggregate.aggregate.count
   }));
@@ -79,30 +94,34 @@ export function DashboardCharts() {
   // Processar dados para tendência diária (últimos 7 dias)
   const dailyTrends = (() => {
     if (!metricsData?.cupons) return [];
-    
-    const ultimosSete = [];
-    for (let i = 6; i >= 0; i--) {
-      const dia = subDays(new Date(), i);
+
+    const start = startDate ? new Date(startDate) : subDays(new Date(), 6);
+    const end = endDate ? new Date(endDate) : new Date();
+    const totalDias = Math.max(differenceInCalendarDays(end, start), 0);
+
+    const tendencia = [];
+    for (let i = totalDias; i >= 0; i--) {
+      const dia = subDays(end, i);
       const cupomsDoDia = metricsData.cupons.filter(c => {
         const dataCupom = new Date(c.data_compra);
         return dataCupom.toDateString() === dia.toDateString();
       }).length;
-      
-      ultimosSete.push({
+
+      tendencia.push({
         date: format(dia, 'dd/MM'),
         coupons: cupomsDoDia
       });
     }
-    return ultimosSete;
+    return tendencia;
   })();
 
   // Calcular distribuição (Top 5 padarias individualizadas) - Melhorado
   const participationData = (() => {
-    if (!padariasData?.padarias || padariasData.padarias.length === 0) {
+    if (!metricsData?.padarias || metricsData.padarias.length === 0) {
       return [{ name: "Sem dados", value: 100, color: "hsl(var(--muted))" }];
     }
 
-    const todasTotal = padariasData.padarias.reduce((acc, p) => acc + p.cupons_aggregate.aggregate.count, 0);
+    const todasTotal = metricsData.padarias.reduce((acc, p) => acc + p.cupons_aggregate.aggregate.count, 0);
     
     if (todasTotal === 0) {
       return [{ name: "Sem cupons", value: 100, color: "hsl(var(--muted))" }];
@@ -121,7 +140,7 @@ export function DashboardCharts() {
     ];
 
     // Ordenar padarias por número de cupons (maior para menor)
-    const padariasOrdenadas = [...padariasData.padarias].sort((a, b) => 
+    const padariasOrdenadas = [...metricsData.padarias].sort((a, b) =>
       b.cupons_aggregate.aggregate.count - a.cupons_aggregate.aggregate.count
     );
 
