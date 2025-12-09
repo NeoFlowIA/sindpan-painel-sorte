@@ -229,13 +229,13 @@ export function PadariaDashboard() {
     ?.map(cliente => ({
       nome: cliente.nome,
       cpf: maskCPF(cliente.cpf), // ✅ CPF mascarado para proteção de dados
-      cupons: cliente.cupons?.length || 0,
-      ultimaCompra: cliente.cupons?.[0]?.data_compra 
+      cupons: cliente.cupons_aggregate?.aggregate?.count ?? cliente.cupons?.length ?? 0,
+      ultimaCompra: cliente.cupons?.[0]?.data_compra
         ? new Date(cliente.cupons[0].data_compra).toLocaleDateString('pt-BR')
         : 'N/A'
     }))
     ?.sort((a, b) => b.cupons - a.cupons) // Ordenar por quantidade de cupons (maior para menor)
-    ?.slice(0, 5) || []; // Pegar apenas os top 5
+    ?.slice(0, 5) || []; // Pegar apenas os top 5 (segurança extra)
 
   // Formatar dados dos cupons recentes
   const cuponsRecentes = cuponsRecentesData?.cupons?.map(cupom => ({

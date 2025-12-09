@@ -930,7 +930,8 @@ export const GET_TOP_CLIENTES = `
   query GetTopClientes($padaria_id: uuid!) {
     clientes(
       where: {padaria_id: {_eq: $padaria_id}}
-      limit: 50
+      order_by: {cupons_aggregate: {count: desc}}
+      limit: 5
     ) {
       id
       nome
@@ -941,6 +942,7 @@ export const GET_TOP_CLIENTES = `
           padaria_id: {_eq: $padaria_id}
         }
         order_by: {data_compra: desc}
+        limit: 1
       ) {
         id
         cliente_id
@@ -951,6 +953,16 @@ export const GET_TOP_CLIENTES = `
         valor_desconto
         data_compra
         status
+      }
+      cupons_aggregate(
+        where: {
+          status: {_eq: "ativo"},
+          padaria_id: {_eq: $padaria_id}
+        }
+      ) {
+        aggregate {
+          count
+        }
       }
     }
   }
