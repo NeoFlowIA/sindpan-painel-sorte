@@ -248,6 +248,7 @@ export function PadariaSorteio() {
             ganhador_id: resultado.clienteId,
         data_sorteio: dataSorteio,
         padaria_id: padariaId,
+        serie: resultado.serie,
       });
           console.log(`✅ Sorteio ${i + 1} salvo com sucesso`);
 
@@ -711,16 +712,16 @@ export function PadariaSorteio() {
                       : "Data não disponível";
 
                     return (
-                      <div
-                        key={sorteio.id}
-                        className="flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between"
-                      >
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-3">
+                    <div
+                      key={sorteio.id}
+                      className="flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between"
+                    >
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-3">
                           <div>
                             <div className="font-medium">{cliente?.nome || "Cliente não encontrado"}</div>
                             <div className="text-sm text-muted-foreground">
                               {cliente?.whatsapp ? `${formatPhone(cliente.whatsapp)} • ` : ""}
-                              Cupom: {sorteio.numero_sorteado || "N/A"}
+                              Cupom: {sorteio.numero_sorteado || "N/A"} {sorteio.serie ? `• Série ${sorteio.serie}` : ""}
                             </div>
                             {cliente?.cpf && (
                               <div className="text-sm text-muted-foreground">CPF: {maskCPF(cliente.cpf)}</div>

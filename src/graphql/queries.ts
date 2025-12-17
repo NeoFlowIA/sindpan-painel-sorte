@@ -1251,6 +1251,7 @@ export const GET_HISTORICO_SORTEIOS = `
       ganhador_id
       tipo
       padaria_id
+      serie
       cliente {
         id
         nome
@@ -1281,7 +1282,8 @@ export const SALVAR_SORTEIO_PADARIA = `
     $numero_sorteado: String!,
     $ganhador_id: uuid!,
     $data_sorteio: timestamptz!,
-    $padaria_id: uuid!
+    $padaria_id: uuid!,
+    $serie: Int!
   ) {
     insert_sorteios_one(
       object: {
@@ -1289,11 +1291,12 @@ export const SALVAR_SORTEIO_PADARIA = `
         ganhador_id: $ganhador_id,
         data_sorteio: $data_sorteio,
         tipo: "padaria",
-        padaria_id: $padaria_id
+        padaria_id: $padaria_id,
+        serie: $serie
       },
       on_conflict: {
         constraint: sorteios_ganhador_id_key,
-        update_columns: [numero_sorteado, data_sorteio, tipo, padaria_id]
+        update_columns: [numero_sorteado, data_sorteio, tipo, padaria_id, serie]
       }
     ) {
       id
@@ -1302,6 +1305,7 @@ export const SALVAR_SORTEIO_PADARIA = `
       ganhador_id
       tipo
       padaria_id
+      serie
       cliente {
         id
         nome
