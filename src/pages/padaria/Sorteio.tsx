@@ -3,8 +3,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -28,7 +26,6 @@ import {
   Shuffle,
   Trophy,
   Users,
-  Settings,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -53,10 +50,6 @@ export function PadariaSorteio() {
   const [sorteioSelecionado, setSorteioSelecionado] = useState<Sorteio | null>(null);
   const [detalhesAberto, setDetalhesAberto] = useState(false);
   
-  // Estados para configuração do sorteio
-  const [numeroInicial, setNumeroInicial] = useState<string>("");
-  const [serieInicial, setSerieInicial] = useState<string>("");
-  const [serieUnica, setSerieUnica] = useState(false);
   const [resultadosSorteio, setResultadosSorteio] = useState<ResultadoSorteio[]>([]);
   const [stageOpen, setStageOpen] = useState(false);
   const [stageEstado, setStageEstado] = useState<"idle" | "spinning" | "revealing" | "done">("idle");
@@ -132,33 +125,7 @@ export function PadariaSorteio() {
     }
   }, []);
 
-  const preencherConfiguracaoAleatoria = useCallback(() => {
-    if (!cuponsDisponiveis.length) return;
-
-    const cupomAleatorio = cuponsDisponiveis[Math.floor(Math.random() * cuponsDisponiveis.length)];
-    const serieCupom = (cupomAleatorio as { serie?: number }).serie ?? 1;
-
-    setNumeroInicial(cupomAleatorio.numero_sorte);
-    setSerieInicial(String(serieCupom));
-  }, [cuponsDisponiveis]);
-
-  useEffect(() => {
-    if (numeroInicial || serieInicial) return;
-    if (!cuponsDisponiveis.length) return;
-
-    preencherConfiguracaoAleatoria();
-  }, [cuponsDisponiveis, numeroInicial, serieInicial, preencherConfiguracaoAleatoria]);
-
   const realizarSorteio = useCallback(async () => {
-    if (!numeroInicial || !serieInicial) {
-      toast({
-        title: "Dados obrigatórios",
-        description: "Por favor, informe o número e série iniciais para o sorteio.",
-        variant: "destructive",
-      });
-      return;
-    }
-
     if (cuponsDisponiveis.length === 0) {
       toast({
         title: "Nenhum cupom disponível",
@@ -167,6 +134,10 @@ export function PadariaSorteio() {
       });
       return;
     }
+
+    const primeiroCupomAleatorio = cuponsDisponiveis[Math.floor(Math.random() * cuponsDisponiveis.length)];
+    const numeroInicial = parseInt(primeiroCupomAleatorio.numero_sorte);
+    const serieInicial = (primeiroCupomAleatorio as { serie?: number }).serie ?? 1;
 
     setStageOpen(true);
     setStageEstado("spinning");
@@ -194,19 +165,19 @@ export function PadariaSorteio() {
           if (i === 0) {
             // PRIMEIRO SORTEIO: Buscar cupom com número e série iniciais
             const cupomEncontrado = cuponsParaSorteio.find(c => 
-              c.numero === parseInt(numeroInicial) && 
-              c.serie === parseInt(serieInicial)
+              c.numero === numeroInicial && 
+              c.serie === serieInicial
             );
             
             if (!cupomEncontrado) {
               // Se não encontrou exato, buscar o mais próximo na mesma série
               const cuponsMesmaSerie = cuponsParaSorteio.filter(c => 
-                c.serie === parseInt(serieInicial)
+                c.serie === serieInicial
               );
               
               if (cuponsMesmaSerie.length > 0) {
                 const cupomMaisProximo = cuponsMesmaSerie.reduce((closest, current) => 
-                  Math.abs(current.numero - parseInt(numeroInicial)) < Math.abs(closest.numero - parseInt(numeroInicial)) 
+                  Math.abs(current.numero - numeroInicial) < Math.abs(closest.numero - numeroInicial) 
                     ? current : closest
                 );
                 resultado = {
@@ -365,16 +336,13 @@ export function PadariaSorteio() {
     } finally {
       setIsSorteando(false);
     }
-  }, [numeroInicial, serieInicial, cuponsDisponiveis, padariaId, salvarSorteioPadaria, toast, cuponsSorteados, usuariosGanhadores, marcarCupomSorteado]);
+  }, [cuponsDisponiveis, padariaId, salvarSorteioPadaria, toast, cuponsSorteados, usuariosGanhadores, marcarCupomSorteado]);
 
   const iniciarNovoSorteio = useCallback(() => {
     setCuponsSorteados(new Set());
     setUsuariosGanhadores(new Set());
     setUltimoGanhador(null);
     setResultadosSorteio([]);
-    setNumeroInicial("");
-    setSerieInicial("");
-    setSerieUnica(false);
     refetchCupons();
     toast({
       title: "Novo sorteio iniciado",
@@ -448,76 +416,8 @@ export function PadariaSorteio() {
         </TabsList>
 
         <TabsContent value="sorteio" className="mt-6 space-y-6">
-          {/* Configuração do Sorteio */}
-          <Card className="border-primary/20 bg-primary/5">
-            <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="space-y-1">
-                <CardTitle className="flex items-center gap-2 text-primary">
-                  <Settings className="h-5 w-5" />
-                  Configuração do Sorteio
-                </CardTitle>
-                <CardDescription>
-                  Configure os parâmetros iniciais para o sorteio de 5 ganhadores
-                </CardDescription>
-              </div>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={preencherConfiguracaoAleatoria}
-                disabled={cuponsDisponiveisCount === 0 || isSorteando}
-                className="border-primary/30 text-primary shadow-sm transition hover:border-primary hover:bg-primary/10"
-              >
-                Gerar número aleatório
-              </Button>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-3">
-                <div className="space-y-2">
-                  <Label htmlFor="numero-inicial">Número Inicial</Label>
-                  <Input
-                    id="numero-inicial"
-                    type="number"
-                    placeholder="Ex: 12345"
-                    value={numeroInicial}
-                    onChange={(e) => setNumeroInicial(e.target.value)}
-                    disabled={isSorteando}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="serie-inicial">Série Inicial</Label>
-                  <Input
-                    id="serie-inicial"
-                    type="number"
-                    placeholder="Ex: 1"
-                    min="0"
-                    max="10"
-                    value={serieInicial}
-                    onChange={(e) => setSerieInicial(e.target.value)}
-                    disabled={isSorteando}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="serie-unica">Série Única</Label>
-                  <div className="flex items-center space-x-2">
-                    <input
-                      id="serie-unica"
-                      type="checkbox"
-                      checked={serieUnica}
-                      onChange={(e) => setSerieUnica(e.target.checked)}
-                      disabled={isSorteando}
-                      className="rounded border-gray-300"
-                    />
-                    <Label htmlFor="serie-unica" className="text-sm">
-                      Manter apenas na série inicial
-                    </Label>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
           <SortearButton 
-            disabled={isSorteando || cuponsDisponiveisCount === 0 || !numeroInicial || !serieInicial} 
+            disabled={isSorteando || cuponsDisponiveisCount === 0} 
             onSortear={handleSortear} 
           />
 
