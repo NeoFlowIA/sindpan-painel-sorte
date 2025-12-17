@@ -1295,7 +1295,7 @@ export const SALVAR_SORTEIO_PADARIA = `
         serie: $serie
       },
       on_conflict: {
-        constraint: sorteios_ganhador_id_key,
+        constraint: sorteios_pkey,
         update_columns: [numero_sorteado, data_sorteio, tipo, padaria_id, serie]
       }
     ) {
