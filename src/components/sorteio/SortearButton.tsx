@@ -43,12 +43,12 @@ export function SortearButton({ disabled, onSortear }: SortearButtonProps) {
               }
             }}
             className={cn(
-              "group flex flex-col gap-4 rounded-3xl border border-secondary/40 bg-card p-4 shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:bg-secondary/20",
+              "group flex flex-col gap-4 rounded-3xl border border-primary/30 bg-gradient-to-r from-primary/5 via-background to-primary/5 p-4 shadow-xl transition hover:-translate-y-0.5 hover:shadow-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:from-primary/10 dark:via-secondary/20 dark:to-primary/10",
               disabled && "cursor-not-allowed opacity-60 hover:translate-y-0 hover:shadow-lg"
             )}
           >
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/15 text-primary shadow-inner">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-inner shadow-primary/40">
                 <Sparkles className="h-6 w-6" aria-hidden="true" />
               </div>
               <div className="flex-1 space-y-1 text-center sm:text-left">
@@ -63,7 +63,7 @@ export function SortearButton({ disabled, onSortear }: SortearButtonProps) {
                   event.stopPropagation();
                   onSortear();
                 }}
-                className="w-full bg-primary text-primary-foreground shadow-lg transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:w-auto"
+                className="w-full bg-gradient-to-r from-primary to-primary/80 text-primary-foreground shadow-xl transition hover:from-primary/90 hover:to-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:w-auto"
               >
                 Sortear
               </Button>

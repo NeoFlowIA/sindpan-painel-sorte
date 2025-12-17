@@ -58,7 +58,6 @@ export function PadariaSorteio() {
   const [serieInicial, setSerieInicial] = useState<string>("");
   const [serieUnica, setSerieUnica] = useState(false);
   const [resultadosSorteio, setResultadosSorteio] = useState<ResultadoSorteio[]>([]);
-
   const [stageOpen, setStageOpen] = useState(false);
   const [stageEstado, setStageEstado] = useState<"idle" | "spinning" | "revealing" | "done">("idle");
   const [stageWinner, setStageWinner] = useState<RaffleWinner | undefined>();
@@ -132,6 +131,23 @@ export function PadariaSorteio() {
       window.clearTimeout(revealTimeoutRef.current);
     }
   }, []);
+
+  const preencherConfiguracaoAleatoria = useCallback(() => {
+    if (!cuponsDisponiveis.length) return;
+
+    const cupomAleatorio = cuponsDisponiveis[Math.floor(Math.random() * cuponsDisponiveis.length)];
+    const serieCupom = (cupomAleatorio as { serie?: number }).serie ?? 1;
+
+    setNumeroInicial(cupomAleatorio.numero_sorte);
+    setSerieInicial(String(serieCupom));
+  }, [cuponsDisponiveis]);
+
+  useEffect(() => {
+    if (numeroInicial || serieInicial) return;
+    if (!cuponsDisponiveis.length) return;
+
+    preencherConfiguracaoAleatoria();
+  }, [cuponsDisponiveis, numeroInicial, serieInicial, preencherConfiguracaoAleatoria]);
 
   const realizarSorteio = useCallback(async () => {
     if (!numeroInicial || !serieInicial) {
@@ -349,7 +365,7 @@ export function PadariaSorteio() {
     } finally {
       setIsSorteando(false);
     }
-  }, [numeroInicial, serieInicial, serieUnica, cuponsDisponiveis, padariaId, salvarSorteioPadaria, toast, cuponsSorteados, usuariosGanhadores]);
+  }, [numeroInicial, serieInicial, cuponsDisponiveis, padariaId, salvarSorteioPadaria, toast, cuponsSorteados, usuariosGanhadores, marcarCupomSorteado]);
 
   const iniciarNovoSorteio = useCallback(() => {
     setCuponsSorteados(new Set());
@@ -434,14 +450,25 @@ export function PadariaSorteio() {
         <TabsContent value="sorteio" className="mt-6 space-y-6">
           {/* Configuração do Sorteio */}
           <Card className="border-primary/20 bg-primary/5">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-primary">
-                <Settings className="h-5 w-5" />
-                Configuração do Sorteio
-              </CardTitle>
-              <CardDescription>
-                Configure os parâmetros iniciais para o sorteio de 5 ganhadores
-              </CardDescription>
+            <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="space-y-1">
+                <CardTitle className="flex items-center gap-2 text-primary">
+                  <Settings className="h-5 w-5" />
+                  Configuração do Sorteio
+                </CardTitle>
+                <CardDescription>
+                  Configure os parâmetros iniciais para o sorteio de 5 ganhadores
+                </CardDescription>
+              </div>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={preencherConfiguracaoAleatoria}
+                disabled={cuponsDisponiveisCount === 0 || isSorteando}
+                className="border-primary/30 text-primary shadow-sm transition hover:border-primary hover:bg-primary/10"
+              >
+                Gerar número aleatório
+              </Button>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid gap-4 md:grid-cols-3">
