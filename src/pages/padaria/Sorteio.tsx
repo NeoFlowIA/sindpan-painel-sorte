@@ -283,6 +283,18 @@ export function PadariaSorteio() {
       }
 
       setResultadosSorteio(resultados);
+
+      if (resultados.length === 0) {
+        setStageWinner(undefined);
+        setStageEstado("idle");
+        setStageOpen(false);
+        toast({
+          title: "Não foi possível concluir o sorteio",
+          description: "Nenhum resultado foi gerado. Verifique os parâmetros e tente novamente.",
+          variant: "destructive",
+        });
+        return;
+      }
       
       // Atualizar estados com os resultados
       const novosCuponsSorteados = new Set(cuponsSorteados);
@@ -303,7 +315,7 @@ export function PadariaSorteio() {
       if (primeiroCupom) {
         setUltimoGanhador(primeiroCupom);
 
-      setStageWinner({
+        setStageWinner({
           numero: String(primeiroResultado.numero).padStart(5, "0"),
           nome: primeiroCupom.cliente.nome,
           telefone: primeiroCupom.cliente.whatsapp ? formatPhone(primeiroCupom.cliente.whatsapp) : "",
