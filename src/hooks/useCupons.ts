@@ -277,6 +277,7 @@ export const useTopClientes = (padariaId: string) => {
       nome: string;
       cpf: string;
       cupons: Array<{ id: number; data_compra: string }>;
+      cupons_aggregate: { aggregate: { count: number } };
     }>;
   }>(
     ['top-clientes', padariaId],
