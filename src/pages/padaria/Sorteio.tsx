@@ -12,13 +12,9 @@ import {
   useHistoricoSorteios,
   useParticipantesSorteio,
   useSalvarSorteioPadaria,
-  useReativarCupomEspecifico,
-  useReativarTodosCuponsCliente,
-  useReativarTodosCuponsSorteados,
-  useMarcarCupomSorteado,
 } from "@/hooks/useCupons";
 import { formatCPF, formatPhone, maskCPF } from "@/utils/formatters";
-import { executarSorteio, converterCuponsParaSorteio, type ResultadoSorteio } from "@/utils/sorteioUtils";
+import { type ResultadoSorteio } from "@/utils/sorteioUtils";
 import {
   Gift,
   History,
@@ -73,10 +69,6 @@ export function PadariaSorteio() {
     error: historicoError,
   } = useHistoricoSorteios(padariaId);
   const { mutateAsync: salvarSorteioPadaria } = useSalvarSorteioPadaria(padariaId);
-  const { mutateAsync: reativarCupomEspecifico } = useReativarCupomEspecifico();
-  const { mutateAsync: reativarTodosCuponsCliente } = useReativarTodosCuponsCliente();
-  const { mutateAsync: reativarTodosCuponsSorteados } = useReativarTodosCuponsSorteados();
-  const { mutateAsync: marcarCupomSorteado } = useMarcarCupomSorteado();
 
   useEffect(() => {
     if (!historicoData?.sorteios?.length) {
@@ -152,123 +144,25 @@ export function PadariaSorteio() {
       }
 
       const dataSorteio = new Date().toISOString();
-      const resultados: ResultadoSorteio[] = [];
-      
-      // Converter cupons para formato da função de sorteio
-      let cuponsParaSorteio = converterCuponsParaSorteio(cuponsDisponiveis);
-      
-      // Executar 5 sorteios sequenciais
-      for (let i = 0; i < 5; i++) {
-        try {
-          let resultado: ResultadoSorteio;
-          
-          if (i === 0) {
-            // PRIMEIRO SORTEIO: Buscar cupom com número e série iniciais
-            const cupomEncontrado = cuponsParaSorteio.find(c => 
-              c.numero === numeroInicial && 
-              c.serie === serieInicial
-            );
-            
-            if (!cupomEncontrado) {
-              // Se não encontrou exato, buscar o mais próximo na mesma série
-              const cuponsMesmaSerie = cuponsParaSorteio.filter(c => 
-                c.serie === serieInicial
-              );
-              
-              if (cuponsMesmaSerie.length > 0) {
-                const cupomMaisProximo = cuponsMesmaSerie.reduce((closest, current) => 
-                  Math.abs(current.numero - numeroInicial) < Math.abs(closest.numero - numeroInicial) 
-                    ? current : closest
-                );
-                resultado = {
-                  cupomId: cupomMaisProximo.id,
-                  numero: cupomMaisProximo.numero,
-                  serie: cupomMaisProximo.serie,
-                  clienteId: cupomMaisProximo.clienteId
-                };
-              } else {
-                break; // Não há cupons na série
-              }
-            } else {
-              resultado = {
-                cupomId: cupomEncontrado.id,
-                numero: cupomEncontrado.numero,
-                serie: cupomEncontrado.serie,
-                clienteId: cupomEncontrado.clienteId
-              };
-            }
-          } else {
-            // PRÓXIMOS SORTEIOS: Buscar próximo número mais alto
-            const numeroAtual = resultados[resultados.length - 1].numero;
-            const clientesGanhadores = new Set(resultados.map(r => r.clienteId));
-            const cuponsUsados = new Set(resultados.map(r => r.cupomId));
-            
-            // Filtrar cupons disponíveis (não usados e de clientes que não ganharam)
-            const cuponsElegiveis = cuponsParaSorteio.filter(c => 
-              !clientesGanhadores.has(c.clienteId) &&
-              !cuponsUsados.has(c.id)
-            );
-            
-            if (cuponsElegiveis.length === 0) {
-              break; // Não há mais cupons disponíveis
-            }
-            
-            // Buscar próximo cupom com número mais alto
-            const proximoCupom = cuponsElegiveis
-              .filter(c => c.numero > numeroAtual)
-              .sort((a, b) => a.numero - b.numero)[0];
-            
-            if (!proximoCupom) {
-              // Se não há número maior, pegar o menor disponível
-              const menorCupom = cuponsElegiveis.sort((a, b) => a.numero - b.numero)[0];
-              if (!menorCupom) break;
-              
-              resultado = {
-                cupomId: menorCupom.id,
-                numero: menorCupom.numero,
-                serie: menorCupom.serie,
-                clienteId: menorCupom.clienteId
-              };
-            } else {
-              resultado = {
-                cupomId: proximoCupom.id,
-                numero: proximoCupom.numero,
-                serie: proximoCupom.serie,
-                clienteId: proximoCupom.clienteId
-              };
-            }
-          }
-          
-          resultados.push(resultado);
-          
-          // SALVAR O SORTEIO IMEDIATAMENTE
-          console.log(`💾 Salvando sorteio ${i + 1}: Cupom ${resultado.numero}, Cliente ${resultado.clienteId}`);
-          await salvarSorteioPadaria({
-            numero_sorteado: resultado.numero.toString(),
-            ganhador_id: resultado.clienteId,
+      const resultado: ResultadoSorteio = {
+        cupomId: primeiroCupomAleatorio.id,
+        numero: numeroInicial,
+        serie: serieInicial,
+        clienteId: primeiroCupomAleatorio.cliente_id,
+      };
+
+      // SALVAR O SORTEIO IMEDIATAMENTE
+      console.log(`💾 Salvando sorteio: Cupom ${resultado.numero}, Cliente ${resultado.clienteId}`);
+      await salvarSorteioPadaria({
+        numero_sorteado: resultado.numero.toString(),
+        ganhador_id: resultado.clienteId,
         data_sorteio: dataSorteio,
         padaria_id: padariaId,
         serie: resultado.serie,
       });
-          console.log(`✅ Sorteio ${i + 1} salvo com sucesso`);
+      console.log("✅ Sorteio salvo com sucesso");
 
-          // MARCAR CUPOM COMO USADO IMEDIATAMENTE
-          console.log(`🏷️ Marcando cupom ${resultado.cupomId} como usado_sorteio`);
-          await marcarCupomSorteado({ cupom_id: resultado.cupomId });
-          console.log(`✅ Cupom ${resultado.cupomId} marcado como usado_sorteio`);
-          
-          // ATUALIZAR LISTA LOCAL
-          cuponsParaSorteio = cuponsParaSorteio.map(c => 
-            c.id === resultado.cupomId 
-              ? { ...c, status: 'usado_sorteio' as const }
-              : c
-          );
-          
-        } catch (error) {
-          console.error(`Erro ao salvar resultado do sorteio ${i + 1}:`, error);
-          break;
-        }
-      }
+      const resultados: ResultadoSorteio[] = [resultado];
 
       setResultadosSorteio(resultados);
 
@@ -337,7 +231,7 @@ export function PadariaSorteio() {
     } finally {
       setIsSorteando(false);
     }
-  }, [cuponsDisponiveis, padariaId, salvarSorteioPadaria, toast, cuponsSorteados, usuariosGanhadores, marcarCupomSorteado]);
+  }, [cuponsDisponiveis, padariaId, salvarSorteioPadaria, toast, cuponsSorteados, usuariosGanhadores]);
 
   const iniciarNovoSorteio = useCallback(() => {
     setCuponsSorteados(new Set());
@@ -447,43 +341,6 @@ export function PadariaSorteio() {
                           <div className="text-sm text-muted-foreground">Série {resultado.serie}</div>
                         </div>
                       </div>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={async () => {
-                            try {
-                              await reativarCupomEspecifico({ cupom_id: resultado.cupomId });
-                              toast({
-                                title: "Cupom reativado",
-                                description: `Cupom ${resultado.numero} foi reativado com sucesso`,
-                              });
-                              // Atualizar lista de resultados
-                              setResultadosSorteio(prev => prev.filter(r => r.cupomId !== resultado.cupomId));
-                              // Atualizar estados locais
-                              setCuponsSorteados(prev => {
-                                const novos = new Set(prev);
-                                novos.delete(resultado.numero.toString());
-                                return novos;
-                              });
-                              setUsuariosGanhadores(prev => {
-                                const novos = new Set(prev);
-                                novos.delete(resultado.clienteId);
-                                return novos;
-                              });
-                            } catch (error) {
-                              toast({
-                                title: "Erro ao reativar cupom",
-                                description: "Não foi possível reativar o cupom. Tente novamente.",
-                                variant: "destructive",
-                              });
-                            }
-                          }}
-                        >
-                          <RotateCcw className="h-4 w-4 mr-1" />
-                          Reativar
-                        </Button>
-                      </div>
                     </div>
                   ))}
                 </div>
@@ -548,55 +405,6 @@ export function PadariaSorteio() {
               </Button>
               </div>
               
-              {/* Botões de Reativação */}
-              <div className="border-t pt-4">
-                <h4 className="text-sm font-medium text-muted-foreground mb-3">Reativação de Cupons</h4>
-                <div className="flex flex-col gap-2 md:flex-row">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={async () => {
-                      if (resultadosSorteio.length === 0) {
-                        toast({
-                          title: "Nenhum resultado",
-                          description: "Não há cupons sorteados para reativar",
-                          variant: "destructive",
-                        });
-                        return;
-                      }
-                      
-                      try {
-                        // Reativar todos os cupons sorteados
-                        await reativarTodosCuponsSorteados({});
-                        toast({
-                          title: "Todos os cupons reativados",
-                          description: "Todos os cupons sorteados foram reativados com sucesso",
-                        });
-                        
-                        // Limpar estados locais
-                        setResultadosSorteio([]);
-                        setCuponsSorteados(new Set());
-                        setUsuariosGanhadores(new Set());
-                        setUltimoGanhador(null);
-                        
-                        // Recarregar dados
-                        refetchCupons();
-                      } catch (error) {
-                        toast({
-                          title: "Erro ao reativar cupons",
-                          description: "Não foi possível reativar os cupons. Tente novamente.",
-                          variant: "destructive",
-                        });
-                      }
-                    }}
-                    className="flex-1"
-                    disabled={resultadosSorteio.length === 0}
-                  >
-                    <RotateCcw className="mr-2 h-4 w-4" />
-                    Reativar Todos
-                  </Button>
-                </div>
-              </div>
             </CardContent>
           </Card>
 
