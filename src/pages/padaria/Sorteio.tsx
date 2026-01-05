@@ -59,7 +59,7 @@ export function PadariaSorteio() {
   const { user } = useAuth();
   const { toast } = useToast();
 
-  const padariaId = user?.padarias_id ?? undefined;
+  const padariaId = user?.padarias_id ?? user?.padarias?.id ?? undefined;
 
   const {
     data: cuponsData,
