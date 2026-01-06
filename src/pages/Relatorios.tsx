@@ -66,19 +66,14 @@ export default function Relatorios() {
         clientes: Array<{
           nome: string;
           cpf: string;
-          telefone: string;
-          email: string;
+          whatsapp: string;
+          padaria: {
+            nome: string;
+          } | null;
           cupons: Array<{
-            numero_cupom: string;
             numero_sorte: string | null;
-            created_at: string;
-            sorteio: {
-              nome: string;
-              data_sorteio: string;
-            } | null;
-            padaria: {
-              nome: string;
-            };
+            serie: number | null;
+            data_compra: string | null;
           }>;
         }>;
       }>(GET_ALL_CLIENTES_WITH_CUPONS);
@@ -97,14 +92,11 @@ export default function Relatorios() {
               rows.push([
                 `"${cliente.nome || 'N/A'}"`,
                 cliente.cpf || 'N/A',
-                cliente.telefone || 'N/A',
-                cliente.email || 'N/A',
-                cupom.numero_cupom || 'N/A',
                 cupom.numero_sorte || "N/A",
-                cupom.sorteio?.nome ? `"${cupom.sorteio.nome}"` : "N/A",
-                cupom.sorteio?.data_sorteio ? new Date(cupom.sorteio.data_sorteio).toLocaleDateString('pt-BR') : "N/A",
-                cupom.padaria?.nome ? `"${cupom.padaria.nome}"` : "N/A",
-                cupom.created_at ? new Date(cupom.created_at).toLocaleDateString('pt-BR') : 'N/A'
+                cupom.serie?.toString() || "N/A",
+                cliente.whatsapp || 'N/A',
+                cliente.padaria?.nome ? `"${cliente.padaria.nome}"` : "N/A",
+                cupom.data_compra ? new Date(cupom.data_compra).toLocaleDateString('pt-BR') : 'N/A'
               ].join(","));
             }
           });
@@ -114,14 +106,11 @@ export default function Relatorios() {
       const headers = [
         "Cliente",
         "CPF",
-        "Telefone",
-        "Email",
-        "Número do Cupom",
         "Número da Sorte",
-        "Sorteio",
-        "Data do Sorteio",
+        "Série",
+        "WhatsApp",
         "Padaria",
-        "Data de Cadastro"
+        "Data da Compra"
       ];
       
       const csvContent = [headers.join(","), ...rows].join("\n");

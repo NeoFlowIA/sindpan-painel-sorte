@@ -612,6 +612,9 @@ export const GET_ALL_CLIENTES_WITH_CUPONS = `
       id
       nome
       cpf
+      padaria {
+        nome
+      }
       padaria_id
       whatsapp
       resposta_pergunta
@@ -619,6 +622,8 @@ export const GET_ALL_CLIENTES_WITH_CUPONS = `
         cliente_id
         data_compra
         id
+        numero_sorte
+        serie
       }
     }
   }
