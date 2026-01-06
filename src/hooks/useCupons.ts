@@ -400,6 +400,7 @@ export interface Sorteio {
   ganhador_id: string;
   tipo?: string | null;
   padaria_id?: string | null;
+  serie?: number | null;
   cliente: {
     id: string;
     nome: string;
@@ -444,6 +445,7 @@ export const useHistoricoSorteios = (padariaId: string | undefined) => {
       ganhador_id: string;
       tipo: string | null;
       padaria_id: string | null;
+      serie: number | null;
       cliente: {
         id: string;
         nome: string;
@@ -492,6 +494,7 @@ export const useSalvarSorteioPadaria = (padariaId: string | undefined) => {
         ganhador_id: string;
         tipo: string | null;
         padaria_id: string | null;
+        serie: number | null;
         cliente: {
           id: string;
           nome: string;
@@ -505,6 +508,7 @@ export const useSalvarSorteioPadaria = (padariaId: string | undefined) => {
       ganhador_id: string;
       data_sorteio: string;
       padaria_id: string;
+      serie: number;
     }
   >(
     SALVAR_SORTEIO_PADARIA,

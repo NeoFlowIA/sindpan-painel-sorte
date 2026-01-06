@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Volume2, VolumeX } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
 import { SlotColumn, type SlotColumnState } from "./SlotColumn";
@@ -154,6 +154,9 @@ export function RaffleFullscreenStage({
         aria-modal="true"
         className="max-w-none h-[100dvh] w-[100vw] border-0 bg-transparent p-0 focus:outline-none"
       >
+        <DialogHeader className="sr-only">
+          <DialogTitle>Etapas do sorteio</DialogTitle>
+        </DialogHeader>
         <div className="relative flex h-full w-full items-center justify-center overflow-hidden bg-gradient-to-b from-background via-secondary/15 to-background text-foreground dark:from-secondary/20 dark:via-background/40 dark:to-background">
           <div className="absolute inset-0 backdrop-blur-sm" aria-hidden="true" />
           <div className="absolute inset-x-0 top-0 h-32 bg-[radial-gradient(circle_at_top,hsl(var(--accent))/0.35,transparent)]" aria-hidden="true" />

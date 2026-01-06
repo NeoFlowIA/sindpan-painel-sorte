@@ -3,8 +3,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -14,13 +12,9 @@ import {
   useHistoricoSorteios,
   useParticipantesSorteio,
   useSalvarSorteioPadaria,
-  useReativarCupomEspecifico,
-  useReativarTodosCuponsCliente,
-  useReativarTodosCuponsSorteados,
-  useMarcarCupomSorteado,
 } from "@/hooks/useCupons";
 import { formatCPF, formatPhone, maskCPF } from "@/utils/formatters";
-import { executarSorteio, converterCuponsParaSorteio, type ResultadoSorteio } from "@/utils/sorteioUtils";
+import { type ResultadoSorteio } from "@/utils/sorteioUtils";
 import {
   Gift,
   History,
@@ -28,7 +22,6 @@ import {
   Shuffle,
   Trophy,
   Users,
-  Settings,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -53,12 +46,7 @@ export function PadariaSorteio() {
   const [sorteioSelecionado, setSorteioSelecionado] = useState<Sorteio | null>(null);
   const [detalhesAberto, setDetalhesAberto] = useState(false);
   
-  // Estados para configuração do sorteio
-  const [numeroInicial, setNumeroInicial] = useState<string>("");
-  const [serieInicial, setSerieInicial] = useState<string>("");
-  const [serieUnica, setSerieUnica] = useState(false);
   const [resultadosSorteio, setResultadosSorteio] = useState<ResultadoSorteio[]>([]);
-
   const [stageOpen, setStageOpen] = useState(false);
   const [stageEstado, setStageEstado] = useState<"idle" | "spinning" | "revealing" | "done">("idle");
   const [stageWinner, setStageWinner] = useState<RaffleWinner | undefined>();
@@ -67,7 +55,7 @@ export function PadariaSorteio() {
   const { user } = useAuth();
   const { toast } = useToast();
 
-  const padariaId = user?.padarias_id ?? undefined;
+  const padariaId = user?.padarias_id ?? user?.padarias?.id ?? undefined;
 
   const {
     data: cuponsData,
@@ -81,10 +69,6 @@ export function PadariaSorteio() {
     error: historicoError,
   } = useHistoricoSorteios(padariaId);
   const { mutateAsync: salvarSorteioPadaria } = useSalvarSorteioPadaria(padariaId);
-  const { mutateAsync: reativarCupomEspecifico } = useReativarCupomEspecifico();
-  const { mutateAsync: reativarTodosCuponsCliente } = useReativarTodosCuponsCliente();
-  const { mutateAsync: reativarTodosCuponsSorteados } = useReativarTodosCuponsSorteados();
-  const { mutateAsync: marcarCupomSorteado } = useMarcarCupomSorteado();
 
   useEffect(() => {
     if (!historicoData?.sorteios?.length) {
@@ -134,15 +118,6 @@ export function PadariaSorteio() {
   }, []);
 
   const realizarSorteio = useCallback(async () => {
-    if (!numeroInicial || !serieInicial) {
-      toast({
-        title: "Dados obrigatórios",
-        description: "Por favor, informe o número e série iniciais para o sorteio.",
-        variant: "destructive",
-      });
-      return;
-    }
-
     if (cuponsDisponiveis.length === 0) {
       toast({
         title: "Nenhum cupom disponível",
@@ -151,6 +126,10 @@ export function PadariaSorteio() {
       });
       return;
     }
+
+    const primeiroCupomAleatorio = cuponsDisponiveis[Math.floor(Math.random() * cuponsDisponiveis.length)];
+    const numeroInicial = parseInt(primeiroCupomAleatorio.numero_sorte);
+    const serieInicial = (primeiroCupomAleatorio as { serie?: number }).serie ?? 1;
 
     setStageOpen(true);
     setStageEstado("spinning");
@@ -165,124 +144,39 @@ export function PadariaSorteio() {
       }
 
       const dataSorteio = new Date().toISOString();
-      const resultados: ResultadoSorteio[] = [];
-      
-      // Converter cupons para formato da função de sorteio
-      let cuponsParaSorteio = converterCuponsParaSorteio(cuponsDisponiveis);
-      
-      // Executar 5 sorteios sequenciais
-      for (let i = 0; i < 5; i++) {
-        try {
-          let resultado: ResultadoSorteio;
-          
-          if (i === 0) {
-            // PRIMEIRO SORTEIO: Buscar cupom com número e série iniciais
-            const cupomEncontrado = cuponsParaSorteio.find(c => 
-              c.numero === parseInt(numeroInicial) && 
-              c.serie === parseInt(serieInicial)
-            );
-            
-            if (!cupomEncontrado) {
-              // Se não encontrou exato, buscar o mais próximo na mesma série
-              const cuponsMesmaSerie = cuponsParaSorteio.filter(c => 
-                c.serie === parseInt(serieInicial)
-              );
-              
-              if (cuponsMesmaSerie.length > 0) {
-                const cupomMaisProximo = cuponsMesmaSerie.reduce((closest, current) => 
-                  Math.abs(current.numero - parseInt(numeroInicial)) < Math.abs(closest.numero - parseInt(numeroInicial)) 
-                    ? current : closest
-                );
-                resultado = {
-                  cupomId: cupomMaisProximo.id,
-                  numero: cupomMaisProximo.numero,
-                  serie: cupomMaisProximo.serie,
-                  clienteId: cupomMaisProximo.clienteId
-                };
-              } else {
-                break; // Não há cupons na série
-              }
-            } else {
-              resultado = {
-                cupomId: cupomEncontrado.id,
-                numero: cupomEncontrado.numero,
-                serie: cupomEncontrado.serie,
-                clienteId: cupomEncontrado.clienteId
-              };
-            }
-          } else {
-            // PRÓXIMOS SORTEIOS: Buscar próximo número mais alto
-            const numeroAtual = resultados[resultados.length - 1].numero;
-            const clientesGanhadores = new Set(resultados.map(r => r.clienteId));
-            const cuponsUsados = new Set(resultados.map(r => r.cupomId));
-            
-            // Filtrar cupons disponíveis (não usados e de clientes que não ganharam)
-            const cuponsElegiveis = cuponsParaSorteio.filter(c => 
-              !clientesGanhadores.has(c.clienteId) &&
-              !cuponsUsados.has(c.id)
-            );
-            
-            if (cuponsElegiveis.length === 0) {
-              break; // Não há mais cupons disponíveis
-            }
-            
-            // Buscar próximo cupom com número mais alto
-            const proximoCupom = cuponsElegiveis
-              .filter(c => c.numero > numeroAtual)
-              .sort((a, b) => a.numero - b.numero)[0];
-            
-            if (!proximoCupom) {
-              // Se não há número maior, pegar o menor disponível
-              const menorCupom = cuponsElegiveis.sort((a, b) => a.numero - b.numero)[0];
-              if (!menorCupom) break;
-              
-              resultado = {
-                cupomId: menorCupom.id,
-                numero: menorCupom.numero,
-                serie: menorCupom.serie,
-                clienteId: menorCupom.clienteId
-              };
-            } else {
-              resultado = {
-                cupomId: proximoCupom.id,
-                numero: proximoCupom.numero,
-                serie: proximoCupom.serie,
-                clienteId: proximoCupom.clienteId
-              };
-            }
-          }
-          
-          resultados.push(resultado);
-          
-          // SALVAR O SORTEIO IMEDIATAMENTE
-          console.log(`💾 Salvando sorteio ${i + 1}: Cupom ${resultado.numero}, Cliente ${resultado.clienteId}`);
-          await salvarSorteioPadaria({
-            numero_sorteado: resultado.numero.toString(),
-            ganhador_id: resultado.clienteId,
+      const resultado: ResultadoSorteio = {
+        cupomId: primeiroCupomAleatorio.id,
+        numero: numeroInicial,
+        serie: serieInicial,
+        clienteId: primeiroCupomAleatorio.cliente_id,
+      };
+
+      // SALVAR O SORTEIO IMEDIATAMENTE
+      console.log(`💾 Salvando sorteio: Cupom ${resultado.numero}, Cliente ${resultado.clienteId}`);
+      await salvarSorteioPadaria({
+        numero_sorteado: resultado.numero.toString(),
+        ganhador_id: resultado.clienteId,
         data_sorteio: dataSorteio,
         padaria_id: padariaId,
+        serie: resultado.serie,
       });
-          console.log(`✅ Sorteio ${i + 1} salvo com sucesso`);
+      console.log("✅ Sorteio salvo com sucesso");
 
-          // MARCAR CUPOM COMO USADO IMEDIATAMENTE
-          console.log(`🏷️ Marcando cupom ${resultado.cupomId} como usado_sorteio`);
-          await marcarCupomSorteado({ cupom_id: resultado.cupomId });
-          console.log(`✅ Cupom ${resultado.cupomId} marcado como usado_sorteio`);
-          
-          // ATUALIZAR LISTA LOCAL
-          cuponsParaSorteio = cuponsParaSorteio.map(c => 
-            c.id === resultado.cupomId 
-              ? { ...c, status: 'usado_sorteio' as const }
-              : c
-          );
-          
-        } catch (error) {
-          console.error(`Erro ao salvar resultado do sorteio ${i + 1}:`, error);
-          break;
-        }
-      }
+      const resultados: ResultadoSorteio[] = [resultado];
 
       setResultadosSorteio(resultados);
+
+      if (resultados.length === 0) {
+        setStageWinner(undefined);
+        setStageEstado("idle");
+        setStageOpen(false);
+        toast({
+          title: "Não foi possível concluir o sorteio",
+          description: "Nenhum resultado foi gerado. Verifique os parâmetros e tente novamente.",
+          variant: "destructive",
+        });
+        return;
+      }
       
       // Atualizar estados com os resultados
       const novosCuponsSorteados = new Set(cuponsSorteados);
@@ -303,7 +197,7 @@ export function PadariaSorteio() {
       if (primeiroCupom) {
         setUltimoGanhador(primeiroCupom);
 
-      setStageWinner({
+        setStageWinner({
           numero: String(primeiroResultado.numero).padStart(5, "0"),
           nome: primeiroCupom.cliente.nome,
           telefone: primeiroCupom.cliente.whatsapp ? formatPhone(primeiroCupom.cliente.whatsapp) : "",
@@ -337,16 +231,13 @@ export function PadariaSorteio() {
     } finally {
       setIsSorteando(false);
     }
-  }, [numeroInicial, serieInicial, serieUnica, cuponsDisponiveis, padariaId, salvarSorteioPadaria, toast, cuponsSorteados, usuariosGanhadores]);
+  }, [cuponsDisponiveis, padariaId, salvarSorteioPadaria, toast, cuponsSorteados, usuariosGanhadores]);
 
   const iniciarNovoSorteio = useCallback(() => {
     setCuponsSorteados(new Set());
     setUsuariosGanhadores(new Set());
     setUltimoGanhador(null);
     setResultadosSorteio([]);
-    setNumeroInicial("");
-    setSerieInicial("");
-    setSerieUnica(false);
     refetchCupons();
     toast({
       title: "Novo sorteio iniciado",
@@ -420,65 +311,8 @@ export function PadariaSorteio() {
         </TabsList>
 
         <TabsContent value="sorteio" className="mt-6 space-y-6">
-          {/* Configuração do Sorteio */}
-          <Card className="border-primary/20 bg-primary/5">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-primary">
-                <Settings className="h-5 w-5" />
-                Configuração do Sorteio
-              </CardTitle>
-              <CardDescription>
-                Configure os parâmetros iniciais para o sorteio de 5 ganhadores
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-3">
-                <div className="space-y-2">
-                  <Label htmlFor="numero-inicial">Número Inicial</Label>
-                  <Input
-                    id="numero-inicial"
-                    type="number"
-                    placeholder="Ex: 12345"
-                    value={numeroInicial}
-                    onChange={(e) => setNumeroInicial(e.target.value)}
-                    disabled={isSorteando}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="serie-inicial">Série Inicial</Label>
-                  <Input
-                    id="serie-inicial"
-                    type="number"
-                    placeholder="Ex: 1"
-                    min="0"
-                    max="10"
-                    value={serieInicial}
-                    onChange={(e) => setSerieInicial(e.target.value)}
-                    disabled={isSorteando}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="serie-unica">Série Única</Label>
-                  <div className="flex items-center space-x-2">
-                    <input
-                      id="serie-unica"
-                      type="checkbox"
-                      checked={serieUnica}
-                      onChange={(e) => setSerieUnica(e.target.checked)}
-                      disabled={isSorteando}
-                      className="rounded border-gray-300"
-                    />
-                    <Label htmlFor="serie-unica" className="text-sm">
-                      Manter apenas na série inicial
-                    </Label>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
           <SortearButton 
-            disabled={isSorteando || cuponsDisponiveisCount === 0 || !numeroInicial || !serieInicial} 
+            disabled={isSorteando || cuponsDisponiveisCount === 0} 
             onSortear={handleSortear} 
           />
 
@@ -506,43 +340,6 @@ export function PadariaSorteio() {
                           <div className="font-medium">Cupom {resultado.numero}</div>
                           <div className="text-sm text-muted-foreground">Série {resultado.serie}</div>
                         </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={async () => {
-                            try {
-                              await reativarCupomEspecifico({ cupom_id: resultado.cupomId });
-                              toast({
-                                title: "Cupom reativado",
-                                description: `Cupom ${resultado.numero} foi reativado com sucesso`,
-                              });
-                              // Atualizar lista de resultados
-                              setResultadosSorteio(prev => prev.filter(r => r.cupomId !== resultado.cupomId));
-                              // Atualizar estados locais
-                              setCuponsSorteados(prev => {
-                                const novos = new Set(prev);
-                                novos.delete(resultado.numero.toString());
-                                return novos;
-                              });
-                              setUsuariosGanhadores(prev => {
-                                const novos = new Set(prev);
-                                novos.delete(resultado.clienteId);
-                                return novos;
-                              });
-                            } catch (error) {
-                              toast({
-                                title: "Erro ao reativar cupom",
-                                description: "Não foi possível reativar o cupom. Tente novamente.",
-                                variant: "destructive",
-                              });
-                            }
-                          }}
-                        >
-                          <RotateCcw className="h-4 w-4 mr-1" />
-                          Reativar
-                        </Button>
                       </div>
                     </div>
                   ))}
@@ -608,55 +405,6 @@ export function PadariaSorteio() {
               </Button>
               </div>
               
-              {/* Botões de Reativação */}
-              <div className="border-t pt-4">
-                <h4 className="text-sm font-medium text-muted-foreground mb-3">Reativação de Cupons</h4>
-                <div className="flex flex-col gap-2 md:flex-row">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={async () => {
-                      if (resultadosSorteio.length === 0) {
-                        toast({
-                          title: "Nenhum resultado",
-                          description: "Não há cupons sorteados para reativar",
-                          variant: "destructive",
-                        });
-                        return;
-                      }
-                      
-                      try {
-                        // Reativar todos os cupons sorteados
-                        await reativarTodosCuponsSorteados({});
-                        toast({
-                          title: "Todos os cupons reativados",
-                          description: "Todos os cupons sorteados foram reativados com sucesso",
-                        });
-                        
-                        // Limpar estados locais
-                        setResultadosSorteio([]);
-                        setCuponsSorteados(new Set());
-                        setUsuariosGanhadores(new Set());
-                        setUltimoGanhador(null);
-                        
-                        // Recarregar dados
-                        refetchCupons();
-                      } catch (error) {
-                        toast({
-                          title: "Erro ao reativar cupons",
-                          description: "Não foi possível reativar os cupons. Tente novamente.",
-                          variant: "destructive",
-                        });
-                      }
-                    }}
-                    className="flex-1"
-                    disabled={resultadosSorteio.length === 0}
-                  >
-                    <RotateCcw className="mr-2 h-4 w-4" />
-                    Reativar Todos
-                  </Button>
-                </div>
-              </div>
             </CardContent>
           </Card>
 
@@ -772,16 +520,16 @@ export function PadariaSorteio() {
                       : "Data não disponível";
 
                     return (
-                      <div
-                        key={sorteio.id}
-                        className="flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between"
-                      >
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-3">
+                    <div
+                      key={sorteio.id}
+                      className="flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between"
+                    >
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-3">
                           <div>
                             <div className="font-medium">{cliente?.nome || "Cliente não encontrado"}</div>
                             <div className="text-sm text-muted-foreground">
                               {cliente?.whatsapp ? `${formatPhone(cliente.whatsapp)} • ` : ""}
-                              Cupom: {sorteio.numero_sorteado || "N/A"}
+                              Cupom: {sorteio.numero_sorteado || "N/A"} {sorteio.serie ? `• Série ${sorteio.serie}` : ""}
                             </div>
                             {cliente?.cpf && (
                               <div className="text-sm text-muted-foreground">CPF: {maskCPF(cliente.cpf)}</div>
