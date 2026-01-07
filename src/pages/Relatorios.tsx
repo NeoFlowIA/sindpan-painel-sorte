@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { useState } from "react";
 import jsPDF from "jspdf";
 import * as XLSX from "xlsx";
+import { exportToXLSX } from "@/utils/xlsx";
 
 export default function Relatorios() {
   const [isExporting, setIsExporting] = useState(false);
@@ -115,21 +116,11 @@ export default function Relatorios() {
         }
       });
 
-      const wb = XLSX.utils.book_new();
-      const ws = XLSX.utils.aoa_to_sheet(worksheetData);
-
-      ws["!cols"] = [
-        { wch: 30 }, // Cliente
-        { wch: 16 }, // CPF
-        { wch: 18 }, // Número da Sorte
-        { wch: 8 },  // Série
-        { wch: 18 }, // WhatsApp
-        { wch: 30 }, // Padaria
-        { wch: 14 }  // Data da Compra
-      ];
-
-      XLSX.utils.book_append_sheet(wb, ws, "Participação");
-      XLSX.writeFile(wb, `relatorio_participacao_${new Date().toISOString().split("T")[0]}.xlsx`);
+      exportToXLSX(
+        `relatorio_participacao_${new Date().toISOString().split("T")[0]}.xlsx`,
+        "Participação",
+        worksheetData
+      );
 
       toast.success(`Relatório exportado com ${worksheetData.length - 1} registros!`);
     } catch (error) {
