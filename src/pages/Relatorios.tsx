@@ -56,8 +56,8 @@ export default function Relatorios() {
     }
   });
 
-  // Exportar CSV de Participação
-  const generateParticipationCSV = async () => {
+  // Exportar XLSX de Participação
+  const generateParticipationXLSX = async () => {
     try {
       setIsExporting(true);
       toast.info("Gerando relatório de participação...");
@@ -83,49 +83,55 @@ export default function Relatorios() {
         return;
       }
 
-      // Processar dados no front
-      const rows: string[] = [];
+      const worksheetData = [
+        [
+          "Cliente",
+          "CPF",
+          "Número da Sorte",
+          "Série",
+          "WhatsApp",
+          "Padaria",
+          "Data da Compra"
+        ]
+      ];
+
       data.clientes.forEach(cliente => {
-        if (cliente && cliente.cupons && Array.isArray(cliente.cupons)) {
+        if (cliente?.cupons && Array.isArray(cliente.cupons)) {
           cliente.cupons.forEach(cupom => {
             if (cupom) {
-              rows.push([
-                `"${cliente.nome || 'N/A'}"`,
-                cliente.cpf || 'N/A',
-                cupom.numero_sorte || "N/A",
-                cupom.serie?.toString() || "N/A",
-                cliente.whatsapp || 'N/A',
-                cliente.padaria?.nome ? `"${cliente.padaria.nome}"` : "N/A",
-                cupom.data_compra ? new Date(cupom.data_compra).toLocaleDateString('pt-BR') : 'N/A'
-              ].join(","));
+              const numeroSorte = cupom.numero_sorte ? String(cupom.numero_sorte) : "N/A";
+              const serieValue = cupom.serie === 10 ? "0" : cupom.serie?.toString() || "N/A";
+              worksheetData.push([
+                cliente.nome || "N/A",
+                cliente.cpf || "N/A",
+                numeroSorte,
+                serieValue,
+                cliente.whatsapp || "N/A",
+                cliente.padaria?.nome || "N/A",
+                cupom.data_compra ? new Date(cupom.data_compra).toLocaleDateString("pt-BR") : "N/A"
+              ]);
             }
           });
         }
       });
 
-      const headers = [
-        "Cliente",
-        "CPF",
-        "Número da Sorte",
-        "Série",
-        "WhatsApp",
-        "Padaria",
-        "Data da Compra"
-      ];
-      
-      const csvContent = [headers.join(","), ...rows].join("\n");
-      const BOM = "\uFEFF";
-      const blob = new Blob([BOM + csvContent], { type: "text/csv;charset=utf-8;" });
-      const link = document.createElement("a");
-      const url = URL.createObjectURL(blob);
-      link.setAttribute("href", url);
-      link.setAttribute("download", `relatorio_participacao_${new Date().toISOString().split('T')[0]}.csv`);
-      link.style.visibility = "hidden";
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.aoa_to_sheet(worksheetData);
 
-      toast.success(`Relatório exportado com ${rows.length} registros!`);
+      ws["!cols"] = [
+        { wch: 30 }, // Cliente
+        { wch: 16 }, // CPF
+        { wch: 18 }, // Número da Sorte
+        { wch: 8 },  // Série
+        { wch: 18 }, // WhatsApp
+        { wch: 30 }, // Padaria
+        { wch: 14 }  // Data da Compra
+      ];
+
+      XLSX.utils.book_append_sheet(wb, ws, "Participação");
+      XLSX.writeFile(wb, `relatorio_participacao_${new Date().toISOString().split("T")[0]}.xlsx`);
+
+      toast.success(`Relatório exportado com ${worksheetData.length - 1} registros!`);
     } catch (error) {
       toast.error("Erro ao gerar relatório");
     } finally {
@@ -331,10 +337,10 @@ export default function Relatorios() {
     {
       title: "Relatório de Participação",
       description: "Lista completa de clientes, cupons, número do sorteio, data e padaria",
-      format: ".CSV",
+      format: ".XLSX",
       icon: FileText,
       color: "text-secondary",
-      action: generateParticipationCSV
+      action: generateParticipationXLSX
     },
     {
       title: "Números Sorteados",
