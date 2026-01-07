@@ -89,7 +89,6 @@ export default function Relatorios() {
           "Cliente",
           "CPF",
           "Número da Sorte",
-          "Série",
           "WhatsApp",
           "Padaria",
           "Data da Compra"
@@ -102,11 +101,14 @@ export default function Relatorios() {
             if (cupom) {
               const numeroSorte = cupom.numero_sorte ? String(cupom.numero_sorte) : "N/A";
               const serieValue = cupom.serie === 10 ? "0" : cupom.serie?.toString() || "N/A";
+              const numeroSorteComSerie =
+                numeroSorte === "N/A" && serieValue === "N/A"
+                  ? "N/A"
+                  : `${serieValue}/${numeroSorte}`;
               worksheetData.push([
                 cliente.nome || "N/A",
                 cliente.cpf || "N/A",
-                numeroSorte,
-                serieValue,
+                numeroSorteComSerie,
                 cliente.whatsapp || "N/A",
                 cliente.padaria?.nome || "N/A",
                 cupom.data_compra ? new Date(cupom.data_compra).toLocaleDateString("pt-BR") : "N/A"
