@@ -2434,8 +2434,8 @@ export default function Sorteios() {
                   </p>
                 </div>
 
-                <div className="w-full max-w-5xl space-y-6">
-                  <div className="flex flex-col gap-4 rounded-3xl border border-white/20 bg-white/10 p-4 sm:p-6 backdrop-blur-lg sm:flex-row sm:items-center sm:justify-between">
+                <div className="w-full max-w-5xl flex flex-col gap-6 min-h-0">
+                  <div className="sticky top-0 z-10 flex flex-col gap-4 rounded-3xl border border-white/20 bg-black/40 p-4 sm:p-6 backdrop-blur-lg sm:flex-row sm:items-center sm:justify-between">
                     <div className="space-y-2">
                       <div className="flex items-center gap-2 text-sm uppercase tracking-[0.3em] text-white/70">
                         <Clock className="h-4 w-4" />
@@ -2463,7 +2463,7 @@ export default function Sorteios() {
                     </div>
                   </div>
 
-                  <div className="grid gap-5">
+                  <div className="grid gap-5 overflow-y-auto pr-1 sm:pr-2 max-h-[calc(100vh-420px)] sm:max-h-[calc(100vh-460px)]">
                     {revealedShowcaseWinners.map((winner, index) => (
                       <div
                         key={`${winner.luckyNumber}-${index}`}
@@ -2499,7 +2499,7 @@ export default function Sorteios() {
                     ))}
                   </div>
 
-                  <div className="rounded-3xl border border-dashed border-white/30 bg-white/10 p-6 sm:p-8 text-center backdrop-blur-lg">
+                  <div className="rounded-3xl border border-dashed border-white/30 bg-white/10 p-6 sm:p-8 text-center backdrop-blur-lg flex-shrink-0">
                     {showcaseComplete ? (
                       <>
                         <p className="text-sm uppercase tracking-[0.3em] text-white/70">Cortinas fechadas</p>
