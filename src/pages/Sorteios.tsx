@@ -392,6 +392,7 @@ export default function Sorteios() {
   const [numeroDebounced, setNumeroDebounced] = useState<string>("");
   const [serieDebounced, setSerieDebounced] = useState<string>("");
   const [showLiveRaffle, setShowLiveRaffle] = useState(false);
+  const [showShowcaseScreen, setShowShowcaseScreen] = useState(false);
   const [campaignDialogOpen, setCampaignDialogOpen] = useState(false);
   const [selectedCampaignId, setSelectedCampaignId] = useState<string | undefined>(urlCampaignId);
   const [selectedScheduleCampaignId, setSelectedScheduleCampaignId] = useState<string | undefined>(urlCampaignId);
@@ -1398,6 +1399,16 @@ export default function Sorteios() {
               Sorteio Ao Vivo
             </Button>
             <Button
+              onClick={() => {
+                setShowShowcaseScreen(true);
+                setTimeout(() => enterFullscreen(), 100);
+              }}
+              className="bg-gradient-to-r from-red-500 via-yellow-500 to-green-600 hover:from-red-600 hover:via-yellow-600 hover:to-green-700 text-white w-full sm:w-auto"
+            >
+              <Sparkles className="w-4 h-4 mr-2" />
+              Subtela teatral
+            </Button>
+            <Button
                onClick={() => setShowRaffleModal(true)}
               disabled={participantesLoading}
               className="bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto"
@@ -1456,124 +1467,6 @@ export default function Sorteios() {
                 <p 
  className="text-muted-foreground">Nenhum sorteio agendado</p>
               )}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-primary/30 bg-gradient-to-br from-slate-950 via-slate-900 to-red-950 text-white shadow-xl">
-          <CardHeader className="border-b border-white/10">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <CardTitle className="flex items-center gap-2 text-white">
-                <Sparkles className="w-5 h-5 text-yellow-300" />
-                Subtela de revelação teatral
-              </CardTitle>
-              <Badge className="bg-white/10 text-white border border-white/20">Mock • Admin</Badge>
-            </div>
-            <p className="text-sm text-white/70">
-              Ambiente cenográfico para apresentar ganhadores com suspense — pressione o botão para liberar um nome por vez.
-            </p>
-          </CardHeader>
-          <CardContent className="relative overflow-hidden">
-            <div className="pointer-events-none absolute inset-0">
-              <div className="absolute -top-24 left-1/4 h-56 w-56 rounded-full bg-red-500/20 blur-3xl" />
-              <div className="absolute -top-16 right-1/4 h-48 w-48 rounded-full bg-yellow-400/20 blur-3xl" />
-              <div className="absolute bottom-0 left-1/3 h-40 w-72 rounded-full bg-purple-500/20 blur-3xl" />
-            </div>
-
-            <div className="relative space-y-6">
-              <div className="flex flex-col gap-4 rounded-2xl border border-white/10 bg-white/5 p-4 sm:flex-row sm:items-center sm:justify-between">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2 text-sm uppercase tracking-[0.3em] text-white/60">
-                    <Clock className="h-4 w-4" />
-                    Ritmo da revelação
-                  </div>
-                  <div className="text-2xl font-semibold">
-                    {showcaseIndex} de {MOCK_RAFFLE_SHOWCASE.length} ganhadores revelados
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    onClick={handleRevealShowcase}
-                    disabled={showcaseSuspense || showcaseComplete}
-                    className="bg-white text-slate-900 hover:bg-white/90"
-                  >
-                    {showcaseComplete ? "Revelação concluída" : showcaseSuspense ? "Suspense..." : "Revelar próximo"}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={handleResetShowcase}
-                    className="border-white/30 text-white hover:bg-white/10"
-                  >
-                    Reiniciar cena
-                  </Button>
-                </div>
-              </div>
-
-              <div className="grid gap-4">
-                {revealedShowcaseWinners.map((winner, index) => (
-                  <div
-                    key={`${winner.luckyNumber}-${index}`}
-                    className="relative rounded-2xl border border-white/15 bg-white/5 p-5 backdrop-blur animate-fade-in"
-                  >
-                    <div className="flex flex-wrap items-center justify-between gap-4">
-                      <div className="flex items-center gap-4">
-                        <span className="text-3xl">{winner.prize}</span>
-                        <div>
-                          <p className="text-xl font-semibold">{winner.name}</p>
-                          <p className="text-sm text-white/70">{winner.bakery}</p>
-                        </div>
-                      </div>
-                      <Badge className="bg-white/10 text-white border border-white/20 font-mono">
-                        Nº {winner.luckyNumber}
-                      </Badge>
-                    </div>
-                    <div className="mt-4 grid gap-3 text-sm text-white/70 sm:grid-cols-3">
-                      <div>
-                        <p className="text-xs uppercase tracking-[0.2em] text-white/40">Data compra</p>
-                        <p className="text-base text-white">{winner.purchaseDate}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs uppercase tracking-[0.2em] text-white/40">Contato</p>
-                        <p className="text-base text-white">{winner.contact}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs uppercase tracking-[0.2em] text-white/40">Status</p>
-                        <p className="text-base text-white">Revelado no palco</p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="rounded-2xl border border-dashed border-white/20 bg-white/5 p-6 text-center">
-                {showcaseComplete ? (
-                  <>
-                    <p className="text-sm uppercase tracking-[0.3em] text-white/60">Cortinas fechadas</p>
-                    <p className="mt-2 text-2xl font-semibold">Todos os nomes foram revelados!</p>
-                  </>
-                ) : (
-                  <>
-                    <p className="text-sm uppercase tracking-[0.3em] text-white/60">Cortinas prontas</p>
-                    <p className="mt-2 text-2xl font-semibold">
-                      {showcaseSuspense ? "🎬 Suspense no ar..." : "Próximo prêmio aguardando o clique"}
-                    </p>
-                    <div className={`mt-4 grid gap-3 sm:grid-cols-3 ${showcaseSuspense ? "animate-pulse" : ""}`}>
-                      <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-                        <p className="text-xs uppercase tracking-[0.2em] text-white/50">Prêmio</p>
-                        <p className="mt-2 text-2xl">{nextShowcaseWinner?.prize ?? "🎁"}</p>
-                      </div>
-                      <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-                        <p className="text-xs uppercase tracking-[0.2em] text-white/50">Número da sorte</p>
-                        <p className="mt-2 text-xl font-mono">??/?????</p>
-                      </div>
-                      <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-                        <p className="text-xs uppercase tracking-[0.2em] text-white/50">Contemplado</p>
-                        <p className="mt-2 text-lg font-semibold">???</p>
-                      </div>
-                    </div>
-                  </>
-                )}
-              </div>
             </div>
           </CardContent>
         </Card>
@@ -2481,6 +2374,167 @@ export default function Sorteios() {
                 animation: pulse-slow 2s ease-in-out infinite;
               }
             `}</style>
+          </div>
+        )}
+
+        {showShowcaseScreen && (
+          <div className="fixed inset-0 z-[100] bg-gradient-to-br from-red-900 via-green-900 to-yellow-900 animate-gradient-shift overflow-hidden h-screen w-screen">
+            <div className="absolute inset-0 overflow-hidden pointer-events-none">
+              {Array.from({ length: 18 }).map((_, i) => (
+                <div
+                  key={`spotlight-${i}`}
+                  className="absolute text-white/60 text-3xl animate-float"
+                  style={{
+                    left: `${Math.random() * 100}%`,
+                    top: `${Math.random() * 100}%`,
+                    animationDelay: `${Math.random() * 4}s`,
+                    animationDuration: `${3 + Math.random() * 4}s`,
+                  }}
+                >
+                  ✨
+                </div>
+              ))}
+              <div className="absolute top-1/4 left-1/4 h-72 w-72 rounded-full bg-red-500/20 blur-3xl animate-pulse" />
+              <div className="absolute bottom-1/4 right-1/4 h-72 w-72 rounded-full bg-yellow-400/20 blur-3xl animate-pulse" />
+              <div className="absolute top-1/2 left-1/2 h-80 w-80 rounded-full bg-green-500/20 blur-3xl animate-pulse" />
+            </div>
+
+            <div className="relative z-10 h-screen w-screen flex flex-col">
+              <div className="flex items-center justify-between p-6 absolute top-0 left-0 right-0 bg-gradient-to-b from-black/30 to-transparent backdrop-blur-sm z-20">
+                <div className="flex items-center gap-4">
+                  <div className="w-3 h-3 bg-yellow-400 rounded-full animate-pulse" />
+                  <span className="text-white/90 text-lg font-semibold uppercase tracking-wider">
+                    Subtela de revelação teatral
+                  </span>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => {
+                    exitFullscreen();
+                    setShowShowcaseScreen(false);
+                  }}
+                  className="text-white hover:bg-white/20 rounded-full"
+                >
+                  <X className="w-6 h-6" />
+                </Button>
+              </div>
+
+              <div className="flex-1 flex flex-col items-center justify-center px-8 py-6 pt-24 pb-24 relative overflow-y-auto overflow-x-hidden">
+                <div className="mb-6 text-center flex-shrink-0">
+                  <div className="flex items-center justify-center gap-4 mb-4">
+                    <span className="text-5xl animate-bounce flex-shrink-0">🎤</span>
+                    <h1 className="text-6xl font-black text-white drop-shadow-2xl animate-fade-in whitespace-nowrap">
+                      Palco dos Ganhadores
+                    </h1>
+                    <span className="text-5xl animate-bounce flex-shrink-0" style={{ animationDelay: '0.5s' }}>🎬</span>
+                  </div>
+                  <p className="text-xl text-white/80 font-light tracking-widest uppercase whitespace-nowrap">
+                    🎁 Revelação um a um 🎁
+                  </p>
+                </div>
+
+                <div className="w-full max-w-5xl space-y-6">
+                  <div className="flex flex-col gap-4 rounded-3xl border border-white/20 bg-white/10 p-6 backdrop-blur-lg sm:flex-row sm:items-center sm:justify-between">
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 text-sm uppercase tracking-[0.3em] text-white/70">
+                        <Clock className="h-4 w-4" />
+                        Ritmo da revelação
+                      </div>
+                      <div className="text-3xl font-semibold text-white">
+                        {showcaseIndex} de {MOCK_RAFFLE_SHOWCASE.length} nomes revelados
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-3">
+                      <Button
+                        onClick={handleRevealShowcase}
+                        disabled={showcaseSuspense || showcaseComplete}
+                        className="text-xl px-8 py-6 bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 text-black shadow-2xl rounded-2xl"
+                      >
+                        {showcaseComplete ? "Revelação concluída" : showcaseSuspense ? "Suspense..." : "Revelar próximo"}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={handleResetShowcase}
+                        className="text-lg px-8 py-6 bg-white/10 backdrop-blur-lg text-white border-white/30 hover:bg-white/20 shadow-2xl rounded-2xl"
+                      >
+                        Reiniciar cena
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-5">
+                    {revealedShowcaseWinners.map((winner, index) => (
+                      <div
+                        key={`${winner.luckyNumber}-${index}`}
+                        className="relative rounded-3xl border border-white/20 bg-white/10 p-6 backdrop-blur-lg animate-fade-in"
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-4">
+                          <div className="flex items-center gap-4">
+                            <span className="text-4xl">{winner.prize}</span>
+                            <div>
+                              <p className="text-2xl font-semibold text-white">{winner.name}</p>
+                              <p className="text-base text-white/70">{winner.bakery}</p>
+                            </div>
+                          </div>
+                          <Badge className="bg-yellow-400 text-black border border-yellow-300 font-mono text-lg px-4 py-2">
+                            Nº {winner.luckyNumber}
+                          </Badge>
+                        </div>
+                        <div className="mt-5 grid gap-4 text-sm text-white/70 sm:grid-cols-3">
+                          <div>
+                            <p className="text-xs uppercase tracking-[0.2em] text-white/50">Data compra</p>
+                            <p className="text-lg text-white">{winner.purchaseDate}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs uppercase tracking-[0.2em] text-white/50">Contato</p>
+                            <p className="text-lg text-white">{winner.contact}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs uppercase tracking-[0.2em] text-white/50">Status</p>
+                            <p className="text-lg text-white">Revelado no palco</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="rounded-3xl border border-dashed border-white/30 bg-white/10 p-8 text-center backdrop-blur-lg">
+                    {showcaseComplete ? (
+                      <>
+                        <p className="text-sm uppercase tracking-[0.3em] text-white/70">Cortinas fechadas</p>
+                        <p className="mt-2 text-3xl font-semibold text-white">Todos os nomes foram revelados!</p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-sm uppercase tracking-[0.3em] text-white/70">Cortinas prontas</p>
+                        <p className="mt-2 text-3xl font-semibold text-white">
+                          {showcaseSuspense ? "🎬 Suspense no ar..." : "Próximo prêmio aguardando o clique"}
+                        </p>
+                        <div className={`mt-6 grid gap-4 sm:grid-cols-3 ${showcaseSuspense ? "animate-pulse" : ""}`}>
+                          <div className="rounded-2xl border border-white/20 bg-white/10 p-5">
+                            <p className="text-xs uppercase tracking-[0.2em] text-white/60">Prêmio</p>
+                            <p className="mt-3 text-3xl">{nextShowcaseWinner?.prize ?? "🎁"}</p>
+                          </div>
+                          <div className="rounded-2xl border border-white/20 bg-white/10 p-5">
+                            <p className="text-xs uppercase tracking-[0.2em] text-white/60">Número da sorte</p>
+                            <p className="mt-3 text-2xl font-mono text-white">??/?????</p>
+                          </div>
+                          <div className="rounded-2xl border border-white/20 bg-white/10 p-5">
+                            <p className="text-xs uppercase tracking-[0.2em] text-white/60">Contemplado</p>
+                            <p className="mt-3 text-2xl font-semibold text-white">???</p>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="absolute bottom-0 left-0 right-0 p-4 text-center bg-gradient-to-t from-black/20 to-transparent backdrop-blur-sm">
+                <p className="text-white/60 text-lg">Modo demonstrativo • dados mockados</p>
+              </div>
+            </div>
           </div>
         )}
       </div>
