@@ -2420,43 +2420,43 @@ export default function Sorteios() {
                 </Button>
               </div>
 
-              <div className="flex-1 flex flex-col items-center justify-center px-8 py-6 pt-24 pb-24 relative overflow-y-auto overflow-x-hidden">
+              <div className="flex-1 flex flex-col items-center justify-center px-4 sm:px-8 py-6 pt-20 sm:pt-24 pb-20 sm:pb-24 relative overflow-y-auto overflow-x-hidden">
                 <div className="mb-6 text-center flex-shrink-0">
-                  <div className="flex items-center justify-center gap-4 mb-4">
-                    <span className="text-5xl animate-bounce flex-shrink-0">🎤</span>
-                    <h1 className="text-6xl font-black text-white drop-shadow-2xl animate-fade-in whitespace-nowrap">
+                  <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4 mb-3 sm:mb-4">
+                    <span className="text-4xl sm:text-5xl animate-bounce flex-shrink-0">🎤</span>
+                    <h1 className="text-4xl sm:text-6xl font-black text-white drop-shadow-2xl animate-fade-in">
                       Palco dos Ganhadores
                     </h1>
-                    <span className="text-5xl animate-bounce flex-shrink-0" style={{ animationDelay: '0.5s' }}>🎬</span>
+                    <span className="text-4xl sm:text-5xl animate-bounce flex-shrink-0" style={{ animationDelay: '0.5s' }}>🎬</span>
                   </div>
-                  <p className="text-xl text-white/80 font-light tracking-widest uppercase whitespace-nowrap">
+                  <p className="text-base sm:text-xl text-white/80 font-light tracking-[0.4em] uppercase">
                     🎁 Revelação um a um 🎁
                   </p>
                 </div>
 
                 <div className="w-full max-w-5xl space-y-6">
-                  <div className="flex flex-col gap-4 rounded-3xl border border-white/20 bg-white/10 p-6 backdrop-blur-lg sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex flex-col gap-4 rounded-3xl border border-white/20 bg-white/10 p-4 sm:p-6 backdrop-blur-lg sm:flex-row sm:items-center sm:justify-between">
                     <div className="space-y-2">
                       <div className="flex items-center gap-2 text-sm uppercase tracking-[0.3em] text-white/70">
                         <Clock className="h-4 w-4" />
                         Ritmo da revelação
                       </div>
-                      <div className="text-3xl font-semibold text-white">
+                      <div className="text-2xl sm:text-3xl font-semibold text-white">
                         {showcaseIndex} de {MOCK_RAFFLE_SHOWCASE.length} nomes revelados
                       </div>
                     </div>
-                    <div className="flex flex-wrap gap-3">
+                    <div className="flex flex-col sm:flex-row flex-wrap gap-3 w-full sm:w-auto">
                       <Button
                         onClick={handleRevealShowcase}
                         disabled={showcaseSuspense || showcaseComplete}
-                        className="text-xl px-8 py-6 bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 text-black shadow-2xl rounded-2xl"
+                        className="text-base sm:text-xl px-6 sm:px-8 py-4 sm:py-6 bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 text-black shadow-2xl rounded-2xl w-full sm:w-auto"
                       >
                         {showcaseComplete ? "Revelação concluída" : showcaseSuspense ? "Suspense..." : "Revelar próximo"}
                       </Button>
                       <Button
                         variant="outline"
                         onClick={handleResetShowcase}
-                        className="text-lg px-8 py-6 bg-white/10 backdrop-blur-lg text-white border-white/30 hover:bg-white/20 shadow-2xl rounded-2xl"
+                        className="text-base sm:text-lg px-6 sm:px-8 py-4 sm:py-6 bg-white/10 backdrop-blur-lg text-white border-white/30 hover:bg-white/20 shadow-2xl rounded-2xl w-full sm:w-auto"
                       >
                         Reiniciar cena
                       </Button>
@@ -2467,62 +2467,62 @@ export default function Sorteios() {
                     {revealedShowcaseWinners.map((winner, index) => (
                       <div
                         key={`${winner.luckyNumber}-${index}`}
-                        className="relative rounded-3xl border border-white/20 bg-white/10 p-6 backdrop-blur-lg animate-fade-in"
+                        className="relative rounded-3xl border border-white/20 bg-white/10 p-4 sm:p-6 backdrop-blur-lg animate-fade-in"
                       >
-                        <div className="flex flex-wrap items-center justify-between gap-4">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                           <div className="flex items-center gap-4">
-                            <span className="text-4xl">{winner.prize}</span>
+                            <span className="text-3xl sm:text-4xl">{winner.prize}</span>
                             <div>
-                              <p className="text-2xl font-semibold text-white">{winner.name}</p>
-                              <p className="text-base text-white/70">{winner.bakery}</p>
+                              <p className="text-lg sm:text-2xl font-semibold text-white">{winner.name}</p>
+                              <p className="text-sm sm:text-base text-white/70">{winner.bakery}</p>
                             </div>
                           </div>
-                          <Badge className="bg-yellow-400 text-black border border-yellow-300 font-mono text-lg px-4 py-2">
+                          <Badge className="bg-yellow-400 text-black border border-yellow-300 font-mono text-base sm:text-lg px-3 sm:px-4 py-1.5 sm:py-2 w-fit">
                             Nº {winner.luckyNumber}
                           </Badge>
                         </div>
-                        <div className="mt-5 grid gap-4 text-sm text-white/70 sm:grid-cols-3">
+                        <div className="mt-4 sm:mt-5 grid gap-4 text-sm text-white/70 sm:grid-cols-3">
                           <div>
                             <p className="text-xs uppercase tracking-[0.2em] text-white/50">Data compra</p>
-                            <p className="text-lg text-white">{winner.purchaseDate}</p>
+                            <p className="text-base sm:text-lg text-white">{winner.purchaseDate}</p>
                           </div>
                           <div>
                             <p className="text-xs uppercase tracking-[0.2em] text-white/50">Contato</p>
-                            <p className="text-lg text-white">{winner.contact}</p>
+                            <p className="text-base sm:text-lg text-white break-words">{winner.contact}</p>
                           </div>
                           <div>
                             <p className="text-xs uppercase tracking-[0.2em] text-white/50">Status</p>
-                            <p className="text-lg text-white">Revelado no palco</p>
+                            <p className="text-base sm:text-lg text-white">Revelado no palco</p>
                           </div>
                         </div>
                       </div>
                     ))}
                   </div>
 
-                  <div className="rounded-3xl border border-dashed border-white/30 bg-white/10 p-8 text-center backdrop-blur-lg">
+                  <div className="rounded-3xl border border-dashed border-white/30 bg-white/10 p-6 sm:p-8 text-center backdrop-blur-lg">
                     {showcaseComplete ? (
                       <>
                         <p className="text-sm uppercase tracking-[0.3em] text-white/70">Cortinas fechadas</p>
-                        <p className="mt-2 text-3xl font-semibold text-white">Todos os nomes foram revelados!</p>
+                        <p className="mt-2 text-2xl sm:text-3xl font-semibold text-white">Todos os nomes foram revelados!</p>
                       </>
                     ) : (
                       <>
                         <p className="text-sm uppercase tracking-[0.3em] text-white/70">Cortinas prontas</p>
-                        <p className="mt-2 text-3xl font-semibold text-white">
+                        <p className="mt-2 text-2xl sm:text-3xl font-semibold text-white">
                           {showcaseSuspense ? "🎬 Suspense no ar..." : "Próximo prêmio aguardando o clique"}
                         </p>
                         <div className={`mt-6 grid gap-4 sm:grid-cols-3 ${showcaseSuspense ? "animate-pulse" : ""}`}>
                           <div className="rounded-2xl border border-white/20 bg-white/10 p-5">
                             <p className="text-xs uppercase tracking-[0.2em] text-white/60">Prêmio</p>
-                            <p className="mt-3 text-3xl">{nextShowcaseWinner?.prize ?? "🎁"}</p>
+                            <p className="mt-3 text-2xl sm:text-3xl">{nextShowcaseWinner?.prize ?? "🎁"}</p>
                           </div>
                           <div className="rounded-2xl border border-white/20 bg-white/10 p-5">
                             <p className="text-xs uppercase tracking-[0.2em] text-white/60">Número da sorte</p>
-                            <p className="mt-3 text-2xl font-mono text-white">??/?????</p>
+                            <p className="mt-3 text-xl sm:text-2xl font-mono text-white">??/?????</p>
                           </div>
                           <div className="rounded-2xl border border-white/20 bg-white/10 p-5">
                             <p className="text-xs uppercase tracking-[0.2em] text-white/60">Contemplado</p>
-                            <p className="mt-3 text-2xl font-semibold text-white">???</p>
+                            <p className="mt-3 text-xl sm:text-2xl font-semibold text-white">???</p>
                           </div>
                         </div>
                       </>
@@ -2532,7 +2532,7 @@ export default function Sorteios() {
               </div>
 
               <div className="absolute bottom-0 left-0 right-0 p-4 text-center bg-gradient-to-t from-black/20 to-transparent backdrop-blur-sm">
-                <p className="text-white/60 text-lg">Modo demonstrativo • dados mockados</p>
+                <p className="text-white/60 text-sm sm:text-lg">Modo demonstrativo • dados mockados</p>
               </div>
             </div>
           </div>
