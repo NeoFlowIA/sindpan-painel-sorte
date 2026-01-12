@@ -459,18 +459,6 @@ export default function Sorteios() {
     }, 1200);
   };
 
-  const handleResetShowcase = () => {
-    if (showcaseTimeoutRef.current) {
-      clearTimeout(showcaseTimeoutRef.current);
-    }
-    setShowcaseSuspense(false);
-    setShowcaseIndex(0);
-    setShowcasePage(0);
-    setShowcaseCelebrationKey(0);
-    setShowcaseNumero("");
-    setShowcaseSerie("");
-  };
-
   const parseCampaignId = (value?: string) => {
     if (!value) {
       return undefined;
@@ -2496,20 +2484,12 @@ export default function Sorteios() {
                       >
                         {showcaseComplete ? "Revelação concluída" : showcaseSuspense ? "Suspense..." : "Revelar próximo"}
                       </Button>
-                      <Button
-                        variant="outline"
-                        onClick={handleResetShowcase}
-                        className="text-base sm:text-lg px-6 sm:px-8 py-4 sm:py-6 bg-white/10 backdrop-blur-lg text-white border-white/30 hover:bg-white/20 shadow-2xl rounded-2xl w-full sm:w-auto"
-                      >
-                        Reiniciar cena
-                      </Button>
                     </div>
                   </div>
 
                   <div className="rounded-3xl border border-white/20 bg-white/10 p-4 sm:p-6 backdrop-blur-lg">
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                       <div>
-                        <p className="text-sm uppercase tracking-[0.3em] text-white/70">Simulação</p>
                         <p className="text-2xl sm:text-3xl font-semibold text-white">
                           Informe o número da sorte e a série
                         </p>
@@ -2538,9 +2518,6 @@ export default function Sorteios() {
                         />
                       </div>
                     </div>
-                    <p className="mt-3 text-sm text-white/60">
-                      Estes campos são apenas para simulação visual e não alteram os ganhadores.
-                    </p>
                   </div>
 
                   <div className="relative grid gap-5 overflow-y-auto pr-1 sm:pr-2 max-h-[calc(100vh-420px)] sm:max-h-[calc(100vh-460px)]">
@@ -2643,9 +2620,6 @@ export default function Sorteios() {
                 </div>
               </div>
 
-              <div className="absolute bottom-0 left-0 right-0 p-4 text-center bg-gradient-to-t from-black/20 to-transparent backdrop-blur-sm">
-                <p className="text-white/60 text-sm sm:text-lg">Modo demonstrativo • dados mockados</p>
-              </div>
             </div>
 
             <style>{`
