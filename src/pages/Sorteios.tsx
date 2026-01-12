@@ -397,8 +397,10 @@ export default function Sorteios() {
   const [selectedCampaignId, setSelectedCampaignId] = useState<string | undefined>(urlCampaignId);
   const [selectedScheduleCampaignId, setSelectedScheduleCampaignId] = useState<string | undefined>(urlCampaignId);
   const [showcaseIndex, setShowcaseIndex] = useState(0);
+  const [showcasePage, setShowcasePage] = useState(0);
   const [showcaseSuspense, setShowcaseSuspense] = useState(false);
   const showcaseTimeoutRef = useRef<number | null>(null);
+  const [showcaseCelebrationKey, setShowcaseCelebrationKey] = useState(0);
   
   // Estados para controle do sorteio automático
   const [sorteioAutomatico, setSorteioAutomatico] = useState(false);
@@ -445,7 +447,12 @@ export default function Sorteios() {
     }
 
     showcaseTimeoutRef.current = window.setTimeout(() => {
-      setShowcaseIndex((prev) => Math.min(prev + 1, MOCK_RAFFLE_SHOWCASE.length));
+      setShowcaseIndex((prev) => {
+        const nextIndex = Math.min(prev + 1, MOCK_RAFFLE_SHOWCASE.length);
+        setShowcasePage(Math.max(0, nextIndex - 1));
+        return nextIndex;
+      });
+      setShowcaseCelebrationKey((prev) => prev + 1);
       setShowcaseSuspense(false);
     }, 1200);
   };
@@ -456,6 +463,8 @@ export default function Sorteios() {
     }
     setShowcaseSuspense(false);
     setShowcaseIndex(0);
+    setShowcasePage(0);
+    setShowcaseCelebrationKey(0);
   };
 
   const parseCampaignId = (value?: string) => {
@@ -598,9 +607,16 @@ export default function Sorteios() {
     selectedCampaignIdNumber !== undefined
       ? campaigns.find((c) => Number(c.id) === selectedCampaignIdNumber)
       : undefined;
-  const revealedShowcaseWinners = MOCK_RAFFLE_SHOWCASE.slice(0, showcaseIndex);
-  const showcaseComplete = showcaseIndex >= MOCK_RAFFLE_SHOWCASE.length;
-  const nextShowcaseWinner = MOCK_RAFFLE_SHOWCASE[showcaseIndex];
+  const orderedShowcase = useMemo(
+    () => [...MOCK_RAFFLE_SHOWCASE].reverse(),
+    []
+  );
+  const revealedShowcaseWinners = orderedShowcase.slice(0, showcaseIndex);
+  const showcaseComplete = showcaseIndex >= orderedShowcase.length;
+  const nextShowcaseWinner = orderedShowcase[showcaseIndex];
+  const currentShowcaseWinner = revealedShowcaseWinners[showcasePage];
+  const canGoPrevShowcase = showcasePage > 0;
+  const canGoNextShowcase = showcasePage < revealedShowcaseWinners.length - 1;
   const selectedCampaignStatus = selectedCampaign
     ? getCampaignStatus(selectedCampaign.data_inicio, selectedCampaign.data_fim)
     : undefined;
@@ -2442,10 +2458,33 @@ export default function Sorteios() {
                         Ritmo da revelação
                       </div>
                       <div className="text-2xl sm:text-3xl font-semibold text-white">
-                        {showcaseIndex} de {MOCK_RAFFLE_SHOWCASE.length} nomes revelados
+                        {showcaseIndex} de {orderedShowcase.length} nomes revelados
                       </div>
                     </div>
                     <div className="flex flex-col sm:flex-row flex-wrap gap-3 w-full sm:w-auto">
+                      <Button
+                        variant="outline"
+                        onClick={() => setShowcasePage((prev) => Math.max(0, prev - 1))}
+                        disabled={!canGoPrevShowcase}
+                        className="text-base sm:text-lg px-6 sm:px-8 py-4 sm:py-6 bg-white/10 backdrop-blur-lg text-white border-white/30 hover:bg-white/20 shadow-2xl rounded-2xl w-full sm:w-auto"
+                      >
+                        Anterior
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() =>
+                          setShowcasePage((prev) => {
+                            if (revealedShowcaseWinners.length === 0) {
+                              return 0;
+                            }
+                            return Math.min(revealedShowcaseWinners.length - 1, prev + 1);
+                          })
+                        }
+                        disabled={!canGoNextShowcase}
+                        className="text-base sm:text-lg px-6 sm:px-8 py-4 sm:py-6 bg-white/10 backdrop-blur-lg text-white border-white/30 hover:bg-white/20 shadow-2xl rounded-2xl w-full sm:w-auto"
+                      >
+                        Próximo
+                      </Button>
                       <Button
                         onClick={handleRevealShowcase}
                         disabled={showcaseSuspense || showcaseComplete}
@@ -2463,40 +2502,72 @@ export default function Sorteios() {
                     </div>
                   </div>
 
-                  <div className="grid gap-5 overflow-y-auto pr-1 sm:pr-2 max-h-[calc(100vh-420px)] sm:max-h-[calc(100vh-460px)]">
-                    {revealedShowcaseWinners.map((winner, index) => (
-                      <div
-                        key={`${winner.luckyNumber}-${index}`}
-                        className="relative rounded-3xl border border-white/20 bg-white/10 p-4 sm:p-6 backdrop-blur-lg animate-fade-in"
-                      >
+                  <div className="relative grid gap-5 overflow-y-auto pr-1 sm:pr-2 max-h-[calc(100vh-420px)] sm:max-h-[calc(100vh-460px)]">
+                    {currentShowcaseWinner ? (
+                      <div className="relative rounded-3xl border border-white/20 bg-white/10 p-4 sm:p-6 backdrop-blur-lg animate-fade-in">
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                           <div className="flex items-center gap-4">
-                            <span className="text-3xl sm:text-4xl">{winner.prize}</span>
+                            <span className="text-3xl sm:text-4xl">{currentShowcaseWinner.prize}</span>
                             <div>
-                              <p className="text-lg sm:text-2xl font-semibold text-white">{winner.name}</p>
-                              <p className="text-sm sm:text-base text-white/70">{winner.bakery}</p>
+                              <p className="text-lg sm:text-2xl font-semibold text-white">{currentShowcaseWinner.name}</p>
+                              <p className="text-sm sm:text-base text-white/70">{currentShowcaseWinner.bakery}</p>
                             </div>
                           </div>
                           <Badge className="bg-yellow-400 text-black border border-yellow-300 font-mono text-base sm:text-lg px-3 sm:px-4 py-1.5 sm:py-2 w-fit">
-                            Nº {winner.luckyNumber}
+                            Nº {currentShowcaseWinner.luckyNumber}
                           </Badge>
                         </div>
                         <div className="mt-4 sm:mt-5 grid gap-4 text-sm text-white/70 sm:grid-cols-3">
                           <div>
                             <p className="text-xs uppercase tracking-[0.2em] text-white/50">Data compra</p>
-                            <p className="text-base sm:text-lg text-white">{winner.purchaseDate}</p>
+                            <p className="text-base sm:text-lg text-white">{currentShowcaseWinner.purchaseDate}</p>
                           </div>
                           <div>
                             <p className="text-xs uppercase tracking-[0.2em] text-white/50">Contato</p>
-                            <p className="text-base sm:text-lg text-white break-words">{winner.contact}</p>
+                            <p className="text-base sm:text-lg text-white break-words">{currentShowcaseWinner.contact}</p>
                           </div>
                           <div>
                             <p className="text-xs uppercase tracking-[0.2em] text-white/50">Status</p>
                             <p className="text-base sm:text-lg text-white">Revelado no palco</p>
                           </div>
                         </div>
+                        <div className="mt-6 flex flex-wrap items-center justify-between gap-3 text-white/70">
+                          <span className="text-sm uppercase tracking-[0.3em]">Página</span>
+                          <span className="text-sm font-semibold">
+                            {showcasePage + 1} de {revealedShowcaseWinners.length}
+                          </span>
+                        </div>
                       </div>
-                    ))}
+                    ) : (
+                      <div className="rounded-3xl border border-dashed border-white/30 bg-white/10 p-6 sm:p-8 text-center backdrop-blur-lg">
+                        <p className="text-sm uppercase tracking-[0.3em] text-white/70">Aguardando revelação</p>
+                        <p className="mt-2 text-2xl sm:text-3xl font-semibold text-white">
+                          Clique em &quot;Revelar próximo&quot; para iniciar
+                        </p>
+                      </div>
+                    )}
+
+                    {currentShowcaseWinner && (
+                      <div
+                        key={`celebration-${showcaseCelebrationKey}`}
+                        className="pointer-events-none absolute inset-0 overflow-hidden"
+                      >
+                        {Array.from({ length: 16 }).map((_, i) => (
+                          <div
+                            key={`fall-${showcaseCelebrationKey}-${i}`}
+                            className="absolute animate-showcase-fall text-2xl sm:text-3xl"
+                            style={{
+                              left: `${Math.random() * 100}%`,
+                              top: `-${Math.random() * 20}%`,
+                              animationDelay: `${Math.random() * 0.6}s`,
+                              animationDuration: `${2.6 + Math.random() * 1.4}s`,
+                            }}
+                          >
+                            {i % 2 === 0 ? "⭐" : "🎄"}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   <div className="rounded-3xl border border-dashed border-white/30 bg-white/10 p-6 sm:p-8 text-center backdrop-blur-lg flex-shrink-0">
@@ -2535,6 +2606,25 @@ export default function Sorteios() {
                 <p className="text-white/60 text-sm sm:text-lg">Modo demonstrativo • dados mockados</p>
               </div>
             </div>
+
+            <style>{`
+              @keyframes showcase-fall {
+                0% {
+                  transform: translateY(-20vh) rotate(0deg);
+                  opacity: 0;
+                }
+                10% {
+                  opacity: 1;
+                }
+                100% {
+                  transform: translateY(110vh) rotate(360deg);
+                  opacity: 0;
+                }
+              }
+              .animate-showcase-fall {
+                animation: showcase-fall ease-in forwards;
+              }
+            `}</style>
           </div>
         )}
       </div>
