@@ -14,7 +14,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { Trophy, Calendar as CalendarIcon, X, Save, RotateCcw, Sparkles, Clock, Pencil, PlusCircle } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { CampaignSelect } from "@/components/CampaignSelect";
 import { CampaignFormDialog, type CampaignFormValues } from "@/components/CampaignFormDialog";
 import { getCampaignStatus } from "@/components/CampaignStatusBadge";
@@ -108,6 +108,49 @@ interface ResultadoSorteio {
 }
 
 const SERIES_VALIDAS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+
+const MOCK_RAFFLE_SHOWCASE = [
+  {
+    prize: "🥇",
+    luckyNumber: "0/91415",
+    name: "Elisângela da Silva Nascimento",
+    bakery: "Padaria e Confeitaria São José",
+    purchaseDate: "12/11/2025",
+    contact: "CPF 002.***.***-30 · +55 (85) *****-2110",
+  },
+  {
+    prize: "🥈",
+    luckyNumber: "0/91449",
+    name: "Gilberto Brasil Sobrinho",
+    bakery: "Panificadora Viana",
+    purchaseDate: "30/12/2025",
+    contact: "CPF 600.***.***-12 · +55 (85) *****-0691",
+  },
+  {
+    prize: "🥉",
+    luckyNumber: "0/91466",
+    name: "Vânia Maria Lima Nogueira",
+    bakery: "Empório de Fátima Delicatessen",
+    purchaseDate: "12/11/2025",
+    contact: "CPF 272.***.***-87 · +55 (85) *****-1324",
+  },
+  {
+    prize: "📺 4",
+    luckyNumber: "0/91474",
+    name: "Ângela de Alencar Araripe Pinheiro",
+    bakery: "Pão Na Massa",
+    purchaseDate: "04/12/2025",
+    contact: "CPF 081.***.***-00 · +55 (85) *****-7223",
+  },
+  {
+    prize: "📺 5",
+    luckyNumber: "0/91486",
+    name: "Delano Oliveira Candido",
+    bakery: "Vila Alves",
+    purchaseDate: "12/12/2025",
+    contact: "CPF 629.***.***-34 · +55 (85) *****-3004",
+  },
+];
 
 /**
  * Converte a série da loteria (0-9) para a série do banco (1-10).
@@ -352,6 +395,9 @@ export default function Sorteios() {
   const [campaignDialogOpen, setCampaignDialogOpen] = useState(false);
   const [selectedCampaignId, setSelectedCampaignId] = useState<string | undefined>(urlCampaignId);
   const [selectedScheduleCampaignId, setSelectedScheduleCampaignId] = useState<string | undefined>(urlCampaignId);
+  const [showcaseIndex, setShowcaseIndex] = useState(0);
+  const [showcaseSuspense, setShowcaseSuspense] = useState(false);
+  const showcaseTimeoutRef = useRef<number | null>(null);
   
   // Estados para controle do sorteio automático
   const [sorteioAutomatico, setSorteioAutomatico] = useState(false);
@@ -378,6 +424,38 @@ export default function Sorteios() {
     }, 300);
     return () => clearTimeout(timer);
   }, [serieDigitada]);
+
+  useEffect(() => {
+    return () => {
+      if (showcaseTimeoutRef.current) {
+        clearTimeout(showcaseTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const handleRevealShowcase = () => {
+    if (showcaseSuspense || showcaseIndex >= MOCK_RAFFLE_SHOWCASE.length) {
+      return;
+    }
+
+    setShowcaseSuspense(true);
+    if (showcaseTimeoutRef.current) {
+      clearTimeout(showcaseTimeoutRef.current);
+    }
+
+    showcaseTimeoutRef.current = window.setTimeout(() => {
+      setShowcaseIndex((prev) => Math.min(prev + 1, MOCK_RAFFLE_SHOWCASE.length));
+      setShowcaseSuspense(false);
+    }, 1200);
+  };
+
+  const handleResetShowcase = () => {
+    if (showcaseTimeoutRef.current) {
+      clearTimeout(showcaseTimeoutRef.current);
+    }
+    setShowcaseSuspense(false);
+    setShowcaseIndex(0);
+  };
 
   const parseCampaignId = (value?: string) => {
     if (!value) {
@@ -519,6 +597,9 @@ export default function Sorteios() {
     selectedCampaignIdNumber !== undefined
       ? campaigns.find((c) => Number(c.id) === selectedCampaignIdNumber)
       : undefined;
+  const revealedShowcaseWinners = MOCK_RAFFLE_SHOWCASE.slice(0, showcaseIndex);
+  const showcaseComplete = showcaseIndex >= MOCK_RAFFLE_SHOWCASE.length;
+  const nextShowcaseWinner = MOCK_RAFFLE_SHOWCASE[showcaseIndex];
   const selectedCampaignStatus = selectedCampaign
     ? getCampaignStatus(selectedCampaign.data_inicio, selectedCampaign.data_fim)
     : undefined;
@@ -1375,6 +1456,124 @@ export default function Sorteios() {
                 <p 
  className="text-muted-foreground">Nenhum sorteio agendado</p>
               )}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-primary/30 bg-gradient-to-br from-slate-950 via-slate-900 to-red-950 text-white shadow-xl">
+          <CardHeader className="border-b border-white/10">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <CardTitle className="flex items-center gap-2 text-white">
+                <Sparkles className="w-5 h-5 text-yellow-300" />
+                Subtela de revelação teatral
+              </CardTitle>
+              <Badge className="bg-white/10 text-white border border-white/20">Mock • Admin</Badge>
+            </div>
+            <p className="text-sm text-white/70">
+              Ambiente cenográfico para apresentar ganhadores com suspense — pressione o botão para liberar um nome por vez.
+            </p>
+          </CardHeader>
+          <CardContent className="relative overflow-hidden">
+            <div className="pointer-events-none absolute inset-0">
+              <div className="absolute -top-24 left-1/4 h-56 w-56 rounded-full bg-red-500/20 blur-3xl" />
+              <div className="absolute -top-16 right-1/4 h-48 w-48 rounded-full bg-yellow-400/20 blur-3xl" />
+              <div className="absolute bottom-0 left-1/3 h-40 w-72 rounded-full bg-purple-500/20 blur-3xl" />
+            </div>
+
+            <div className="relative space-y-6">
+              <div className="flex flex-col gap-4 rounded-2xl border border-white/10 bg-white/5 p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 text-sm uppercase tracking-[0.3em] text-white/60">
+                    <Clock className="h-4 w-4" />
+                    Ritmo da revelação
+                  </div>
+                  <div className="text-2xl font-semibold">
+                    {showcaseIndex} de {MOCK_RAFFLE_SHOWCASE.length} ganhadores revelados
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    onClick={handleRevealShowcase}
+                    disabled={showcaseSuspense || showcaseComplete}
+                    className="bg-white text-slate-900 hover:bg-white/90"
+                  >
+                    {showcaseComplete ? "Revelação concluída" : showcaseSuspense ? "Suspense..." : "Revelar próximo"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={handleResetShowcase}
+                    className="border-white/30 text-white hover:bg-white/10"
+                  >
+                    Reiniciar cena
+                  </Button>
+                </div>
+              </div>
+
+              <div className="grid gap-4">
+                {revealedShowcaseWinners.map((winner, index) => (
+                  <div
+                    key={`${winner.luckyNumber}-${index}`}
+                    className="relative rounded-2xl border border-white/15 bg-white/5 p-5 backdrop-blur animate-fade-in"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-4">
+                      <div className="flex items-center gap-4">
+                        <span className="text-3xl">{winner.prize}</span>
+                        <div>
+                          <p className="text-xl font-semibold">{winner.name}</p>
+                          <p className="text-sm text-white/70">{winner.bakery}</p>
+                        </div>
+                      </div>
+                      <Badge className="bg-white/10 text-white border border-white/20 font-mono">
+                        Nº {winner.luckyNumber}
+                      </Badge>
+                    </div>
+                    <div className="mt-4 grid gap-3 text-sm text-white/70 sm:grid-cols-3">
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.2em] text-white/40">Data compra</p>
+                        <p className="text-base text-white">{winner.purchaseDate}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.2em] text-white/40">Contato</p>
+                        <p className="text-base text-white">{winner.contact}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.2em] text-white/40">Status</p>
+                        <p className="text-base text-white">Revelado no palco</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="rounded-2xl border border-dashed border-white/20 bg-white/5 p-6 text-center">
+                {showcaseComplete ? (
+                  <>
+                    <p className="text-sm uppercase tracking-[0.3em] text-white/60">Cortinas fechadas</p>
+                    <p className="mt-2 text-2xl font-semibold">Todos os nomes foram revelados!</p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm uppercase tracking-[0.3em] text-white/60">Cortinas prontas</p>
+                    <p className="mt-2 text-2xl font-semibold">
+                      {showcaseSuspense ? "🎬 Suspense no ar..." : "Próximo prêmio aguardando o clique"}
+                    </p>
+                    <div className={`mt-4 grid gap-3 sm:grid-cols-3 ${showcaseSuspense ? "animate-pulse" : ""}`}>
+                      <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+                        <p className="text-xs uppercase tracking-[0.2em] text-white/50">Prêmio</p>
+                        <p className="mt-2 text-2xl">{nextShowcaseWinner?.prize ?? "🎁"}</p>
+                      </div>
+                      <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+                        <p className="text-xs uppercase tracking-[0.2em] text-white/50">Número da sorte</p>
+                        <p className="mt-2 text-xl font-mono">??/?????</p>
+                      </div>
+                      <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+                        <p className="text-xs uppercase tracking-[0.2em] text-white/50">Contemplado</p>
+                        <p className="mt-2 text-lg font-semibold">???</p>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
           </CardContent>
         </Card>
