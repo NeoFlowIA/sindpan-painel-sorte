@@ -401,6 +401,8 @@ export default function Sorteios() {
   const [showcaseSuspense, setShowcaseSuspense] = useState(false);
   const showcaseTimeoutRef = useRef<number | null>(null);
   const [showcaseCelebrationKey, setShowcaseCelebrationKey] = useState(0);
+  const [showcaseNumero, setShowcaseNumero] = useState("");
+  const [showcaseSerie, setShowcaseSerie] = useState("");
   
   // Estados para controle do sorteio automático
   const [sorteioAutomatico, setSorteioAutomatico] = useState(false);
@@ -465,6 +467,8 @@ export default function Sorteios() {
     setShowcaseIndex(0);
     setShowcasePage(0);
     setShowcaseCelebrationKey(0);
+    setShowcaseNumero("");
+    setShowcaseSerie("");
   };
 
   const parseCampaignId = (value?: string) => {
@@ -2500,6 +2504,43 @@ export default function Sorteios() {
                         Reiniciar cena
                       </Button>
                     </div>
+                  </div>
+
+                  <div className="rounded-3xl border border-white/20 bg-white/10 p-4 sm:p-6 backdrop-blur-lg">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                      <div>
+                        <p className="text-sm uppercase tracking-[0.3em] text-white/70">Simulação</p>
+                        <p className="text-2xl sm:text-3xl font-semibold text-white">
+                          Informe o número da sorte e a série
+                        </p>
+                      </div>
+                      <Badge className="bg-white/10 text-white border border-white/20 w-fit">Visual</Badge>
+                    </div>
+                    <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium text-white/70">Número da sorte</Label>
+                        <Input
+                          value={showcaseNumero}
+                          onChange={(event) => setShowcaseNumero(event.target.value)}
+                          placeholder="00000"
+                          className="text-center text-2xl font-mono h-14 bg-white/10 border-white/30 text-white placeholder:text-white/40"
+                          inputMode="numeric"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium text-white/70">Série</Label>
+                        <Input
+                          value={showcaseSerie}
+                          onChange={(event) => setShowcaseSerie(event.target.value)}
+                          placeholder="0"
+                          className="text-center text-2xl font-mono h-14 bg-white/10 border-white/30 text-white placeholder:text-white/40"
+                          inputMode="numeric"
+                        />
+                      </div>
+                    </div>
+                    <p className="mt-3 text-sm text-white/60">
+                      Estes campos são apenas para simulação visual e não alteram os ganhadores.
+                    </p>
                   </div>
 
                   <div className="relative grid gap-5 overflow-y-auto pr-1 sm:pr-2 max-h-[calc(100vh-420px)] sm:max-h-[calc(100vh-460px)]">
