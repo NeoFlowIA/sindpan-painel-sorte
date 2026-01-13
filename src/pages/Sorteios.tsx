@@ -2512,9 +2512,6 @@ export default function Sorteios() {
                               <p className="text-2xl sm:text-3xl font-semibold text-white leading-tight break-words">
                                 {currentShowcaseWinner.name}
                               </p>
-                              <p className="text-base sm:text-lg text-white/70 break-words">
-                                {currentShowcaseWinner.bakery}
-                              </p>
                             </div>
                           </div>
                           <Badge className="bg-yellow-400 text-black border border-yellow-300 font-mono text-lg sm:text-xl px-4 sm:px-5 py-2 w-fit">
@@ -2527,8 +2524,10 @@ export default function Sorteios() {
                             <p className="text-lg sm:text-xl text-white">{currentShowcaseWinner.purchaseDate}</p>
                           </div>
                           <div>
-                            <p className="text-xs uppercase tracking-[0.2em] text-white/50">Contato</p>
-                            <p className="text-lg sm:text-xl text-white break-words">{currentShowcaseWinner.contact}</p>
+                            <p className="text-xs uppercase tracking-[0.2em] text-white/50">Padaria</p>
+                            <p className="text-lg sm:text-xl font-semibold text-white break-words">
+                              {currentShowcaseWinner.bakery}
+                            </p>
                           </div>
                           <div>
                             <p className="text-xs uppercase tracking-[0.2em] text-white/50">Status</p>
