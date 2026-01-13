@@ -2506,11 +2506,15 @@ export default function Sorteios() {
                       <div className="relative rounded-3xl border border-white/20 bg-white/10 p-4 sm:p-6 backdrop-blur-lg animate-showcase-in">
                         <div className="absolute inset-0 rounded-3xl bg-gradient-to-r from-purple-500/20 via-pink-500/20 to-orange-500/20 blur-2xl opacity-80" />
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative">
-                          <div className="flex items-center gap-4">
+                          <div className="flex items-center gap-4 flex-1 min-w-0">
                             <span className="text-4xl sm:text-5xl">{currentShowcaseWinner.prize}</span>
-                            <div>
-                              <p className="text-2xl sm:text-3xl font-semibold text-white">{currentShowcaseWinner.name}</p>
-                              <p className="text-base sm:text-lg text-white/70">{currentShowcaseWinner.bakery}</p>
+                            <div className="min-w-0">
+                              <p className="text-2xl sm:text-3xl font-semibold text-white leading-tight break-words">
+                                {currentShowcaseWinner.name}
+                              </p>
+                              <p className="text-base sm:text-lg text-white/70 break-words">
+                                {currentShowcaseWinner.bakery}
+                              </p>
                             </div>
                           </div>
                           <Badge className="bg-yellow-400 text-black border border-yellow-300 font-mono text-lg sm:text-xl px-4 sm:px-5 py-2 w-fit">
