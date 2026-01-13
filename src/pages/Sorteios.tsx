@@ -2463,7 +2463,7 @@ export default function Sorteios() {
                         disabled={showcaseSuspense || showcaseComplete}
                         className="text-lg sm:text-2xl px-6 sm:px-10 py-4 sm:py-6 bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 text-black shadow-2xl rounded-2xl w-full sm:w-auto animate-pulse-slow"
                       >
-                        {showcaseComplete ? "Revelação concluída" : showcaseSuspense ? "Suspense..." : "Revelar próximo"}
+                        {showcaseComplete ? "Revelação concluída" : showcaseSuspense ? "Suspense..." : "Sortear!"}
                       </Button>
                     </div>
                   </div>
@@ -2545,7 +2545,7 @@ export default function Sorteios() {
                       <div className="rounded-3xl border border-dashed border-white/30 bg-white/10 p-6 sm:p-8 text-center backdrop-blur-lg">
                         <p className="text-sm uppercase tracking-[0.3em] text-white/70">Aguardando revelação</p>
                         <p className="mt-2 text-2xl sm:text-3xl font-semibold text-white">
-                          Clique em &quot;Revelar próximo&quot; para iniciar
+                          Clique em &quot;Sortear!&quot; para iniciar
                         </p>
                       </div>
                     )}
@@ -2573,34 +2573,14 @@ export default function Sorteios() {
                     )}
                   </div>
 
-                  <div className="rounded-3xl border border-dashed border-white/30 bg-white/10 p-6 sm:p-8 text-center backdrop-blur-lg flex-shrink-0">
-                    {showcaseComplete ? (
-                      <>
-                        <p className="text-sm uppercase tracking-[0.3em] text-white/70">Cortinas fechadas</p>
-                        <p className="mt-2 text-2xl sm:text-3xl font-semibold text-white">Todos os nomes foram revelados!</p>
-                      </>
-                    ) : (
-                      <>
-                        <p className="mt-2 text-2xl sm:text-3xl font-semibold text-white">
-                          {showcaseSuspense ? "🎬 Suspense no ar..." : "Próximo prêmio aguardando o clique"}
-                        </p>
-                        <div className={`mt-6 grid gap-4 sm:grid-cols-3 ${showcaseSuspense ? "animate-pulse" : ""}`}>
-                          <div className="rounded-2xl border border-white/20 bg-white/10 p-5">
-                            <p className="text-xs uppercase tracking-[0.2em] text-white/60">Prêmio</p>
-                            <p className="mt-3 text-2xl sm:text-3xl">{nextShowcaseWinner?.prize ?? "🎁"}</p>
-                          </div>
-                          <div className="rounded-2xl border border-white/20 bg-white/10 p-5">
-                            <p className="text-xs uppercase tracking-[0.2em] text-white/60">Número da sorte</p>
-                            <p className="mt-3 text-xl sm:text-2xl font-mono text-white">??/?????</p>
-                          </div>
-                          <div className="rounded-2xl border border-white/20 bg-white/10 p-5">
-                            <p className="text-xs uppercase tracking-[0.2em] text-white/60">Contemplado</p>
-                            <p className="mt-3 text-xl sm:text-2xl font-semibold text-white">???</p>
-                          </div>
-                        </div>
-                      </>
-                    )}
-                  </div>
+                  {showcaseComplete && (
+                    <div className="rounded-3xl border border-dashed border-white/30 bg-white/10 p-6 sm:p-8 text-center backdrop-blur-lg flex-shrink-0">
+                      <p className="text-sm uppercase tracking-[0.3em] text-white/70">Cortinas fechadas</p>
+                      <p className="mt-2 text-2xl sm:text-3xl font-semibold text-white">
+                        Todos os nomes foram revelados!
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
 
