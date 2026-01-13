@@ -2582,7 +2582,6 @@ export default function Sorteios() {
                       </>
                     ) : (
                       <>
-                        <p className="text-sm uppercase tracking-[0.3em] text-white/70">Cortinas prontas</p>
                         <p className="mt-2 text-2xl sm:text-3xl font-semibold text-white">
                           {showcaseSuspense ? "🎬 Suspense no ar..." : "Próximo prêmio aguardando o clique"}
                         </p>
