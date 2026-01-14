@@ -107,9 +107,20 @@ interface ResultadoSorteio {
   clienteId: string;
 }
 
+interface ShowcaseEntry {
+  prize: string;
+  luckyNumber: string;
+  name: string;
+  bakery: string;
+  purchaseDate: string;
+  contact: string;
+  type?: "reserve";
+  reserveFor?: string;
+}
+
 const SERIES_VALIDAS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
-const MOCK_RAFFLE_SHOWCASE = [
+const MOCK_RAFFLE_SHOWCASE: ShowcaseEntry[] = [
   {
     prize: "🥇",
     luckyNumber: "0/91415",
@@ -149,6 +160,59 @@ const MOCK_RAFFLE_SHOWCASE = [
     bakery: "Vila Alves",
     purchaseDate: "12/12/2025",
     contact: "CPF 629.***.***-34 · +55 (85) *****-3004",
+  },
+];
+
+const MOCK_RAFFLE_RESERVES: ShowcaseEntry[] = [
+  {
+    type: "reserve",
+    prize: "🛟 1",
+    luckyNumber: "1º colocado",
+    reserveFor: "1º colocado",
+    name: "José vitor Vieira da Silva pinto",
+    bakery: "Padaria e Confeitaria são José",
+    purchaseDate: "Reserva",
+    contact: "",
+  },
+  {
+    type: "reserve",
+    prize: "🛟 2",
+    luckyNumber: "2º colocado",
+    reserveFor: "2º colocado",
+    name: "Erica Sales Vasconcelos",
+    bakery: "Empório Delitalia",
+    purchaseDate: "Reserva",
+    contact: "",
+  },
+  {
+    type: "reserve",
+    prize: "🛟 3",
+    luckyNumber: "3º colocado",
+    reserveFor: "3º colocado",
+    name: "Antonilda Vasconcelos Mota",
+    bakery: "Padaria M M",
+    purchaseDate: "Reserva",
+    contact: "",
+  },
+  {
+    type: "reserve",
+    prize: "🛟 4",
+    luckyNumber: "4º colocado",
+    reserveFor: "4º colocado",
+    name: "Almir Paulino da Silva Filho",
+    bakery: "O Boleiro Bolos",
+    purchaseDate: "Reserva",
+    contact: "",
+  },
+  {
+    type: "reserve",
+    prize: "🛟 5",
+    luckyNumber: "5º colocado",
+    reserveFor: "5º colocado",
+    name: "Sérgio Venâncio de Oliveira",
+    bakery: "Padaria M M",
+    purchaseDate: "Reserva",
+    contact: "",
   },
 ];
 
@@ -438,8 +502,13 @@ export default function Sorteios() {
     };
   }, []);
 
+  const showcaseSequence = useMemo(
+    () => [...MOCK_RAFFLE_SHOWCASE].reverse().concat([...MOCK_RAFFLE_RESERVES].reverse()),
+    []
+  );
+
   const handleRevealShowcase = () => {
-    if (showcaseSuspense || showcaseIndex >= MOCK_RAFFLE_SHOWCASE.length) {
+    if (showcaseSuspense || showcaseIndex >= showcaseSequence.length) {
       return;
     }
 
@@ -450,7 +519,7 @@ export default function Sorteios() {
 
     showcaseTimeoutRef.current = window.setTimeout(() => {
       setShowcaseIndex((prev) => {
-        const nextIndex = Math.min(prev + 1, MOCK_RAFFLE_SHOWCASE.length);
+        const nextIndex = Math.min(prev + 1, showcaseSequence.length);
         setShowcasePage(Math.max(0, nextIndex - 1));
         return nextIndex;
       });
@@ -599,16 +668,12 @@ export default function Sorteios() {
     selectedCampaignIdNumber !== undefined
       ? campaigns.find((c) => Number(c.id) === selectedCampaignIdNumber)
       : undefined;
-  const orderedShowcase = useMemo(
-    () => [...MOCK_RAFFLE_SHOWCASE].reverse(),
-    []
-  );
-  const revealedShowcaseWinners = orderedShowcase.slice(0, showcaseIndex);
-  const showcaseComplete = showcaseIndex >= orderedShowcase.length;
-  const nextShowcaseWinner = orderedShowcase[showcaseIndex];
+  const revealedShowcaseWinners = showcaseSequence.slice(0, showcaseIndex);
+  const showcaseComplete = showcaseIndex >= showcaseSequence.length;
   const currentShowcaseWinner = revealedShowcaseWinners[showcasePage];
   const canGoPrevShowcase = showcasePage > 0;
   const canGoNextShowcase = showcasePage < revealedShowcaseWinners.length - 1;
+  const isReserveShowcase = currentShowcaseWinner?.type === "reserve";
   const selectedCampaignStatus = selectedCampaign
     ? getCampaignStatus(selectedCampaign.data_inicio, selectedCampaign.data_fim)
     : undefined;
@@ -2431,7 +2496,7 @@ export default function Sorteios() {
                         Ritmo da revelação
                       </div>
                       <div className="text-3xl sm:text-4xl font-semibold text-white">
-                        {showcaseIndex} de {orderedShowcase.length} nomes revelados
+                        {showcaseIndex} de {showcaseSequence.length} nomes revelados
                       </div>
                     </div>
                     <div className="flex flex-col sm:flex-row flex-wrap gap-3 w-full sm:w-auto">
@@ -2463,7 +2528,7 @@ export default function Sorteios() {
                         disabled={showcaseSuspense || showcaseComplete}
                         className="text-lg sm:text-2xl px-6 sm:px-10 py-4 sm:py-6 bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 text-black shadow-2xl rounded-2xl w-full sm:w-auto animate-pulse-slow"
                       >
-                        {showcaseComplete ? "Revelação concluída" : showcaseSuspense ? "Suspense..." : "Revelar próximo"}
+                        {showcaseComplete ? "Revelação concluída" : showcaseSuspense ? "Suspense..." : "Sortear!"}
                       </Button>
                     </div>
                   </div>
@@ -2515,13 +2580,19 @@ export default function Sorteios() {
                             </div>
                           </div>
                           <Badge className="bg-yellow-400 text-black border border-yellow-300 font-mono text-lg sm:text-xl px-4 sm:px-5 py-2 w-fit">
-                            Nº {currentShowcaseWinner.luckyNumber}
+                            {isReserveShowcase ? "Reserva" : "Nº"} {currentShowcaseWinner.luckyNumber}
                           </Badge>
                         </div>
                         <div className="mt-4 sm:mt-5 grid gap-4 text-base text-white/70 sm:grid-cols-3 relative">
                           <div>
-                            <p className="text-xs uppercase tracking-[0.2em] text-white/50">Data compra</p>
-                            <p className="text-lg sm:text-xl text-white">{currentShowcaseWinner.purchaseDate}</p>
+                            <p className="text-xs uppercase tracking-[0.2em] text-white/50">
+                              {isReserveShowcase ? "Reserva de" : "Data compra"}
+                            </p>
+                            <p className="text-lg sm:text-xl text-white">
+                              {isReserveShowcase
+                                ? currentShowcaseWinner.reserveFor
+                                : currentShowcaseWinner.purchaseDate}
+                            </p>
                           </div>
                           <div>
                             <p className="text-xs uppercase tracking-[0.2em] text-white/50">Padaria</p>
@@ -2545,7 +2616,7 @@ export default function Sorteios() {
                       <div className="rounded-3xl border border-dashed border-white/30 bg-white/10 p-6 sm:p-8 text-center backdrop-blur-lg">
                         <p className="text-sm uppercase tracking-[0.3em] text-white/70">Aguardando revelação</p>
                         <p className="mt-2 text-2xl sm:text-3xl font-semibold text-white">
-                          Clique em &quot;Revelar próximo&quot; para iniciar
+                          Clique em &quot;Sortear!&quot; para iniciar
                         </p>
                       </div>
                     )}
@@ -2573,34 +2644,14 @@ export default function Sorteios() {
                     )}
                   </div>
 
-                  <div className="rounded-3xl border border-dashed border-white/30 bg-white/10 p-6 sm:p-8 text-center backdrop-blur-lg flex-shrink-0">
-                    {showcaseComplete ? (
-                      <>
-                        <p className="text-sm uppercase tracking-[0.3em] text-white/70">Cortinas fechadas</p>
-                        <p className="mt-2 text-2xl sm:text-3xl font-semibold text-white">Todos os nomes foram revelados!</p>
-                      </>
-                    ) : (
-                      <>
-                        <p className="mt-2 text-2xl sm:text-3xl font-semibold text-white">
-                          {showcaseSuspense ? "🎬 Suspense no ar..." : "Próximo prêmio aguardando o clique"}
-                        </p>
-                        <div className={`mt-6 grid gap-4 sm:grid-cols-3 ${showcaseSuspense ? "animate-pulse" : ""}`}>
-                          <div className="rounded-2xl border border-white/20 bg-white/10 p-5">
-                            <p className="text-xs uppercase tracking-[0.2em] text-white/60">Prêmio</p>
-                            <p className="mt-3 text-2xl sm:text-3xl">{nextShowcaseWinner?.prize ?? "🎁"}</p>
-                          </div>
-                          <div className="rounded-2xl border border-white/20 bg-white/10 p-5">
-                            <p className="text-xs uppercase tracking-[0.2em] text-white/60">Número da sorte</p>
-                            <p className="mt-3 text-xl sm:text-2xl font-mono text-white">??/?????</p>
-                          </div>
-                          <div className="rounded-2xl border border-white/20 bg-white/10 p-5">
-                            <p className="text-xs uppercase tracking-[0.2em] text-white/60">Contemplado</p>
-                            <p className="mt-3 text-xl sm:text-2xl font-semibold text-white">???</p>
-                          </div>
-                        </div>
-                      </>
-                    )}
-                  </div>
+                  {showcaseComplete && (
+                    <div className="rounded-3xl border border-dashed border-white/30 bg-white/10 p-6 sm:p-8 text-center backdrop-blur-lg flex-shrink-0">
+                      <p className="text-sm uppercase tracking-[0.3em] text-white/70">Cortinas fechadas</p>
+                      <p className="mt-2 text-2xl sm:text-3xl font-semibold text-white">
+                        Todos os nomes foram revelados!
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
 
