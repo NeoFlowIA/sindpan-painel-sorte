@@ -28,9 +28,7 @@ export function ClientesTable() {
     ['clientes-by-padaria', padariasId],
     GET_CLIENTES,
     {
-      padaria_id: padariasId,
-      limit: 100,
-      offset: 0
+      padaria_id: padariasId
     },
     { enabled: !!padariasId }
   );
