@@ -1,9 +1,17 @@
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useState } from "react";
 import { Plus, Pencil, Trash2, Users } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
+import {
+  useAtendentes,
+  useCreateAtendente,
+  useDeleteAtendente,
+  useUpdateAtendente,
+} from "@/hooks/useAtendentes";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,54 +24,69 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
-type Atendente = {
-  id: string;
-  nome: string;
-};
-
 export function PadariaAtendentes() {
-  const [atendentes, setAtendentes] = useState<Atendente[]>([]);
+  const { user } = useAuth();
+  const padariaId = user?.padarias_id || "";
+
   const [novoNome, setNovoNome] = useState("");
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [nomeEdicao, setNomeEdicao] = useState("");
 
-  const totalAtendentes = useMemo(() => atendentes.length, [atendentes]);
+  const { data, isLoading } = useAtendentes(padariaId);
+  const createAtendente = useCreateAtendente();
+  const updateAtendente = useUpdateAtendente();
+  const deleteAtendente = useDeleteAtendente();
 
-  const handleAdicionar = (event: FormEvent) => {
+  const atendentes = data?.atendentes || [];
+
+  const handleAdicionar = async (event: FormEvent) => {
     event.preventDefault();
     const nome = novoNome.trim();
-    if (!nome) return;
+    if (!nome || !padariaId) return;
 
-    setAtendentes((atual) => [
-      ...atual,
-      { id: crypto.randomUUID(), nome },
-    ]);
-    setNovoNome("");
+    try {
+      await createAtendente.mutateAsync({
+        atendente: { nome, padaria_id: padariaId },
+      });
+      setNovoNome("");
+      toast.success("Atendente cadastrado com sucesso");
+    } catch (error) {
+      toast.error("Erro ao cadastrar atendente");
+    }
   };
 
-  const iniciarEdicao = (atendente: Atendente) => {
-    setEditandoId(atendente.id);
-    setNomeEdicao(atendente.nome);
+  const iniciarEdicao = (id: string, nome: string) => {
+    setEditandoId(id);
+    setNomeEdicao(nome);
   };
 
-  const salvarEdicao = (id: string) => {
+  const salvarEdicao = async (id: string) => {
     const nome = nomeEdicao.trim();
     if (!nome) return;
 
-    setAtendentes((atual) =>
-      atual.map((atendente) =>
-        atendente.id === id ? { ...atendente, nome } : atendente,
-      ),
-    );
-    setEditandoId(null);
-    setNomeEdicao("");
-  };
-
-  const deletarAtendente = (id: string) => {
-    setAtendentes((atual) => atual.filter((atendente) => atendente.id !== id));
-    if (editandoId === id) {
+    try {
+      await updateAtendente.mutateAsync({
+        id,
+        changes: { nome },
+      });
       setEditandoId(null);
       setNomeEdicao("");
+      toast.success("Atendente atualizado");
+    } catch (error) {
+      toast.error("Erro ao atualizar atendente");
+    }
+  };
+
+  const deletar = async (id: string) => {
+    try {
+      await deleteAtendente.mutateAsync({ id });
+      if (editandoId === id) {
+        setEditandoId(null);
+        setNomeEdicao("");
+      }
+      toast.success("Atendente removido");
+    } catch (error) {
+      toast.error("Erro ao excluir atendente");
     }
   };
 
@@ -71,9 +94,7 @@ export function PadariaAtendentes() {
     <div className="space-y-6">
       <div className="flex flex-col gap-2">
         <h1 className="text-2xl sm:text-3xl font-bold text-primary">Atendentes</h1>
-        <p className="text-sm text-muted-foreground">
-          Cadastre e gerencie os atendentes da sua padaria.
-        </p>
+        <p className="text-sm text-muted-foreground">Cadastre e gerencie os atendentes da sua padaria.</p>
       </div>
 
       <Card>
@@ -92,7 +113,7 @@ export function PadariaAtendentes() {
                 placeholder="Ex: Maria Souza"
               />
             </div>
-            <Button type="submit" className="sm:mt-7">
+            <Button type="submit" className="sm:mt-7" disabled={createAtendente.isLoading || !padariaId}>
               <Plus className="w-4 h-4 mr-2" />
               Cadastrar
             </Button>
@@ -104,26 +125,21 @@ export function PadariaAtendentes() {
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
             <CardTitle>Lista de atendentes</CardTitle>
-            <CardDescription>Total cadastrados: {totalAtendentes}</CardDescription>
+            <CardDescription>Total cadastrados: {atendentes.length}</CardDescription>
           </div>
           <Users className="w-5 h-5 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          {atendentes.length === 0 ? (
+          {isLoading ? (
+            <p className="text-sm text-muted-foreground">Carregando atendentes...</p>
+          ) : atendentes.length === 0 ? (
             <p className="text-sm text-muted-foreground">Nenhum atendente cadastrado ainda.</p>
           ) : (
             <div className="space-y-3">
               {atendentes.map((atendente) => (
-                <div
-                  key={atendente.id}
-                  className="border rounded-lg p-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
-                >
+                <div key={atendente.id} className="border rounded-lg p-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   {editandoId === atendente.id ? (
-                    <Input
-                      value={nomeEdicao}
-                      onChange={(event) => setNomeEdicao(event.target.value)}
-                      className="w-full sm:max-w-md"
-                    />
+                    <Input value={nomeEdicao} onChange={(event) => setNomeEdicao(event.target.value)} className="w-full sm:max-w-md" />
                   ) : (
                     <p className="font-medium">{atendente.nome}</p>
                   )}
@@ -131,22 +147,15 @@ export function PadariaAtendentes() {
                   <div className="flex items-center gap-2">
                     {editandoId === atendente.id ? (
                       <>
-                        <Button size="sm" onClick={() => salvarEdicao(atendente.id)}>
+                        <Button size="sm" onClick={() => salvarEdicao(atendente.id)} disabled={updateAtendente.isLoading}>
                           Salvar
                         </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setEditandoId(null);
-                            setNomeEdicao("");
-                          }}
-                        >
+                        <Button size="sm" variant="outline" onClick={() => { setEditandoId(null); setNomeEdicao(""); }}>
                           Cancelar
                         </Button>
                       </>
                     ) : (
-                      <Button size="sm" variant="outline" onClick={() => iniciarEdicao(atendente)}>
+                      <Button size="sm" variant="outline" onClick={() => iniciarEdicao(atendente.id, atendente.nome)}>
                         <Pencil className="w-4 h-4 mr-2" />
                         Editar
                       </Button>
@@ -154,7 +163,7 @@ export function PadariaAtendentes() {
 
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
-                        <Button size="sm" variant="destructive">
+                        <Button size="sm" variant="destructive" disabled={deleteAtendente.isLoading}>
                           <Trash2 className="w-4 h-4 mr-2" />
                           Excluir
                         </Button>
@@ -168,9 +177,7 @@ export function PadariaAtendentes() {
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                           <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => deletarAtendente(atendente.id)}>
-                            Excluir
-                          </AlertDialogAction>
+                          <AlertDialogAction onClick={() => deletar(atendente.id)}>Excluir</AlertDialogAction>
                         </AlertDialogFooter>
                       </AlertDialogContent>
                     </AlertDialog>
