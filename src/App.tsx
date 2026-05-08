@@ -22,6 +22,7 @@ import { LoginPadaria } from "./pages/padaria/Login";
 import { RegisterPadaria } from "./pages/padaria/Register";
 import { PadariaDashboard } from "./pages/padaria/Dashboard";
 import { PadariaSorteio } from "./pages/padaria/Sorteio";
+import { PadariaAtendentes } from "./pages/padaria/Atendentes";
 
 const queryClient = new QueryClient();
 
@@ -151,6 +152,16 @@ const App = () => (
               <BakeryRoute>
                 <PadariaLayout>
                   <PadariaSorteio />
+                </PadariaLayout>
+              </BakeryRoute>
+            }
+          />
+          <Route
+            path="/padaria/atendentes"
+            element={
+              <BakeryRoute>
+                <PadariaLayout>
+                  <PadariaAtendentes />
                 </PadariaLayout>
               </BakeryRoute>
             }
