@@ -26,7 +26,7 @@ import {
 
 export function PadariaAtendentes() {
   const { user } = useAuth();
-  const padariaId = user?.padarias_id || "";
+  const padariaId = user?.padarias_id || user?.padarias?.id || "";
 
   const [novoNome, setNovoNome] = useState("");
   const [editandoId, setEditandoId] = useState<string | null>(null);
@@ -113,7 +113,7 @@ export function PadariaAtendentes() {
                 placeholder="Ex: Maria Souza"
               />
             </div>
-            <Button type="submit" className="sm:mt-7" disabled={createAtendente.isLoading || !padariaId}>
+            <Button type="submit" className="sm:mt-7" disabled={createAtendente.isPending || !padariaId}>
               <Plus className="w-4 h-4 mr-2" />
               Cadastrar
             </Button>
@@ -147,7 +147,7 @@ export function PadariaAtendentes() {
                   <div className="flex items-center gap-2">
                     {editandoId === atendente.id ? (
                       <>
-                        <Button size="sm" onClick={() => salvarEdicao(atendente.id)} disabled={updateAtendente.isLoading}>
+                        <Button size="sm" onClick={() => salvarEdicao(atendente.id)} disabled={updateAtendente.isPending}>
                           Salvar
                         </Button>
                         <Button size="sm" variant="outline" onClick={() => { setEditandoId(null); setNomeEdicao(""); }}>
@@ -163,7 +163,7 @@ export function PadariaAtendentes() {
 
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
-                        <Button size="sm" variant="destructive" disabled={deleteAtendente.isLoading}>
+                        <Button size="sm" variant="destructive" disabled={deleteAtendente.isPending}>
                           <Trash2 className="w-4 h-4 mr-2" />
                           Excluir
                         </Button>
