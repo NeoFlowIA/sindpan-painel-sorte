@@ -1860,3 +1860,50 @@ export const ADICIONAR_SALDO_CLIENTE_PADARIA = `
     }
   }
 `;
+
+// ===== ATENDENTES =====
+export const GET_ATENDENTES_BY_PADARIA = `
+  query GetAtendentesByPadaria($padaria_id: uuid!) {
+    atendentes(
+      where: {padaria_id: {_eq: $padaria_id}}
+      order_by: {nome: asc}
+    ) {
+      id
+      nome
+      padaria_id
+      created_at
+      updated_at
+    }
+  }
+`;
+
+export const CREATE_ATENDENTE = `
+  mutation CreateAtendente($atendente: atendentes_insert_input!) {
+    insert_atendentes_one(object: $atendente) {
+      id
+      nome
+      padaria_id
+      created_at
+      updated_at
+    }
+  }
+`;
+
+export const UPDATE_ATENDENTE = `
+  mutation UpdateAtendente($id: uuid!, $changes: atendentes_set_input!) {
+    update_atendentes_by_pk(pk_columns: {id: $id}, _set: $changes) {
+      id
+      nome
+      padaria_id
+      updated_at
+    }
+  }
+`;
+
+export const DELETE_ATENDENTE = `
+  mutation DeleteAtendente($id: uuid!) {
+    delete_atendentes_by_pk(id: $id) {
+      id
+    }
+  }
+`;
