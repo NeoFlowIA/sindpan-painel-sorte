@@ -1,4 +1,4 @@
-import { FormEvent, useState } from "react";
+import { useState } from "react";
 import { Plus, Pencil, Trash2, Users } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -23,12 +23,22 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 export function PadariaAtendentes() {
   const { user } = useAuth();
   const padariaId = user?.padarias_id || user?.padarias?.id || "";
 
   const [novoNome, setNovoNome] = useState("");
+  const [modalAberto, setModalAberto] = useState(false);
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [nomeEdicao, setNomeEdicao] = useState("");
 
@@ -39,8 +49,7 @@ export function PadariaAtendentes() {
 
   const atendentes = data?.atendentes || [];
 
-  const handleAdicionar = async (event: FormEvent) => {
-    event.preventDefault();
+  const handleAdicionar = async () => {
     const nome = novoNome.trim();
     if (!nome || !padariaId) return;
 
@@ -49,6 +58,7 @@ export function PadariaAtendentes() {
         atendente: { nome, padaria_id: padariaId },
       });
       setNovoNome("");
+      setModalAberto(false);
       toast.success("Atendente cadastrado com sucesso");
     } catch (error) {
       toast.error("Erro ao cadastrar atendente");
@@ -92,19 +102,25 @@ export function PadariaAtendentes() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-2">
-        <h1 className="text-2xl sm:text-3xl font-bold text-primary">Atendentes</h1>
-        <p className="text-sm text-muted-foreground">Cadastre e gerencie os atendentes da sua padaria.</p>
-      </div>
+      <div className="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-center">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-primary">Atendentes</h1>
+          <p className="text-sm text-muted-foreground">Cadastre e gerencie os atendentes da sua padaria.</p>
+        </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Novo atendente</CardTitle>
-          <CardDescription>Preencha o nome para adicionar um atendente.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleAdicionar} className="flex flex-col sm:flex-row gap-3">
-            <div className="w-full space-y-2">
+        <Dialog open={modalAberto} onOpenChange={setModalAberto}>
+          <DialogTrigger asChild>
+            <Button>
+              <Plus className="w-4 h-4 mr-2" />
+              Cadastrar atendente
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Novo atendente</DialogTitle>
+              <DialogDescription>Preencha o nome para adicionar um atendente.</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-2">
               <Label htmlFor="nome-atendente">Nome do atendente</Label>
               <Input
                 id="nome-atendente"
@@ -113,13 +129,15 @@ export function PadariaAtendentes() {
                 placeholder="Ex: Maria Souza"
               />
             </div>
-            <Button type="submit" className="sm:mt-7" disabled={createAtendente.isPending || !padariaId}>
-              <Plus className="w-4 h-4 mr-2" />
-              Cadastrar
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setModalAberto(false)}>Cancelar</Button>
+              <Button onClick={handleAdicionar} disabled={createAtendente.isPending || !padariaId}>
+                Cadastrar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
