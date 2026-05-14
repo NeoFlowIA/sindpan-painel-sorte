@@ -16,9 +16,13 @@ import {
 } from "@/hooks/useAuditoria";
 
 const formatBRL = (centavos: number) => (centavos / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const toDatetimeLocal = (iso?: string | null) => (iso ? new Date(iso).toISOString().slice(0, 16) : "");
 
 export default function AuditoriaNotas() {
   const [valorDigitado, setValorDigitado] = useState<Record<string, string>>({});
+  const [cnpjDigitado, setCnpjDigitado] = useState<Record<string, string>>({});
+  const [dataDigitada, setDataDigitada] = useState<Record<string, string>>({});
+
   const { data: pendentesData, isLoading } = useAuditoriasPendentes();
   const { data: resolvidasData } = useAuditoriasResolvidas();
   const registerAuditoria = useRegisterAuditoria();
@@ -33,16 +37,19 @@ export default function AuditoriaNotas() {
   const aprovarNota = async (nota: Auditoria) => {
     const valorManual = valorDigitado[nota.id]?.trim();
     const valorCentavos = valorManual ? Math.round(Number(valorManual.replace(",", ".")) * 100) : nota.valor_centavos;
+    const cnpjFinal = (cnpjDigitado[nota.id] ?? nota.padaria?.cnpj ?? "").trim();
+    const dataFinalLocal = dataDigitada[nota.id] ?? toDatetimeLocal(nota.data_hora_nota);
+    const dataFinalISO = dataFinalLocal ? new Date(dataFinalLocal).toISOString() : "";
 
     if (
       nota.status !== "em_auditoria" ||
       !nota.cliente_id ||
       !nota.padaria_id ||
       !valorCentavos ||
-      !nota.data_hora_nota ||
-      !nota.padaria?.cnpj
+      !dataFinalISO ||
+      !cnpjFinal
     ) {
-      toast.error("Auditoria incompleta para aprovação.");
+      toast.error("Preencha e valide CNPJ, data/hora e valor para aprovar.");
       return;
     }
 
@@ -51,8 +58,8 @@ export default function AuditoriaNotas() {
         cliente: nota.cliente_id,
         padaria: nota.padaria_id,
         valor: valorCentavos,
-        data: nota.data_hora_nota,
-        cnpj: nota.padaria.cnpj,
+        data: dataFinalISO,
+        cnpj: cnpjFinal,
         conf: 1.0,
         raw: "Aprovado manualmente via painel de auditoria",
         img: nota.foto_nota || "imagem indisponível",
@@ -60,17 +67,8 @@ export default function AuditoriaNotas() {
 
       await aprovarAuditoria.mutateAsync({ id: nota.id, now: new Date().toISOString() });
       toast.success(`Aprovada. ${result.register_receipt_basic.cupons_emitidos_agora} cupom(ns) gerado(s).`);
-    } catch (error) {
-      toast.error("Falha ao aprovar auditoria.");
-    }
-  };
-
-  const reprovarNota = async (id: string) => {
-    try {
-      await reprovarAuditoria.mutateAsync({ id, now: new Date().toISOString() });
-      toast.success("Nota reprovada e removida da fila de pendências.");
     } catch {
-      toast.error("Falha ao reprovar auditoria.");
+      toast.error("Falha ao aprovar auditoria.");
     }
   };
 
@@ -78,7 +76,7 @@ export default function AuditoriaNotas() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl md:text-3xl font-bold">Auditoria de Notas</h1>
-        <p className="text-muted-foreground text-sm md:text-base">Valide notas fiscais enviadas pelas padarias e defina o valor final para processamento.</p>
+        <p className="text-muted-foreground text-sm md:text-base">Valide os dados obrigatórios da nota para geração de cupons e números da sorte.</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -90,7 +88,7 @@ export default function AuditoriaNotas() {
       <Card>
         <CardHeader>
           <CardTitle>Fila de Auditoria (Pendentes)</CardTitle>
-          <CardDescription>Ao aprovar, a nota sai da lista e segue para processamento de cupons.</CardDescription>
+          <CardDescription>Campos obrigatórios para aprovação: valor, data/hora da compra e CNPJ.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {isLoading ? <p className="text-sm text-muted-foreground">Carregando auditorias...</p> : pendentes.length === 0 ? (
@@ -106,23 +104,24 @@ export default function AuditoriaNotas() {
                   </div>
                   <p className="text-sm"><strong>Padaria:</strong> {nota.padaria?.nome || "-"}</p>
                   <p className="text-sm"><strong>Cliente:</strong> {nota.cliente?.nome || "-"}</p>
-                  <p className="text-sm"><strong>Valor capturado:</strong> {nota.valor_centavos ? formatBRL(nota.valor_centavos) : "-"}</p>
-                  <p className="text-xs text-muted-foreground">Enviada em {nota.data_hora_nota ? new Date(nota.data_hora_nota).toLocaleString("pt-BR") : "-"}</p>
+                  <p className="text-sm"><strong>Valor extraído:</strong> {nota.valor_centavos ? formatBRL(nota.valor_centavos) : "-"}</p>
 
                   <div className="pt-2 space-y-2">
-                    <label className="text-sm font-medium">Valor validado pelo admin (R$)</label>
-                    <Input
-                      placeholder="Ex: 32,90"
-                      value={valorDigitado[nota.id] || ""}
-                      onChange={(e) => setValorDigitado((atual) => ({ ...atual, [nota.id]: e.target.value }))}
-                    />
+                    <label className="text-sm font-medium">Valor validado (R$)</label>
+                    <Input placeholder="Ex: 32,90" value={valorDigitado[nota.id] ?? (nota.valor_centavos ? String(nota.valor_centavos / 100).replace('.', ',') : "")} onChange={(e) => setValorDigitado((a) => ({ ...a, [nota.id]: e.target.value }))} />
+
+                    <label className="text-sm font-medium">Data e hora da compra</label>
+                    <Input type="datetime-local" value={dataDigitada[nota.id] ?? toDatetimeLocal(nota.data_hora_nota)} onChange={(e) => setDataDigitada((a) => ({ ...a, [nota.id]: e.target.value }))} />
+
+                    <label className="text-sm font-medium">CNPJ validado</label>
+                    <Input placeholder="Somente números ou formatado" value={cnpjDigitado[nota.id] ?? (nota.padaria?.cnpj || "")} onChange={(e) => setCnpjDigitado((a) => ({ ...a, [nota.id]: e.target.value }))} />
                   </div>
 
                   <div className="flex gap-2 pt-2 flex-wrap">
                     <Button onClick={() => aprovarNota(nota)} disabled={registerAuditoria.isPending || aprovarAuditoria.isPending}>
                       <CheckCircle2 className="w-4 h-4 mr-2" /> Aprovar e gerar cupons
                     </Button>
-                    <Button variant="destructive" onClick={() => reprovarNota(nota.id)} disabled={reprovarAuditoria.isPending}>
+                    <Button variant="destructive" onClick={async () => { await reprovarAuditoria.mutateAsync({ id: nota.id, now: new Date().toISOString() }); toast.success("Nota reprovada."); }} disabled={reprovarAuditoria.isPending}>
                       <XCircle className="w-4 h-4 mr-2" /> Reprovar
                     </Button>
                   </div>
@@ -131,39 +130,10 @@ export default function AuditoriaNotas() {
                 <div className="space-y-2">
                   <img src={nota.foto_nota || "https://i.imgur.com/tc989yh.jpg"} alt={`Nota fiscal ${nota.id}`} className="w-full h-72 object-cover rounded-md border" />
                   <Dialog>
-                    <DialogTrigger asChild>
-                      <Button variant="outline" className="w-full"><Expand className="w-4 h-4 mr-2" /> Ver em tela inteira</Button>
-                    </DialogTrigger>
-                    <DialogContent className="max-w-6xl w-[95vw]">
-                      <DialogHeader><DialogTitle>Nota fiscal {nota.id}</DialogTitle></DialogHeader>
-                      <img src={nota.foto_nota || "https://i.imgur.com/tc989yh.jpg"} alt={`Nota fiscal ${nota.id} em tela inteira`} className="w-full max-h-[80vh] object-contain rounded-md border" />
-                    </DialogContent>
+                    <DialogTrigger asChild><Button variant="outline" className="w-full"><Expand className="w-4 h-4 mr-2" /> Ver em tela inteira</Button></DialogTrigger>
+                    <DialogContent className="max-w-6xl w-[95vw]"><DialogHeader><DialogTitle>Nota fiscal {nota.id}</DialogTitle></DialogHeader><img src={nota.foto_nota || "https://i.imgur.com/tc989yh.jpg"} alt={`Nota fiscal ${nota.id} em tela inteira`} className="w-full max-h-[80vh] object-contain rounded-md border" /></DialogContent>
                   </Dialog>
                 </div>
-              </div>
-            ))
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Histórico</CardTitle>
-          <CardDescription>Notas que já saíram da fila de auditoria.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {finalizadas.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Sem histórico ainda.</p>
-          ) : (
-            finalizadas.map((nota) => (
-              <div key={nota.id} className="border rounded-md p-3 text-sm flex items-center justify-between gap-3">
-                <div>
-                  <p className="font-medium">{nota.id} • {nota.padaria?.nome || "-"}</p>
-                  <p className="text-muted-foreground">
-                    {nota.status === "aprovada_manual" ? `Aprovada • Valor ${nota.valor_centavos ? formatBRL(nota.valor_centavos) : "-"}` : "Reprovada"}
-                  </p>
-                </div>
-                <Badge variant={nota.status === "aprovada_manual" ? "default" : "destructive"}>{nota.status}</Badge>
               </div>
             ))
           )}
