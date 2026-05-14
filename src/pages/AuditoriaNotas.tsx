@@ -18,6 +18,13 @@ import {
 const formatBRL = (centavos: number) => (centavos / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const toDatetimeLocal = (iso?: string | null) => (iso ? new Date(iso).toISOString().slice(0, 16) : "");
 
+const getNotaImageSrc = (fotoNota?: string | null) => {
+  if (!fotoNota) return "https://i.imgur.com/tc989yh.jpg";
+  if (fotoNota.startsWith("data:image")) return fotoNota;
+  if (fotoNota.startsWith("http://") || fotoNota.startsWith("https://")) return fotoNota;
+  return `data:image/jpeg;base64,${fotoNota}`;
+};
+
 export default function AuditoriaNotas() {
   const [valorDigitado, setValorDigitado] = useState<Record<string, string>>({});
   const [cnpjDigitado, setCnpjDigitado] = useState<Record<string, string>>({});
@@ -128,10 +135,10 @@ export default function AuditoriaNotas() {
                 </div>
 
                 <div className="space-y-2">
-                  <img src={nota.foto_nota || "https://i.imgur.com/tc989yh.jpg"} alt={`Nota fiscal ${nota.id}`} className="w-full h-72 object-cover rounded-md border" />
+                  <img src={getNotaImageSrc(nota.foto_nota)} alt={`Nota fiscal ${nota.id}`} className="w-full h-72 object-cover rounded-md border" />
                   <Dialog>
                     <DialogTrigger asChild><Button variant="outline" className="w-full"><Expand className="w-4 h-4 mr-2" /> Ver em tela inteira</Button></DialogTrigger>
-                    <DialogContent className="max-w-6xl w-[95vw]"><DialogHeader><DialogTitle>Nota fiscal {nota.id}</DialogTitle></DialogHeader><img src={nota.foto_nota || "https://i.imgur.com/tc989yh.jpg"} alt={`Nota fiscal ${nota.id} em tela inteira`} className="w-full max-h-[80vh] object-contain rounded-md border" /></DialogContent>
+                    <DialogContent className="max-w-6xl w-[95vw]"><DialogHeader><DialogTitle>Nota fiscal {nota.id}</DialogTitle></DialogHeader><img src={getNotaImageSrc(nota.foto_nota)} alt={`Nota fiscal ${nota.id} em tela inteira`} className="w-full max-h-[80vh] object-contain rounded-md border" /></DialogContent>
                   </Dialog>
                 </div>
               </div>
