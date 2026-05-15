@@ -102,8 +102,13 @@ export default function AuditoriaNotas() {
         img: nota.foto_nota || "imagem indisponível",
       });
 
+      const registerPayload = Array.isArray((result as any)?.register_receipt_basic)
+        ? (result as any).register_receipt_basic[0]
+        : (result as any)?.register_receipt_basic;
+      const cuponsGerados = Number(registerPayload?.cupons_emitidos_agora ?? 0);
+
       await aprovarAuditoria.mutateAsync({ id: nota.id, now: new Date().toISOString() });
-      toast.success(`Aprovada. ${result.register_receipt_basic.cupons_emitidos_agora} cupom(ns) gerado(s).`);
+      toast.success(`Aprovada. ${cuponsGerados} cupom(ns) gerado(s).`);
     } catch {
       toast.error("Falha ao aprovar auditoria.");
     }
