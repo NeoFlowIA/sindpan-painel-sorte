@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { graphqlClient } from "@/lib/graphql-client";
+import { GET_PADARIA_BY_CNPJ } from "@/graphql/queries";
 import {
   useAprovarAuditoria,
   useAuditoriasPendentes,
@@ -61,15 +63,23 @@ export default function AuditoriaNotas() {
   const aprovarNota = async (nota: Auditoria) => {
     const valorManual = valorDigitado[nota.id]?.trim();
     const valorCentavos = valorManual ? parseValorToCentavos(valorManual) : nota.valor_centavos;
-    const padariaIdFinal = nota.padaria_id || nota.padaria?.id || "";
+    let padariaIdFinal = nota.padaria_id || nota.padaria?.id || "";
     const cnpjFinal = (cnpjDigitado[nota.id] ?? nota.padaria?.cnpj ?? "").trim();
     const dataFinalLocal = dataDigitada[nota.id] ?? toDatetimeLocal(nota.data_hora_nota);
     const dataDate = dataFinalLocal ? new Date(dataFinalLocal) : null;
     const dataFinalISO = dataDate && !Number.isNaN(dataDate.getTime()) ? dataDate.toISOString() : "";
 
+    // fallback: resolver padaria pelo CNPJ quando padaria_id não vier na auditoria
+    if (!padariaIdFinal && cnpjFinal) {
+      try {
+        const resp = await graphqlClient.query<{ padarias: Array<{ id: string }> }>(GET_PADARIA_BY_CNPJ, { cnpj: cnpjFinal });
+        padariaIdFinal = resp?.padarias?.[0]?.id || "";
+      } catch {}
+    }
+
     const missing: string[] = [];
     if (!nota.cliente_id) missing.push("cliente");
-    if (!padariaIdFinal) missing.push("padaria");
+    if (!padariaIdFinal) missing.push("padaria (id não encontrado para o CNPJ informado)");
     if (!valorCentavos) missing.push("valor");
     if (!dataFinalISO) missing.push("data/hora");
     if (!cnpjFinal) missing.push("CNPJ");
