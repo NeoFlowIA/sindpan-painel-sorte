@@ -61,6 +61,7 @@ export default function AuditoriaNotas() {
   const aprovarNota = async (nota: Auditoria) => {
     const valorManual = valorDigitado[nota.id]?.trim();
     const valorCentavos = valorManual ? parseValorToCentavos(valorManual) : nota.valor_centavos;
+    const padariaIdFinal = nota.padaria_id || nota.padaria?.id || "";
     const cnpjFinal = (cnpjDigitado[nota.id] ?? nota.padaria?.cnpj ?? "").trim();
     const dataFinalLocal = dataDigitada[nota.id] ?? toDatetimeLocal(nota.data_hora_nota);
     const dataDate = dataFinalLocal ? new Date(dataFinalLocal) : null;
@@ -68,7 +69,7 @@ export default function AuditoriaNotas() {
 
     const missing: string[] = [];
     if (!nota.cliente_id) missing.push("cliente");
-    if (!nota.padaria_id) missing.push("padaria");
+    if (!padariaIdFinal) missing.push("padaria");
     if (!valorCentavos) missing.push("valor");
     if (!dataFinalISO) missing.push("data/hora");
     if (!cnpjFinal) missing.push("CNPJ");
@@ -82,7 +83,7 @@ export default function AuditoriaNotas() {
     try {
       const result = await registerAuditoria.mutateAsync({
         cliente: nota.cliente_id,
-        padaria: nota.padaria_id,
+        padaria: padariaIdFinal,
         valor: valorCentavos,
         data: dataFinalISO,
         cnpj: cnpjFinal,
