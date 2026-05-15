@@ -18,6 +18,18 @@ import {
 const formatBRL = (centavos: number) => (centavos / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const toDatetimeLocal = (iso?: string | null) => (iso ? new Date(iso).toISOString().slice(0, 16) : "");
 
+const parseValorToCentavos = (valor: string): number | null => {
+  const onlyDigitsAndSeparators = valor.replace(/\s/g, "").replace(/[^\d,.-]/g, "");
+  if (!onlyDigitsAndSeparators) return null;
+
+  // pt-BR: remove separador de milhar e converte vírgula decimal
+  const normalized = onlyDigitsAndSeparators.replace(/\./g, "").replace(",", ".");
+  const numberValue = Number(normalized);
+  if (!Number.isFinite(numberValue) || numberValue <= 0) return null;
+
+  return Math.round(numberValue * 100);
+};
+
 const getNotaImageSrc = (fotoNota?: string | null) => {
   if (!fotoNota) return "https://i.imgur.com/tc989yh.jpg";
   if (fotoNota.startsWith("data:image")) return fotoNota;
@@ -43,7 +55,7 @@ export default function AuditoriaNotas() {
 
   const aprovarNota = async (nota: Auditoria) => {
     const valorManual = valorDigitado[nota.id]?.trim();
-    const valorCentavos = valorManual ? Math.round(Number(valorManual.replace(",", ".")) * 100) : nota.valor_centavos;
+    const valorCentavos = valorManual ? parseValorToCentavos(valorManual) : nota.valor_centavos;
     const cnpjFinal = (cnpjDigitado[nota.id] ?? nota.padaria?.cnpj ?? "").trim();
     const dataFinalLocal = dataDigitada[nota.id] ?? toDatetimeLocal(nota.data_hora_nota);
     const dataFinalISO = dataFinalLocal ? new Date(dataFinalLocal).toISOString() : "";
@@ -76,6 +88,15 @@ export default function AuditoriaNotas() {
       toast.success(`Aprovada. ${result.register_receipt_basic.cupons_emitidos_agora} cupom(ns) gerado(s).`);
     } catch {
       toast.error("Falha ao aprovar auditoria.");
+    }
+  };
+
+  const reprovarNota = async (id: string) => {
+    try {
+      await reprovarAuditoria.mutateAsync({ id, now: new Date().toISOString() });
+      toast.success("Nota reprovada.");
+    } catch {
+      toast.error("Falha ao reprovar auditoria.");
     }
   };
 
@@ -128,7 +149,7 @@ export default function AuditoriaNotas() {
                     <Button onClick={() => aprovarNota(nota)} disabled={registerAuditoria.isPending || aprovarAuditoria.isPending}>
                       <CheckCircle2 className="w-4 h-4 mr-2" /> Aprovar e gerar cupons
                     </Button>
-                    <Button variant="destructive" onClick={async () => { await reprovarAuditoria.mutateAsync({ id: nota.id, now: new Date().toISOString() }); toast.success("Nota reprovada."); }} disabled={reprovarAuditoria.isPending}>
+                    <Button variant="destructive" onClick={() => reprovarNota(nota.id)} disabled={reprovarAuditoria.isPending}>
                       <XCircle className="w-4 h-4 mr-2" /> Reprovar
                     </Button>
                   </div>

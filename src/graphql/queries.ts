@@ -2017,7 +2017,7 @@ export const APROVAR_AUDITORIA = `
   mutation AprovarAuditoria($id: uuid!, $now: timestamptz!) {
     update_auditoria_by_pk(
       pk_columns: {id: $id}
-      _set: {status: "aprovada_manual", updated_at: $now}
+      _set: {status: "aprovada_manual", updated_at: $now, foto_nota: null}
     ) {
       id
       status
@@ -2030,7 +2030,7 @@ export const REPROVAR_AUDITORIA = `
   mutation ReprovarAuditoria($id: uuid!, $now: timestamptz!) {
     update_auditoria_by_pk(
       pk_columns: {id: $id}
-      _set: {status: "reprovada_manual", updated_at: $now}
+      _set: {status: "reprovada_manual", updated_at: $now, foto_nota: null}
     ) {
       id
       status
