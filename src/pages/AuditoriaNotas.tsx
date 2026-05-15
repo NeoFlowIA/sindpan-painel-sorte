@@ -16,7 +16,12 @@ import {
 } from "@/hooks/useAuditoria";
 
 const formatBRL = (centavos: number) => (centavos / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-const toDatetimeLocal = (iso?: string | null) => (iso ? new Date(iso).toISOString().slice(0, 16) : "");
+const toDatetimeLocal = (iso?: string | null) => {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toISOString().slice(0, 16);
+};
 
 const parseValorToCentavos = (valor: string): number | null => {
   const onlyDigitsAndSeparators = valor.replace(/\s/g, "").replace(/[^\d,.-]/g, "");
@@ -58,17 +63,19 @@ export default function AuditoriaNotas() {
     const valorCentavos = valorManual ? parseValorToCentavos(valorManual) : nota.valor_centavos;
     const cnpjFinal = (cnpjDigitado[nota.id] ?? nota.padaria?.cnpj ?? "").trim();
     const dataFinalLocal = dataDigitada[nota.id] ?? toDatetimeLocal(nota.data_hora_nota);
-    const dataFinalISO = dataFinalLocal ? new Date(dataFinalLocal).toISOString() : "";
+    const dataDate = dataFinalLocal ? new Date(dataFinalLocal) : null;
+    const dataFinalISO = dataDate && !Number.isNaN(dataDate.getTime()) ? dataDate.toISOString() : "";
 
-    if (
-      nota.status !== "em_auditoria" ||
-      !nota.cliente_id ||
-      !nota.padaria_id ||
-      !valorCentavos ||
-      !dataFinalISO ||
-      !cnpjFinal
-    ) {
-      toast.error("Preencha e valide CNPJ, data/hora e valor para aprovar.");
+    const missing: string[] = [];
+    if (!nota.cliente_id) missing.push("cliente");
+    if (!nota.padaria_id) missing.push("padaria");
+    if (!valorCentavos) missing.push("valor");
+    if (!dataFinalISO) missing.push("data/hora");
+    if (!cnpjFinal) missing.push("CNPJ");
+    if (nota.status !== "em_auditoria") missing.push(`status (${nota.status || "vazio"})`);
+
+    if (missing.length > 0) {
+      toast.error(`Não foi possível aprovar. Verifique: ${missing.join(", ")}.`);
       return;
     }
 
