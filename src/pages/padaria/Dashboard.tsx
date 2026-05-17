@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { KPICard } from "@/components/KPICard";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ClientesTable } from "@/components/padaria/ClientesTable";
 import { CadastrarCupomButton } from "@/components/padaria/CadastrarCupomButton";
@@ -28,6 +29,53 @@ import {
   LineChart,
   Line
 } from "recharts";
+
+const COMERCIAL_MOCK = {
+  resumo: {
+    ticket_medio: 31.8,
+    taxa_recompra: 42,
+    clientes_participantes: 186,
+    notas_cadastradas: 342,
+    valor_total_cadastrado: 10875.6,
+    periodo: "01/05/2026 a 17/05/2026",
+    campanha: "São João de Prêmios",
+    padaria: "Padaria Teste"
+  },
+  vendas_por_dia_semana: [
+    { dia: "Segunda", notas: 38, valor: 1210.5 }, { dia: "Terça", notas: 52, valor: 1668.4 },
+    { dia: "Quarta", notas: 61, valor: 1942.9 }, { dia: "Quinta", notas: 74, valor: 2480.3 },
+    { dia: "Sexta", notas: 69, valor: 2286.7 }, { dia: "Sábado", notas: 36, valor: 914.2 },
+    { dia: "Domingo", notas: 12, valor: 372.6 }
+  ],
+  horarios_maior_venda: [
+    { hora: "07h", notas: 18 }, { hora: "08h", notas: 31 }, { hora: "09h", notas: 25 },
+    { hora: "10h", notas: 19 }, { hora: "12h", notas: 28 }, { hora: "15h", notas: 46 },
+    { hora: "16h", notas: 54 }, { hora: "17h", notas: 49 }, { hora: "18h", notas: 23 }
+  ],
+  clientes_mais_valiosos: [
+    { nome: "Mariana S.", telefone: "(85) 9****-2031", total_comprado: 384.7, quantidade_notas: 9, ticket_medio: 42.74, ultima_compra: "16/05/2026", status: "VIP" },
+    { nome: "Carlos A.", telefone: "(85) 9****-8820", total_comprado: 318.4, quantidade_notas: 7, ticket_medio: 45.49, ultima_compra: "15/05/2026", status: "VIP" },
+    { nome: "Renata M.", telefone: "(85) 9****-1194", total_comprado: 286.9, quantidade_notas: 8, ticket_medio: 35.86, ultima_compra: "17/05/2026", status: "VIP" },
+    { nome: "João P.", telefone: "(85) 9****-4410", total_comprado: 214.3, quantidade_notas: 5, ticket_medio: 42.86, ultima_compra: "13/05/2026", status: "Recorrente" },
+    { nome: "Patrícia L.", telefone: "(85) 9****-7312", total_comprado: 189.8, quantidade_notas: 6, ticket_medio: 31.63, ultima_compra: "12/05/2026", status: "Recorrente" }
+  ],
+  categorias_mais_compradas: [
+    { categoria: "Cafés", ocorrencias: 96 }, { categoria: "Salgados", ocorrencias: 84 }, { categoria: "Bolos e fatias", ocorrencias: 67 },
+    { categoria: "Sanduíches", ocorrencias: 53 }, { categoria: "Sucos", ocorrencias: 48 }, { categoria: "Pães especiais", ocorrencias: 39 }
+  ],
+  insights: [
+    { titulo: "Melhor horário de venda", descricao: "15h e 17h concentram o maior volume.", acao: "Criar combos de café da tarde." },
+    { titulo: "Dia mais forte", descricao: "Quinta-feira teve maior valor cadastrado.", acao: "Reforçar estoque e atendimento." },
+    { titulo: "Categoria líder", descricao: "Cafés lideram recorrência nas notas.", acao: "Oferecer adicionais com café." },
+    { titulo: "Maior oportunidade comercial", descricao: "Sanduíches têm ticket médio acima da média.", acao: "Estimular combos com bebida." }
+  ],
+  ranking_atendentes: [
+    { nome: "Ana Paula", vendas: 68, valor: 2198.4 },
+    { nome: "Bruno Lima", vendas: 52, valor: 1741.2 },
+    { nome: "Carla Nunes", vendas: 47, valor: 1602.8 },
+    { nome: "Diego Alves", vendas: 33, valor: 1094.3 }
+  ]
+};
 
 
 export function PadariaDashboard() {
@@ -273,8 +321,9 @@ export function PadariaDashboard() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 h-auto">
+          <TabsList className="grid w-full grid-cols-3 h-auto">
             <TabsTrigger value="dashboard" className="text-sm sm:text-base py-2">Dashboard</TabsTrigger>
+            <TabsTrigger value="comercial" className="text-sm sm:text-base py-2">Comercial</TabsTrigger>
             <TabsTrigger value="clientes" className="text-sm sm:text-base py-2">Clientes</TabsTrigger>
           </TabsList>
 
@@ -518,6 +567,70 @@ export function PadariaDashboard() {
               <CuponsRecentesTable cuponsRecentes={cuponsRecentes} isLoading={cuponsRecentesLoading} />
             </CardContent>
           </Card>
+        </div>
+      </TabsContent>
+
+
+
+      <TabsContent value="comercial" className="space-y-4 md:space-y-6 mt-4 md:mt-6">
+        <Card>
+          <CardHeader className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <CardTitle>Dashboard Comercial</CardTitle>
+              <CardDescription>Indicadores de vendas gerados a partir das notas fiscais cadastradas</CardDescription>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Badge variant="secondary">Período: {COMERCIAL_MOCK.resumo.periodo}</Badge>
+              <Badge variant="secondary">Padaria: {COMERCIAL_MOCK.resumo.padaria}</Badge>
+              <Badge variant="secondary">Campanha: {COMERCIAL_MOCK.resumo.campanha}</Badge>
+            </div>
+          </CardHeader>
+        </Card>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
+          <KPICard title="Ticket médio" value={`R$ ${COMERCIAL_MOCK.resumo.ticket_medio.toFixed(2)}`} icon={DollarSign} variant="primary" trend={{ value: 0, isPositive: true }} />
+          <KPICard title="Taxa de recompra" value={`${COMERCIAL_MOCK.resumo.taxa_recompra}%`} icon={TrendingUp} variant="secondary" trend={{ value: 0, isPositive: true }} />
+          <KPICard title="Clientes participantes" value={COMERCIAL_MOCK.resumo.clientes_participantes} icon={Users} variant="accent" trend={{ value: 0, isPositive: true }} />
+          <KPICard title="Notas cadastradas" value={COMERCIAL_MOCK.resumo.notas_cadastradas} icon={Receipt} variant="default" trend={{ value: 0, isPositive: true }} />
+          <KPICard title="Valor total" value={`R$ ${COMERCIAL_MOCK.resumo.valor_total_cadastrado.toLocaleString('pt-BR')}`} icon={DollarSign} variant="primary" trend={{ value: 0, isPositive: true }} />
+        </div>
+
+        <Card>
+          <CardHeader><CardTitle>Ranking de vendas por atendente</CardTitle><CardDescription>Quantidade de vendas realizadas por atendente (mock)</CardDescription></CardHeader>
+          <CardContent className="space-y-2">
+            {COMERCIAL_MOCK.ranking_atendentes.map((a, i) => (
+              <div key={a.nome} className="flex items-center justify-between border rounded-md p-3">
+                <div className="flex items-center gap-2"><Badge>{i+1}º</Badge><span className="font-medium">{a.nome}</span></div>
+                <div className="text-sm text-muted-foreground">{a.vendas} vendas • R$ {a.valor.toLocaleString('pt-BR')}</div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+          <Card><CardHeader><CardTitle>Comportamento de compra</CardTitle><CardDescription>Vendas por dia da semana</CardDescription></CardHeader><CardContent><ResponsiveContainer width="100%" height={280}><BarChart data={COMERCIAL_MOCK.vendas_por_dia_semana}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="dia" tick={{fontSize:10}} /><YAxis tick={{fontSize:10}} /><Tooltip /><Bar dataKey="notas" fill="hsl(var(--chart-primary))" /></BarChart></ResponsiveContainer></CardContent></Card>
+          <Card><CardHeader><CardTitle>Horários de maior movimento</CardTitle><CardDescription>Notas por faixa horária</CardDescription></CardHeader><CardContent><ResponsiveContainer width="100%" height={280}><BarChart data={COMERCIAL_MOCK.horarios_maior_venda}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="hora" /><YAxis /><Tooltip /><Bar dataKey="notas" fill="hsl(var(--chart-secondary))" /></BarChart></ResponsiveContainer></CardContent></Card>
+        </div>
+
+        <Card>
+          <CardHeader><CardTitle>Clientes mais valiosos</CardTitle></CardHeader>
+          <CardContent className="overflow-x-auto">
+            <table className="w-full">
+              <thead><tr className="border-b"><th className="text-left p-2">Nome</th><th className="text-left p-2">Telefone</th><th className="text-left p-2">Total comprado</th><th className="text-left p-2">Notas</th><th className="text-left p-2">Ticket médio</th><th className="text-left p-2">Última compra</th></tr></thead>
+              <tbody>
+                {COMERCIAL_MOCK.clientes_mais_valiosos.map((c, idx)=>(<tr key={c.nome} className="border-b"><td className="p-2 font-medium">{c.nome} {idx<3 && <Badge className="ml-2">VIP</Badge>}</td><td className="p-2">{c.telefone}</td><td className="p-2">R$ {c.total_comprado.toLocaleString('pt-BR')}</td><td className="p-2">{c.quantidade_notas}</td><td className="p-2">R$ {c.ticket_medio.toLocaleString('pt-BR')}</td><td className="p-2">{c.ultima_compra}</td></tr>))}
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
+
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+          <Card className="xl:col-span-2"><CardHeader><CardTitle>Produtos e categorias</CardTitle></CardHeader><CardContent><ResponsiveContainer width="100%" height={280}><BarChart layout="vertical" data={COMERCIAL_MOCK.categorias_mais_compradas}><CartesianGrid strokeDasharray="3 3" /><XAxis type="number" /><YAxis type="category" dataKey="categoria" width={110} tick={{fontSize:11}} /><Tooltip /><Bar dataKey="ocorrencias" fill="hsl(var(--chart-accent))" /></BarChart></ResponsiveContainer></CardContent></Card>
+          <Card><CardHeader><CardTitle>Sugestão comercial automática</CardTitle></CardHeader><CardContent><p className="text-sm">Café e salgados aparecem juntos com frequência. Considere criar um combo promocional no período da tarde.</p></CardContent></Card>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+          {COMERCIAL_MOCK.insights.map((i)=>(<Card key={i.titulo}><CardHeader><CardTitle className="text-base">{i.titulo}</CardTitle></CardHeader><CardContent><p className="text-sm text-muted-foreground mb-2">{i.descricao}</p><p className="text-xs font-medium text-primary">{i.acao}</p></CardContent></Card>))}
         </div>
       </TabsContent>
 
