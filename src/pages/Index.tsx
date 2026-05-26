@@ -4,6 +4,7 @@ import { DashboardCharts } from "@/components/DashboardCharts";
 import { LeaderboardTable } from "@/components/LeaderboardTable";
 import { Store, Target, Users, Calendar as CalendarIcon } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useGraphQLQuery } from "@/hooks/useGraphQL";
 import { GET_ADMIN_DASHBOARD_METRICS } from "@/graphql/queries";
 import {
@@ -75,6 +76,8 @@ const Index = () => {
     [periodEnd, periodStart]
   );
 
+  const [padariaFiltro, setPadariaFiltro] = useState("all");
+
   const { data: metricsData, isLoading: metricsLoading } = useGraphQLQuery<DashboardMetrics>(
     ['admin-dashboard-metrics', metricsQueryVariables.startDate, metricsQueryVariables.endDate],
     GET_ADMIN_DASHBOARD_METRICS,
@@ -136,6 +139,11 @@ const Index = () => {
     ? format(new Date(proximoSorteio.data_sorteio), "EEEE", { locale: ptBR })
     : "Não agendado";
 
+  const opcoesPadaria = useMemo(() => {
+    const set = new Set((metricsData?.compras || []).map(c => c.padaria?.nome).filter(Boolean) as string[]);
+    return Array.from(set).sort();
+  }, [metricsData?.compras]);
+
   const rankingAtendentesPorPadaria = useMemo(() => {
     const mapa = new Map<string, { padariaNome: string; atendenteNome: string; totalCentavos: number; ticketMedio: number }>();
 
@@ -158,14 +166,16 @@ const Index = () => {
       }
     });
 
-    return Array.from(mapa.values())
+    const lista = Array.from(mapa.values())
       .map((item) => ({
         ...item,
         totalReais: item.totalCentavos / 100,
         totalCuponsEstimado: item.ticketMedio > 0 ? Math.floor((item.totalCentavos / 100) / item.ticketMedio) : 0,
       }))
       .sort((a, b) => b.totalReais - a.totalReais);
-  }, [metricsData?.compras]);
+
+    return padariaFiltro === "all" ? lista : lista.filter((l) => l.padariaNome === padariaFiltro);
+  }, [metricsData?.compras, padariaFiltro]);
 
   return (
     <div className="space-y-4 md:space-y-6">
@@ -271,8 +281,15 @@ const Index = () => {
       <LeaderboardTable dateRange={normalizedRange} />
 
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <CardTitle>Atendentes por padaria (vendas registradas)</CardTitle>
+          <Select value={padariaFiltro} onValueChange={setPadariaFiltro}>
+            <SelectTrigger className="w-full md:w-[240px]"><SelectValue placeholder="Filtrar padaria" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas as padarias</SelectItem>
+              {opcoesPadaria.map((nome) => (<SelectItem key={nome} value={nome}>{nome}</SelectItem>))}
+            </SelectContent>
+          </Select>
         </CardHeader>
         <CardContent className="overflow-x-auto">
           <table className="w-full text-sm">

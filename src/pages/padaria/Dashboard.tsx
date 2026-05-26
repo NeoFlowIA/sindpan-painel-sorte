@@ -9,6 +9,8 @@ import { CadastrarCupomButton } from "@/components/padaria/CadastrarCupomButton"
 import { CuponsRecentesTable } from "@/components/padaria/CuponsRecentesTable";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDashboardMetrics, useTopClientes, useCuponsRecentes, useEstatisticasSemanais, useCuponsPorDiaSemana, useEvolucaoDiariaCupons } from "@/hooks/useCupons";
+import { useGraphQLQuery } from "@/hooks/useGraphQL";
+import { GET_COMPRAS_ATENDENTES_PADARIA } from "@/graphql/queries";
 import { useAnexarClientesAutomatico } from "@/hooks/useClientes";
 import { maskCPF } from "@/utils/formatters";
 import { 
@@ -91,6 +93,14 @@ export function PadariaDashboard() {
   const { data: estatisticasSemanaisData, isLoading: estatisticasSemanaisLoading, refetch: refetchEstatisticasSemanais } = useEstatisticasSemanais(user?.padarias_id || "");
   const { data: cuponsPorDiaSemanaData, isLoading: cuponsPorDiaSemanaLoading, refetch: refetchCuponsPorDiaSemana } = useCuponsPorDiaSemana(user?.padarias_id || "");
   const { data: evolucaoDiariaData, isLoading: evolucaoDiariaLoading, refetch: refetchEvolucaoDiaria } = useEvolucaoDiariaCupons(user?.padarias_id || "");
+
+  const padariaId = user?.padarias_id || user?.padarias?.id || "";
+  const { data: comprasAtendentesData } = useGraphQLQuery<{ compras: Array<{ valor_centavos: number | string; atendente_id: string | null; atendente?: { nome: string } | null; padaria?: { ticket_medio?: number | null } | null }> }>(
+    ["compras-atendentes-padaria", padariaId],
+    GET_COMPRAS_ATENDENTES_PADARIA,
+    { padaria_id: padariaId },
+    { enabled: !!padariaId }
+  );
   
   // Hook para anexar clientes automaticamente baseado na quantidade de cupons
   const { 
@@ -140,7 +150,23 @@ export function PadariaDashboard() {
   useEffect(() => {
     // Auto refresh every 60 seconds
     const interval = setInterval(refreshData, 60000);
-    return () => clearInterval(interval);
+  
+  const rankingAtendentesPadaria = (() => {
+    const mapa = new Map<string, { nome: string; totalCentavos: number; ticketMedio: number }>();
+    (comprasAtendentesData?.compras || []).forEach((compra) => {
+      if (!compra.atendente_id) return;
+      const key = compra.atendente_id;
+      const atual = mapa.get(key);
+      const valor = Number(compra.valor_centavos || 0);
+      const ticket = Number(compra.padaria?.ticket_medio || ticketMedio || 0);
+      if (!atual) mapa.set(key, { nome: compra.atendente?.nome || "Atendente", totalCentavos: valor, ticketMedio: ticket });
+      else atual.totalCentavos += valor;
+    });
+    return Array.from(mapa.values()).map((r) => ({ ...r, vendas: Math.max(1, Math.floor(r.totalCentavos / 100 / Math.max(r.ticketMedio || 1, 1))), valor: r.totalCentavos / 100 }))
+      .sort((a,b)=>b.valor-a.valor);
+  })();
+
+  return () => clearInterval(interval);
   }, []);
 
   // Calcular métricas
@@ -593,7 +619,7 @@ export function PadariaDashboard() {
             <CardDescription>Quantidade de vendas realizadas por atendente</CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
-            {COMERCIAL_MOCK.ranking_atendentes.map((atendente, index) => (
+            {(rankingAtendentesPadaria.length > 0 ? rankingAtendentesPadaria : COMERCIAL_MOCK.ranking_atendentes).map((atendente, index) => (
               <div key={atendente.nome} className="flex items-center justify-between border rounded-md p-3">
                 <div className="flex items-center gap-2">
                   <Badge>{index + 1}º</Badge>

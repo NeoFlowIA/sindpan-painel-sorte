@@ -2057,3 +2057,17 @@ export const REPROVAR_AUDITORIA = `
     }
   }
 `;
+
+
+export const GET_COMPRAS_ATENDENTES_PADARIA = `
+  query GetComprasAtendentesPadaria($padaria_id: uuid!) {
+    compras(where: {padaria_id: {_eq: $padaria_id}}, order_by: {data_compra: desc}, limit: 5000) {
+      id
+      valor_centavos
+      padaria_id
+      atendente_id
+      padaria { id nome ticket_medio }
+      atendente { id nome }
+    }
+  }
+`;
