@@ -151,6 +151,17 @@ export function PadariaDashboard() {
     // Auto refresh every 60 seconds
     const interval = setInterval(refreshData, 60000);
   
+
+
+  return () => clearInterval(interval);
+  }, []);
+
+  // Calcular métricas
+  const clientesTotal = metricsData?.clientes?.length || 0;
+  const cuponsTotal = metricsData?.cupons?.length || 0;
+  const ticketMedio = metricsData?.padarias_by_pk?.ticket_medio || 0;
+  const mediaCuponsPorCliente = clientesTotal > 0 ? cuponsTotal / clientesTotal : 0;
+
   const rankingAtendentesPadaria = (() => {
     const mapa = new Map<string, { nome: string; totalCentavos: number; ticketMedio: number }>();
     (comprasAtendentesData?.compras || []).forEach((compra) => {
@@ -162,18 +173,14 @@ export function PadariaDashboard() {
       if (!atual) mapa.set(key, { nome: compra.atendente?.nome || "Atendente", totalCentavos: valor, ticketMedio: ticket });
       else atual.totalCentavos += valor;
     });
-    return Array.from(mapa.values()).map((r) => ({ ...r, vendas: Math.max(1, Math.floor(r.totalCentavos / 100 / Math.max(r.ticketMedio || 1, 1))), valor: r.totalCentavos / 100 }))
-      .sort((a,b)=>b.valor-a.valor);
+    return Array.from(mapa.values())
+      .map((r) => ({
+        ...r,
+        vendas: Math.max(1, Math.floor((r.totalCentavos / 100) / Math.max(r.ticketMedio || 1, 1))),
+        valor: r.totalCentavos / 100,
+      }))
+      .sort((a, b) => b.valor - a.valor);
   })();
-
-  return () => clearInterval(interval);
-  }, []);
-
-  // Calcular métricas
-  const clientesTotal = metricsData?.clientes?.length || 0;
-  const cuponsTotal = metricsData?.cupons?.length || 0;
-  const ticketMedio = metricsData?.padarias_by_pk?.ticket_medio || 0;
-  const mediaCuponsPorCliente = clientesTotal > 0 ? cuponsTotal / clientesTotal : 0;
 
   // Processar estatísticas semanais no frontend
   const processarEstatisticasSemanais = () => {
