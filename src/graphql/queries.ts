@@ -1458,6 +1458,25 @@ export const GET_ADMIN_DASHBOARD_METRICS = `
       data_sorteio
       numero_sorteado
     }
+    compras(
+      where: {data_compra: {_gte: $startDate, _lte: $endDate}}
+      order_by: {data_compra: desc}
+      limit: 5000
+    ) {
+      id
+      valor_centavos
+      padaria_id
+      atendente_id
+      padaria {
+        id
+        nome
+        ticket_medio
+      }
+      atendente {
+        id
+        nome
+      }
+    }
   }
 `;
 
