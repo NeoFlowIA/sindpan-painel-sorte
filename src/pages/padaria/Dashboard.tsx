@@ -587,51 +587,25 @@ export function PadariaDashboard() {
           </CardHeader>
         </Card>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
-          <KPICard title="Ticket médio" value={`R$ ${COMERCIAL_MOCK.resumo.ticket_medio.toFixed(2)}`} icon={DollarSign} variant="primary" trend={{ value: 0, isPositive: true }} />
-          <KPICard title="Taxa de recompra" value={`${COMERCIAL_MOCK.resumo.taxa_recompra}%`} icon={TrendingUp} variant="secondary" trend={{ value: 0, isPositive: true }} />
-          <KPICard title="Clientes participantes" value={COMERCIAL_MOCK.resumo.clientes_participantes} icon={Users} variant="accent" trend={{ value: 0, isPositive: true }} />
-          <KPICard title="Notas cadastradas" value={COMERCIAL_MOCK.resumo.notas_cadastradas} icon={Receipt} variant="default" trend={{ value: 0, isPositive: true }} />
-          <KPICard title="Valor total" value={`R$ ${COMERCIAL_MOCK.resumo.valor_total_cadastrado.toLocaleString('pt-BR')}`} icon={DollarSign} variant="primary" trend={{ value: 0, isPositive: true }} />
-        </div>
-
         <Card>
-          <CardHeader><CardTitle>Ranking de vendas por atendente</CardTitle><CardDescription>Quantidade de vendas realizadas por atendente (mock)</CardDescription></CardHeader>
+          <CardHeader>
+            <CardTitle>Ranking de vendas por atendente</CardTitle>
+            <CardDescription>Quantidade de vendas realizadas por atendente</CardDescription>
+          </CardHeader>
           <CardContent className="space-y-2">
-            {COMERCIAL_MOCK.ranking_atendentes.map((a, i) => (
-              <div key={a.nome} className="flex items-center justify-between border rounded-md p-3">
-                <div className="flex items-center gap-2"><Badge>{i+1}º</Badge><span className="font-medium">{a.nome}</span></div>
-                <div className="text-sm text-muted-foreground">{a.vendas} vendas • R$ {a.valor.toLocaleString('pt-BR')}</div>
+            {COMERCIAL_MOCK.ranking_atendentes.map((atendente, index) => (
+              <div key={atendente.nome} className="flex items-center justify-between border rounded-md p-3">
+                <div className="flex items-center gap-2">
+                  <Badge>{index + 1}º</Badge>
+                  <span className="font-medium">{atendente.nome}</span>
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  {atendente.vendas} vendas • R$ {atendente.valor.toLocaleString('pt-BR')}
+                </div>
               </div>
             ))}
           </CardContent>
         </Card>
-
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-          <Card><CardHeader><CardTitle>Comportamento de compra</CardTitle><CardDescription>Vendas por dia da semana</CardDescription></CardHeader><CardContent><ResponsiveContainer width="100%" height={280}><BarChart data={COMERCIAL_MOCK.vendas_por_dia_semana}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="dia" tick={{fontSize:10}} /><YAxis tick={{fontSize:10}} /><Tooltip /><Bar dataKey="notas" fill="hsl(var(--chart-primary))" /></BarChart></ResponsiveContainer></CardContent></Card>
-          <Card><CardHeader><CardTitle>Horários de maior movimento</CardTitle><CardDescription>Notas por faixa horária</CardDescription></CardHeader><CardContent><ResponsiveContainer width="100%" height={280}><BarChart data={COMERCIAL_MOCK.horarios_maior_venda}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="hora" /><YAxis /><Tooltip /><Bar dataKey="notas" fill="hsl(var(--chart-secondary))" /></BarChart></ResponsiveContainer></CardContent></Card>
-        </div>
-
-        <Card>
-          <CardHeader><CardTitle>Clientes mais valiosos</CardTitle></CardHeader>
-          <CardContent className="overflow-x-auto">
-            <table className="w-full">
-              <thead><tr className="border-b"><th className="text-left p-2">Nome</th><th className="text-left p-2">Telefone</th><th className="text-left p-2">Total comprado</th><th className="text-left p-2">Notas</th><th className="text-left p-2">Ticket médio</th><th className="text-left p-2">Última compra</th></tr></thead>
-              <tbody>
-                {COMERCIAL_MOCK.clientes_mais_valiosos.map((c, idx)=>(<tr key={c.nome} className="border-b"><td className="p-2 font-medium">{c.nome} {idx<3 && <Badge className="ml-2">VIP</Badge>}</td><td className="p-2">{c.telefone}</td><td className="p-2">R$ {c.total_comprado.toLocaleString('pt-BR')}</td><td className="p-2">{c.quantidade_notas}</td><td className="p-2">R$ {c.ticket_medio.toLocaleString('pt-BR')}</td><td className="p-2">{c.ultima_compra}</td></tr>))}
-              </tbody>
-            </table>
-          </CardContent>
-        </Card>
-
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-          <Card className="xl:col-span-2"><CardHeader><CardTitle>Produtos e categorias</CardTitle></CardHeader><CardContent><ResponsiveContainer width="100%" height={280}><BarChart layout="vertical" data={COMERCIAL_MOCK.categorias_mais_compradas}><CartesianGrid strokeDasharray="3 3" /><XAxis type="number" /><YAxis type="category" dataKey="categoria" width={110} tick={{fontSize:11}} /><Tooltip /><Bar dataKey="ocorrencias" fill="hsl(var(--chart-accent))" /></BarChart></ResponsiveContainer></CardContent></Card>
-          <Card><CardHeader><CardTitle>Sugestão comercial automática</CardTitle></CardHeader><CardContent><p className="text-sm">Café e salgados aparecem juntos com frequência. Considere criar um combo promocional no período da tarde.</p></CardContent></Card>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-          {COMERCIAL_MOCK.insights.map((i)=>(<Card key={i.titulo}><CardHeader><CardTitle className="text-base">{i.titulo}</CardTitle></CardHeader><CardContent><p className="text-sm text-muted-foreground mb-2">{i.descricao}</p><p className="text-xs font-medium text-primary">{i.acao}</p></CardContent></Card>))}
-        </div>
       </TabsContent>
 
       <TabsContent value="clientes" className="mt-4 md:mt-6">
