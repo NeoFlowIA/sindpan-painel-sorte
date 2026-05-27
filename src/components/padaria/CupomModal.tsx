@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -11,11 +12,12 @@ import { useToast } from "@/hooks/use-toast";
 import { ClienteInlineForm } from "./ClienteInlineForm";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePadariaTicketMedio, useClienteSaldoPorPadaria, useRegisterReceiptBasic } from "@/hooks/useCupons";
+import { useAtendentes } from "@/hooks/useAtendentes";
 import { useUpdateCliente } from "@/hooks/useClientes";
 import { saldoUtils } from "@/hooks/useSaldosPadarias";
 import { SaldosPorPadaria } from "@/components/SaldosPorPadaria";
-import { useGraphQLQuery } from "@/hooks/useGraphQL";
-import { GET_CLIENTE_BY_CPF_OR_WHATSAPP, GET_PADARIAS, GET_CAMPANHA_ATIVA, GET_PROXIMO_SORTEIO_AGENDADO } from "@/graphql/queries";
+import { useGraphQLMutation, useGraphQLQuery } from "@/hooks/useGraphQL";
+import { GET_CLIENTE_BY_CPF_OR_WHATSAPP, GET_PADARIAS, GET_CAMPANHA_ATIVA, GET_PROXIMO_SORTEIO_AGENDADO, UPDATE_COMPRA_ATENDENTE } from "@/graphql/queries";
 import { formatCPF, formatPhone, maskCPF } from "@/utils/formatters";
 import { NovoClienteModal } from "./NovoClienteModal";
 
@@ -55,6 +57,7 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
   const [valorCompra, setValorCompra] = useState("");
   const [dataHora, setDataHora] = useState("");
   const [statusCupom, setStatusCupom] = useState<'ativo' | 'inativo'>('ativo');
+  const [atendenteIdSelecionado, setAtendenteIdSelecionado] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [processingMessage, setProcessingMessage] = useState("");
   const [novoClienteModalAberto, setNovoClienteModalAberto] = useState(false);
@@ -73,6 +76,7 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
       setValorCompra("");
       setDataHora("");
       setStatusCupom('ativo');
+      setAtendenteIdSelecionado("");
       setProcessingMessage("");
       setNovoClienteModalAberto(false);
       setIdentificadorNovoCliente({});
@@ -81,8 +85,11 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
 
   // Hooks para GraphQL
   const { data: ticketMedioData } = usePadariaTicketMedio(user?.padarias_id || "");
+  const updateCompraAtendenteMutation = useGraphQLMutation<{ update_compras_by_pk: { id: string } }, { id: string; atendente_id: string; valor_centavos: number }>(UPDATE_COMPRA_ATENDENTE);
 
   const registerReceiptBasicMutation = useRegisterReceiptBasic();
+
+  const { data: atendentesData } = useAtendentes(user?.padarias_id || user?.padarias?.id || "");
   
   // Query para buscar cliente por CPF ou WhatsApp (similar ao AdminCupomModal)
   const { data: clienteData, refetch: refetchCliente } = useGraphQLQuery<ClienteQueryData>(
@@ -396,10 +403,10 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
     const padariaId = user?.padarias_id;
 
     // VALIDAÇÕES IMEDIATAS (antes de buscar no banco)
-    if (!clienteEncontrado || !clienteEncontrado.id || !valorCompra || !padariaId) {
+    if (!clienteEncontrado || !clienteEncontrado.id || !valorCompra || !padariaId || !atendenteIdSelecionado) {
       toast({
         title: "Erro",
-        description: "Cliente, valor da compra e padaria são obrigatórios",
+        description: "Cliente, valor da compra, padaria e atendente são obrigatórios",
         variant: "destructive"
       });
       return;
@@ -457,6 +464,15 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
       });
 
       const registro = registerResult?.register_receipt_basic;
+      const receiptId = (registro as any)?.receipt_id;
+      if (receiptId && atendenteIdSelecionado) {
+        await updateCompraAtendenteMutation.mutateAsync({
+          id: receiptId,
+          atendente_id: atendenteIdSelecionado,
+          valor_centavos: valorCentavos,
+        });
+      }
+
       let saldoAtualCentavos =
         registro?.saldo_atual_centavos !== undefined && registro?.saldo_atual_centavos !== null
           ? Number(registro.saldo_atual_centavos)
@@ -531,6 +547,7 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
       setShowClienteForm(false);
       setValorCompra("");
       setStatusCupom('ativo');
+      setAtendenteIdSelecionado("");
 
       // Fechar modal automaticamente
       onOpenChange(false);
@@ -765,6 +782,19 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
                 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
+                    <Label htmlFor="atendente">Atendente</Label>
+                    <Select value={atendenteIdSelecionado} onValueChange={setAtendenteIdSelecionado}>
+                      <SelectTrigger id="atendente">
+                        <SelectValue placeholder="Selecione o atendente" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {(atendentesData?.atendentes || []).map((atendente) => (
+                          <SelectItem key={atendente.id} value={atendente.id}>{atendente.nome}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
                     <Label htmlFor="status">Status do Cupom</Label>
                     <select
                       id="status"
@@ -867,7 +897,7 @@ export function CupomModal({ open, onOpenChange, onCupomCadastrado }: CupomModal
             </Button>
             <Button
               onClick={handleSubmit}
-              disabled={!clienteEncontrado || !valorCompra || isLoading}
+              disabled={!clienteEncontrado || !valorCompra || !atendenteIdSelecionado || isLoading}
             >
               {isLoading ? "Processando..." : "Criar Cupom"}
             </Button>

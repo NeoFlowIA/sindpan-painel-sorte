@@ -2071,3 +2071,17 @@ export const GET_COMPRAS_ATENDENTES_PADARIA = `
     }
   }
 `;
+
+
+export const UPDATE_COMPRA_ATENDENTE = `
+  mutation UpdateCompraAtendente($id: uuid!, $atendente_id: uuid!, $valor_centavos: bigint!) {
+    update_compras_by_pk(
+      pk_columns: {id: $id}
+      _set: {atendente_id: $atendente_id, valor_centavos: $valor_centavos}
+    ) {
+      id
+      atendente_id
+      valor_centavos
+    }
+  }
+`;
