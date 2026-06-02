@@ -6,7 +6,8 @@ import {
   FileText,
   Settings,
   Home,
-  CalendarRange
+  CalendarRange,
+  ShieldCheck
 } from "lucide-react";
 import sindpanLogo from "@/assets/sindpan-logo.svg";
 import { NavLink } from "react-router-dom";
@@ -31,6 +32,7 @@ const navigation = [
   { title: "Sorteios", url: "/sorteios", icon: Trophy },
   { title: "Relatórios", url: "/relatorios", icon: FileText },
   { title: "Configurações", url: "/configuracoes", icon: Settings },
+  { title: "Auditoria", url: "/auditoria", icon: ShieldCheck },
 ];
 
 export function AppSidebar() {

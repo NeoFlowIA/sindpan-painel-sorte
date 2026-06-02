@@ -1458,6 +1458,25 @@ export const GET_ADMIN_DASHBOARD_METRICS = `
       data_sorteio
       numero_sorteado
     }
+    compras(
+      where: {data_compra: {_gte: $startDate, _lte: $endDate}}
+      order_by: {data_compra: desc}
+      limit: 5000
+    ) {
+      id
+      valor_centavos
+      padaria_id
+      atendente_id
+      padaria {
+        id
+        nome
+        ticket_medio
+      }
+      atendente {
+        id
+        nome
+      }
+    }
   }
 `;
 
@@ -1857,6 +1876,212 @@ export const ADICIONAR_SALDO_CLIENTE_PADARIA = `
       cliente_id
       padaria_id
       saldo_centavos
+    }
+  }
+`;
+
+// ===== ATENDENTES =====
+export const GET_ATENDENTES_BY_PADARIA = `
+  query GetAtendentesByPadaria($padaria_id: uuid!) {
+    atendentes(
+      where: {padaria_id: {_eq: $padaria_id}}
+      order_by: {nome: asc}
+    ) {
+      id
+      nome
+      padaria_id
+      created_at
+      updated_at
+    }
+  }
+`;
+
+export const CREATE_ATENDENTE = `
+  mutation CreateAtendente($atendente: atendentes_insert_input!) {
+    insert_atendentes_one(object: $atendente) {
+      id
+      nome
+      padaria_id
+      created_at
+      updated_at
+    }
+  }
+`;
+
+export const UPDATE_ATENDENTE = `
+  mutation UpdateAtendente($id: uuid!, $changes: atendentes_set_input!) {
+    update_atendentes_by_pk(pk_columns: {id: $id}, _set: $changes) {
+      id
+      nome
+      padaria_id
+      updated_at
+    }
+  }
+`;
+
+export const DELETE_ATENDENTE = `
+  mutation DeleteAtendente($id: uuid!) {
+    delete_atendentes_by_pk(id: $id) {
+      id
+    }
+  }
+`;
+
+// ===== AUDITORIA =====
+export const GET_AUDITORIAS_PENDENTES = `
+  query GetAuditoriasPendentes {
+    auditoria(
+      where: {status: {_eq: "em_auditoria"}}
+      order_by: {created_at: desc}
+    ) {
+      id
+      cliente_id
+      padaria_id
+      foto_nota
+      valor_centavos
+      data_hora_nota
+      status
+      tentativas
+      updated_at
+      padaria {
+        id
+        nome
+        cnpj
+      }
+      cliente {
+        id
+        nome
+        whatsapp
+        cpf
+      }
+    }
+  }
+`;
+
+export const GET_AUDITORIAS_RESOLVIDAS = `
+  query GetAuditoriasResolvidas {
+    auditoria(
+      where: {status: {_in: ["aprovada_manual", "reprovada_manual"]}}
+      order_by: {updated_at: desc}
+      limit: 50
+    ) {
+      id
+      status
+      valor_centavos
+      updated_at
+      padaria {
+        nome
+      }
+    }
+  }
+`;
+
+export const BUSCAR_AUDITORIA_PARA_APROVAR = `
+  query BuscarAuditoriaParaAprovar($id: uuid!) {
+    auditoria_by_pk(id: $id) {
+      id
+      cliente_id
+      padaria_id
+      foto_nota
+      valor_centavos
+      data_hora_nota
+      status
+      tentativas
+      padaria {
+        id
+        nome
+        cnpj
+      }
+      cliente {
+        id
+        nome
+        whatsapp
+        cpf
+      }
+    }
+  }
+`;
+
+export const REGISTER_AUDITORIA = `
+  mutation RegisterAuditoria(
+    $cliente: uuid!
+    $padaria: uuid!
+    $valor: bigint!
+    $data: timestamptz!
+    $cnpj: String!
+    $conf: numeric!
+    $raw: String!
+    $img: String!
+  ) {
+    register_receipt_basic(
+      args: {
+        p_cliente_id: $cliente
+        p_padaria_id: $padaria
+        p_valor_centavos: $valor
+        p_data_compra: $data
+        p_cnpj_extraido: $cnpj
+        p_ocr_confidence: $conf
+        p_ocr_raw: $raw
+        p_image_url: $img
+      }
+    ) {
+      receipt_id
+      saldo_atual_centavos
+      cupons_emitidos_agora
+    }
+  }
+`;
+
+export const APROVAR_AUDITORIA = `
+  mutation AprovarAuditoria($id: uuid!, $now: timestamptz!) {
+    update_auditoria_by_pk(
+      pk_columns: {id: $id}
+      _set: {status: "aprovada_manual", updated_at: $now, foto_nota: null}
+    ) {
+      id
+      status
+      updated_at
+    }
+  }
+`;
+
+export const REPROVAR_AUDITORIA = `
+  mutation ReprovarAuditoria($id: uuid!, $now: timestamptz!) {
+    update_auditoria_by_pk(
+      pk_columns: {id: $id}
+      _set: {status: "reprovada_manual", updated_at: $now, foto_nota: null}
+    ) {
+      id
+      status
+      updated_at
+    }
+  }
+`;
+
+
+export const GET_COMPRAS_ATENDENTES_PADARIA = `
+  query GetComprasAtendentesPadaria($padaria_id: uuid!) {
+    compras(where: {padaria_id: {_eq: $padaria_id}}, order_by: {data_compra: desc}, limit: 5000) {
+      id
+      valor_centavos
+      padaria_id
+      atendente_id
+      padaria { id nome ticket_medio }
+      atendente { id nome }
+    }
+  }
+`;
+
+
+export const UPDATE_COMPRA_ATENDENTE = `
+  mutation UpdateCompraAtendente($id: uuid!, $atendente_id: uuid!, $valor_centavos: bigint!) {
+    update_compras_by_pk(
+      pk_columns: {id: $id}
+      _set: {atendente_id: $atendente_id, valor_centavos: $valor_centavos}
+    ) {
+      id
+      atendente_id
+      valor_centavos
     }
   }
 `;

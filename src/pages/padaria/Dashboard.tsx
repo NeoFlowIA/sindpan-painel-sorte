@@ -2,12 +2,15 @@ import { useState, useEffect } from "react";
 import { KPICard } from "@/components/KPICard";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ClientesTable } from "@/components/padaria/ClientesTable";
 import { CadastrarCupomButton } from "@/components/padaria/CadastrarCupomButton";
 import { CuponsRecentesTable } from "@/components/padaria/CuponsRecentesTable";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDashboardMetrics, useTopClientes, useCuponsRecentes, useEstatisticasSemanais, useCuponsPorDiaSemana, useEvolucaoDiariaCupons } from "@/hooks/useCupons";
+import { useGraphQLQuery } from "@/hooks/useGraphQL";
+import { GET_COMPRAS_ATENDENTES_PADARIA } from "@/graphql/queries";
 import { useAnexarClientesAutomatico } from "@/hooks/useClientes";
 import { maskCPF } from "@/utils/formatters";
 import { 
@@ -29,6 +32,53 @@ import {
   Line
 } from "recharts";
 
+const COMERCIAL_MOCK = {
+  resumo: {
+    ticket_medio: 31.8,
+    taxa_recompra: 42,
+    clientes_participantes: 186,
+    notas_cadastradas: 342,
+    valor_total_cadastrado: 10875.6,
+    periodo: "01/05/2026 a 17/05/2026",
+    campanha: "São João de Prêmios",
+    padaria: "Padaria Teste"
+  },
+  vendas_por_dia_semana: [
+    { dia: "Segunda", notas: 38, valor: 1210.5 }, { dia: "Terça", notas: 52, valor: 1668.4 },
+    { dia: "Quarta", notas: 61, valor: 1942.9 }, { dia: "Quinta", notas: 74, valor: 2480.3 },
+    { dia: "Sexta", notas: 69, valor: 2286.7 }, { dia: "Sábado", notas: 36, valor: 914.2 },
+    { dia: "Domingo", notas: 12, valor: 372.6 }
+  ],
+  horarios_maior_venda: [
+    { hora: "07h", notas: 18 }, { hora: "08h", notas: 31 }, { hora: "09h", notas: 25 },
+    { hora: "10h", notas: 19 }, { hora: "12h", notas: 28 }, { hora: "15h", notas: 46 },
+    { hora: "16h", notas: 54 }, { hora: "17h", notas: 49 }, { hora: "18h", notas: 23 }
+  ],
+  clientes_mais_valiosos: [
+    { nome: "Mariana S.", telefone: "(85) 9****-2031", total_comprado: 384.7, quantidade_notas: 9, ticket_medio: 42.74, ultima_compra: "16/05/2026", status: "VIP" },
+    { nome: "Carlos A.", telefone: "(85) 9****-8820", total_comprado: 318.4, quantidade_notas: 7, ticket_medio: 45.49, ultima_compra: "15/05/2026", status: "VIP" },
+    { nome: "Renata M.", telefone: "(85) 9****-1194", total_comprado: 286.9, quantidade_notas: 8, ticket_medio: 35.86, ultima_compra: "17/05/2026", status: "VIP" },
+    { nome: "João P.", telefone: "(85) 9****-4410", total_comprado: 214.3, quantidade_notas: 5, ticket_medio: 42.86, ultima_compra: "13/05/2026", status: "Recorrente" },
+    { nome: "Patrícia L.", telefone: "(85) 9****-7312", total_comprado: 189.8, quantidade_notas: 6, ticket_medio: 31.63, ultima_compra: "12/05/2026", status: "Recorrente" }
+  ],
+  categorias_mais_compradas: [
+    { categoria: "Cafés", ocorrencias: 96 }, { categoria: "Salgados", ocorrencias: 84 }, { categoria: "Bolos e fatias", ocorrencias: 67 },
+    { categoria: "Sanduíches", ocorrencias: 53 }, { categoria: "Sucos", ocorrencias: 48 }, { categoria: "Pães especiais", ocorrencias: 39 }
+  ],
+  insights: [
+    { titulo: "Melhor horário de venda", descricao: "15h e 17h concentram o maior volume.", acao: "Criar combos de café da tarde." },
+    { titulo: "Dia mais forte", descricao: "Quinta-feira teve maior valor cadastrado.", acao: "Reforçar estoque e atendimento." },
+    { titulo: "Categoria líder", descricao: "Cafés lideram recorrência nas notas.", acao: "Oferecer adicionais com café." },
+    { titulo: "Maior oportunidade comercial", descricao: "Sanduíches têm ticket médio acima da média.", acao: "Estimular combos com bebida." }
+  ],
+  ranking_atendentes: [
+    { nome: "Ana Paula", vendas: 68, valor: 2198.4 },
+    { nome: "Bruno Lima", vendas: 52, valor: 1741.2 },
+    { nome: "Carla Nunes", vendas: 47, valor: 1602.8 },
+    { nome: "Diego Alves", vendas: 33, valor: 1094.3 }
+  ]
+};
+
 
 export function PadariaDashboard() {
   const [isLoading, setIsLoading] = useState(false);
@@ -43,6 +93,14 @@ export function PadariaDashboard() {
   const { data: estatisticasSemanaisData, isLoading: estatisticasSemanaisLoading, refetch: refetchEstatisticasSemanais } = useEstatisticasSemanais(user?.padarias_id || "");
   const { data: cuponsPorDiaSemanaData, isLoading: cuponsPorDiaSemanaLoading, refetch: refetchCuponsPorDiaSemana } = useCuponsPorDiaSemana(user?.padarias_id || "");
   const { data: evolucaoDiariaData, isLoading: evolucaoDiariaLoading, refetch: refetchEvolucaoDiaria } = useEvolucaoDiariaCupons(user?.padarias_id || "");
+
+  const padariaId = user?.padarias_id || user?.padarias?.id || "";
+  const { data: comprasAtendentesData } = useGraphQLQuery<{ compras: Array<{ valor_centavos: number | string; atendente_id: string | null; atendente?: { nome: string } | null; padaria?: { ticket_medio?: number | null } | null }> }>(
+    ["compras-atendentes-padaria", padariaId],
+    GET_COMPRAS_ATENDENTES_PADARIA,
+    { padaria_id: padariaId },
+    { enabled: !!padariaId }
+  );
   
   // Hook para anexar clientes automaticamente baseado na quantidade de cupons
   const { 
@@ -92,7 +150,10 @@ export function PadariaDashboard() {
   useEffect(() => {
     // Auto refresh every 60 seconds
     const interval = setInterval(refreshData, 60000);
-    return () => clearInterval(interval);
+  
+
+
+  return () => clearInterval(interval);
   }, []);
 
   // Calcular métricas
@@ -100,6 +161,26 @@ export function PadariaDashboard() {
   const cuponsTotal = metricsData?.cupons?.length || 0;
   const ticketMedio = metricsData?.padarias_by_pk?.ticket_medio || 0;
   const mediaCuponsPorCliente = clientesTotal > 0 ? cuponsTotal / clientesTotal : 0;
+
+  const rankingAtendentesPadaria = (() => {
+    const mapa = new Map<string, { nome: string; totalCentavos: number; ticketMedio: number }>();
+    (comprasAtendentesData?.compras || []).forEach((compra) => {
+      if (!compra.atendente_id) return;
+      const key = compra.atendente_id;
+      const atual = mapa.get(key);
+      const valor = Number(compra.valor_centavos || 0);
+      const ticket = Number(compra.padaria?.ticket_medio || ticketMedio || 0);
+      if (!atual) mapa.set(key, { nome: compra.atendente?.nome || "Atendente", totalCentavos: valor, ticketMedio: ticket });
+      else atual.totalCentavos += valor;
+    });
+    return Array.from(mapa.values())
+      .map((r) => ({
+        ...r,
+        vendas: Math.max(1, Math.floor((r.totalCentavos / 100) / Math.max(r.ticketMedio || 1, 1))),
+        valor: r.totalCentavos / 100,
+      }))
+      .sort((a, b) => b.valor - a.valor);
+  })();
 
   // Processar estatísticas semanais no frontend
   const processarEstatisticasSemanais = () => {
@@ -273,8 +354,9 @@ export function PadariaDashboard() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 h-auto">
+          <TabsList className="grid w-full grid-cols-3 h-auto">
             <TabsTrigger value="dashboard" className="text-sm sm:text-base py-2">Dashboard</TabsTrigger>
+            <TabsTrigger value="comercial" className="text-sm sm:text-base py-2">Comercial</TabsTrigger>
             <TabsTrigger value="clientes" className="text-sm sm:text-base py-2">Clientes</TabsTrigger>
           </TabsList>
 
@@ -519,6 +601,44 @@ export function PadariaDashboard() {
             </CardContent>
           </Card>
         </div>
+      </TabsContent>
+
+
+
+      <TabsContent value="comercial" className="space-y-4 md:space-y-6 mt-4 md:mt-6">
+        <Card>
+          <CardHeader className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <CardTitle>Dashboard Comercial</CardTitle>
+              <CardDescription>Indicadores de vendas gerados a partir das notas fiscais cadastradas</CardDescription>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Badge variant="secondary">Período: {COMERCIAL_MOCK.resumo.periodo}</Badge>
+              <Badge variant="secondary">Padaria: {COMERCIAL_MOCK.resumo.padaria}</Badge>
+              <Badge variant="secondary">Campanha: {COMERCIAL_MOCK.resumo.campanha}</Badge>
+            </div>
+          </CardHeader>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Ranking de vendas por atendente</CardTitle>
+            <CardDescription>Quantidade de vendas realizadas por atendente</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {(rankingAtendentesPadaria.length > 0 ? rankingAtendentesPadaria : COMERCIAL_MOCK.ranking_atendentes).map((atendente, index) => (
+              <div key={atendente.nome} className="flex items-center justify-between border rounded-md p-3">
+                <div className="flex items-center gap-2">
+                  <Badge>{index + 1}º</Badge>
+                  <span className="font-medium">{atendente.nome}</span>
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  {atendente.vendas} vendas • R$ {atendente.valor.toLocaleString('pt-BR')}
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
       </TabsContent>
 
       <TabsContent value="clientes" className="mt-4 md:mt-6">

@@ -3,6 +3,8 @@ import { KPICard } from "@/components/KPICard";
 import { DashboardCharts } from "@/components/DashboardCharts";
 import { LeaderboardTable } from "@/components/LeaderboardTable";
 import { Store, Target, Users, Calendar as CalendarIcon } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useGraphQLQuery } from "@/hooks/useGraphQL";
 import { GET_ADMIN_DASHBOARD_METRICS } from "@/graphql/queries";
 import {
@@ -32,6 +34,14 @@ type DashboardMetrics = {
     id: string;
     data_sorteio: string;
     nome?: string;
+  }>;
+  compras: Array<{
+    id: string;
+    valor_centavos: number | string;
+    padaria_id: string | null;
+    atendente_id: string | null;
+    padaria?: { id: string; nome: string; ticket_medio?: number | null } | null;
+    atendente?: { id: string; nome: string } | null;
   }>;
 };
 
@@ -65,6 +75,8 @@ const Index = () => {
     }),
     [periodEnd, periodStart]
   );
+
+  const [padariaFiltro, setPadariaFiltro] = useState("all");
 
   const { data: metricsData, isLoading: metricsLoading } = useGraphQLQuery<DashboardMetrics>(
     ['admin-dashboard-metrics', metricsQueryVariables.startDate, metricsQueryVariables.endDate],
@@ -126,6 +138,44 @@ const Index = () => {
   const proximoSorteioLabel = proximoSorteio
     ? format(new Date(proximoSorteio.data_sorteio), "EEEE", { locale: ptBR })
     : "Não agendado";
+
+  const opcoesPadaria = useMemo(() => {
+    const set = new Set((metricsData?.compras || []).map(c => c.padaria?.nome).filter(Boolean) as string[]);
+    return Array.from(set).sort();
+  }, [metricsData?.compras]);
+
+  const rankingAtendentesPorPadaria = useMemo(() => {
+    const mapa = new Map<string, { padariaNome: string; atendenteNome: string; totalCentavos: number; ticketMedio: number }>();
+
+    (metricsData?.compras || []).forEach((compra) => {
+      if (!compra.padaria_id || !compra.atendente_id) return;
+      const chave = `${compra.padaria_id}:${compra.atendente_id}`;
+      const atual = mapa.get(chave);
+      const valorCentavos = Number(compra.valor_centavos || 0);
+      const ticketMedio = Number(compra.padaria?.ticket_medio || 0);
+
+      if (!atual) {
+        mapa.set(chave, {
+          padariaNome: compra.padaria?.nome || "Padaria sem nome",
+          atendenteNome: compra.atendente?.nome || "Atendente sem nome",
+          totalCentavos: valorCentavos,
+          ticketMedio,
+        });
+      } else {
+        atual.totalCentavos += valorCentavos;
+      }
+    });
+
+    const lista = Array.from(mapa.values())
+      .map((item) => ({
+        ...item,
+        totalReais: item.totalCentavos / 100,
+        totalCuponsEstimado: item.ticketMedio > 0 ? Math.floor((item.totalCentavos / 100) / item.ticketMedio) : 0,
+      }))
+      .sort((a, b) => b.totalReais - a.totalReais);
+
+    return padariaFiltro === "all" ? lista : lista.filter((l) => l.padariaNome === padariaFiltro);
+  }, [metricsData?.compras, padariaFiltro]);
 
   return (
     <div className="space-y-4 md:space-y-6">
@@ -229,6 +279,43 @@ const Index = () => {
 
       {/* Leaderboard */}
       <LeaderboardTable dateRange={normalizedRange} />
+
+      <Card>
+        <CardHeader className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <CardTitle>Atendentes por padaria (vendas registradas)</CardTitle>
+          <Select value={padariaFiltro} onValueChange={setPadariaFiltro}>
+            <SelectTrigger className="w-full md:w-[240px]"><SelectValue placeholder="Filtrar padaria" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas as padarias</SelectItem>
+              {opcoesPadaria.map((nome) => (<SelectItem key={nome} value={nome}>{nome}</SelectItem>))}
+            </SelectContent>
+          </Select>
+        </CardHeader>
+        <CardContent className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b">
+                <th className="text-left p-2">Padaria</th>
+                <th className="text-left p-2">Atendente</th>
+                <th className="text-right p-2">Total em R$</th>
+                <th className="text-right p-2">Cupons estimados</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rankingAtendentesPorPadaria.length === 0 ? (
+                <tr><td className="p-3 text-muted-foreground" colSpan={4}>Sem compras com atendente no período selecionado.</td></tr>
+              ) : rankingAtendentesPorPadaria.map((item, idx) => (
+                <tr key={`${item.padariaNome}-${item.atendenteNome}-${idx}`} className="border-b">
+                  <td className="p-2">{item.padariaNome}</td>
+                  <td className="p-2">{item.atendenteNome}</td>
+                  <td className="p-2 text-right">R$ {item.totalReais.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                  <td className="p-2 text-right">{item.totalCuponsEstimado}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </CardContent>
+      </Card>
     </div>
   );
 };
