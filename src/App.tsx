@@ -19,6 +19,7 @@ import RelatorioSorteios from "./pages/RelatorioSorteios";
 import SorteiosLive from "./pages/SorteiosLive";
 import Campanhas from "./pages/Campanhas";
 import AuditoriaNotas from "./pages/AuditoriaNotas";
+import DashboardComercial from "./pages/DashboardComercial";
 import { LoginPadaria } from "./pages/padaria/Login";
 import { RegisterPadaria } from "./pages/padaria/Register";
 import { PadariaDashboard } from "./pages/padaria/Dashboard";
@@ -140,6 +141,17 @@ const App = () => (
               <AdminRoute>
                 <DashboardLayout>
                   <AuditoriaNotas />
+                </DashboardLayout>
+              </AdminRoute>
+            }
+          />
+
+          <Route
+            path="/admin/dashboard-comercial"
+            element={
+              <AdminRoute>
+                <DashboardLayout>
+                  <DashboardComercial />
                 </DashboardLayout>
               </AdminRoute>
             }
