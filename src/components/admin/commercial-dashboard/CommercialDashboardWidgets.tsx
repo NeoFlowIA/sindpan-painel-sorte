@@ -44,8 +44,26 @@ const BRAND_GOLD = "#F8A828";
 const COLORS = [BRAND_RED, BRAND_ORANGE, BRAND_GOLD, "#16a34a", "#9333ea", "#0891b2", "#ca8a04", "#64748b"];
 
 const brl = (value: number) => value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const compactBrl = (value: number) => value.toLocaleString("pt-BR", { style: "currency", currency: "BRL", notation: "compact", maximumFractionDigits: 1 });
 const pct = (value: number) => `${value.toFixed(1).replace(".", ",")}%`;
 const dateLabel = (date?: Date | null) => date ? date.toLocaleDateString("pt-BR") : "-";
+const chartTooltipStyle = { borderRadius: 12, borderColor: "hsl(var(--border))", boxShadow: "var(--shadow-card)" };
+
+type ChartTooltipItem = { dataKey?: string | number };
+const formatChartTooltip = (value: number | string, name: string, item?: ChartTooltipItem) => {
+  const dataKey = String(item?.dataKey || name);
+  const numericValue = Number(value);
+
+  if (["totalValue", "averageTicket"].includes(dataKey) || name.toLowerCase().includes("valor") || name.toLowerCase().includes("ticket")) {
+    return [brl(Number.isFinite(numericValue) ? numericValue : 0), name];
+  }
+
+  if (dataKey === "purchases" || name.toLowerCase().includes("nota")) {
+    return [`${Number.isFinite(numericValue) ? numericValue.toLocaleString("pt-BR") : value} notas`, name];
+  }
+
+  return [value, name];
+};
 
 interface OverviewData {
   totalValue: number;
@@ -318,13 +336,14 @@ export function HourlyPerformanceChart({ data }: { data: HourlyData[] }) {
     <DashboardCard title="Comportamento por horário" description="Usa a data/hora da compra extraída da nota fiscal." icon={Clock}>
       <div className="h-72">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data}>
+          <BarChart data={data} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-            <XAxis dataKey="label" />
-            <YAxis />
-            <Tooltip formatter={(v: number, n) => n === "totalValue" ? brl(v) : v} />
-            <Bar dataKey="totalValue" name="Valor" radius={[6, 6, 0, 0]} fill={BRAND_RED} />
-            <Bar dataKey="purchases" name="Notas" radius={[6, 6, 0, 0]} fill={BRAND_ORANGE} />
+            <XAxis dataKey="label" tickLine={false} axisLine={false} />
+            <YAxis yAxisId="value" width={74} tickFormatter={(value) => compactBrl(Number(value))} tickLine={false} axisLine={false} />
+            <YAxis yAxisId="volume" orientation="right" width={44} tickFormatter={(value) => `${value}`} tickLine={false} axisLine={false} />
+            <Tooltip formatter={formatChartTooltip} contentStyle={chartTooltipStyle} />
+            <Bar yAxisId="value" dataKey="totalValue" name="Valor" radius={[6, 6, 0, 0]} fill={BRAND_RED} />
+            <Bar yAxisId="volume" dataKey="purchases" name="Notas" radius={[6, 6, 0, 0]} fill={BRAND_ORANGE} />
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -343,13 +362,14 @@ export function DailyPerformanceChart({ daily, weekdays }: { daily: DailyData[];
     <DashboardCard title="Desempenho por dia" description="Valor, volume e ticket médio por data e dia da semana." icon={CalendarDays}>
       <div className="h-72">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={daily}>
+          <LineChart data={daily} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-            <XAxis dataKey="label" />
-            <YAxis />
-            <Tooltip formatter={(v: number, n) => n === "totalValue" ? brl(v) : v} />
-            <Line type="monotone" dataKey="totalValue" name="Valor" stroke={BRAND_RED} strokeWidth={3} dot={{ r: 3 }} />
-            <Line type="monotone" dataKey="purchases" name="Notas" stroke={BRAND_ORANGE} strokeWidth={3} dot={{ r: 3 }} />
+            <XAxis dataKey="label" tickLine={false} axisLine={false} />
+            <YAxis yAxisId="value" width={74} tickFormatter={(value) => compactBrl(Number(value))} tickLine={false} axisLine={false} />
+            <YAxis yAxisId="volume" orientation="right" width={44} tickFormatter={(value) => `${value}`} tickLine={false} axisLine={false} />
+            <Tooltip formatter={formatChartTooltip} contentStyle={chartTooltipStyle} />
+            <Line yAxisId="value" type="monotone" dataKey="totalValue" name="Valor" stroke={BRAND_RED} strokeWidth={3} dot={{ r: 3, strokeWidth: 2 }} activeDot={{ r: 6 }} />
+            <Line yAxisId="volume" type="monotone" dataKey="purchases" name="Notas" stroke={BRAND_ORANGE} strokeWidth={3} dot={{ r: 3, strokeWidth: 2 }} activeDot={{ r: 6 }} />
           </LineChart>
         </ResponsiveContainer>
       </div>
@@ -362,12 +382,19 @@ export function WeekdayHeatmap({ data }: { data: WeekdayData[] }) {
   const max = Math.max(...data.map((d) => d.totalValue), 1);
 
   return (
-    <div className="grid gap-2 md:grid-cols-7">
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-7">
       {data.map((day) => (
-        <div key={day.weekday} className="rounded-xl border border-primary/10 p-3 shadow-sm" style={{ backgroundColor: `rgba(136, 8, 8, ${0.04 + (day.totalValue / max) * 0.16})` }}>
-          <p className="text-xs font-medium capitalize">{day.weekday}</p>
-          <p className="text-lg font-bold">{brl(day.totalValue)}</p>
-          <p className="text-xs text-muted-foreground">{day.purchases} notas • ticket {brl(day.averageTicket)}</p>
+        <div
+          key={day.weekday}
+          title={`${day.weekday}: ${brl(day.totalValue)} em ${day.purchases.toLocaleString("pt-BR")} notas`}
+          className="min-w-0 rounded-xl border border-primary/10 p-3 shadow-sm transition-colors hover:border-primary/25"
+          style={{ backgroundColor: `rgba(136, 8, 8, ${0.04 + (day.totalValue / max) * 0.16})` }}
+        >
+          <p className="truncate text-xs font-semibold capitalize text-foreground">{day.weekday}</p>
+          <p className="mt-1 truncate text-[1.05rem] font-bold leading-tight tracking-tight text-primary">{compactBrl(day.totalValue)}</p>
+          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+            {day.purchases.toLocaleString("pt-BR")} notas<br />ticket {brl(day.averageTicket)}
+          </p>
         </div>
       ))}
     </div>
@@ -379,13 +406,14 @@ export function TicketRangeChart({ data }: { data: TicketRangeData[] }) {
     <DashboardCard title="Faixas de ticket" description="Distribuição das compras cadastradas por valor." icon={BarChart3}>
       <div className="h-64">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data}>
+          <BarChart data={data} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-            <XAxis dataKey="label" />
-            <YAxis />
-            <Tooltip formatter={(v: number, n) => String(n).includes("Value") ? brl(v) : v} />
-            <Bar dataKey="purchases" name="Notas" radius={[6, 6, 0, 0]} fill={BRAND_ORANGE} />
-            <Bar dataKey="totalValue" name="Valor" radius={[6, 6, 0, 0]} fill={BRAND_RED} />
+            <XAxis dataKey="label" tickLine={false} axisLine={false} />
+            <YAxis yAxisId="volume" width={44} tickFormatter={(value) => `${value}`} tickLine={false} axisLine={false} />
+            <YAxis yAxisId="value" orientation="right" width={74} tickFormatter={(value) => compactBrl(Number(value))} tickLine={false} axisLine={false} />
+            <Tooltip formatter={formatChartTooltip} contentStyle={chartTooltipStyle} />
+            <Bar yAxisId="volume" dataKey="purchases" name="Notas" radius={[6, 6, 0, 0]} fill={BRAND_ORANGE} />
+            <Bar yAxisId="value" dataKey="totalValue" name="Valor" radius={[6, 6, 0, 0]} fill={BRAND_RED} />
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -399,11 +427,11 @@ export function CategoryRankingChart({ data }: { data: CategoryData[] }) {
     <DashboardCard title="Categorias por OCR" description="Categorias estimadas a partir dos itens reconhecidos." icon={Sparkles}>
       <div className="h-64">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data.slice(0, 8)} layout="vertical">
+          <BarChart data={data.slice(0, 8)} layout="vertical" margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-            <XAxis type="number" />
-            <YAxis type="category" dataKey="category" width={150} />
-            <Tooltip formatter={(v: number, n) => n === "totalValue" ? brl(v) : v} />
+            <XAxis type="number" tickFormatter={(value) => compactBrl(Number(value))} tickLine={false} axisLine={false} />
+            <YAxis type="category" dataKey="category" width={150} tickLine={false} axisLine={false} />
+            <Tooltip formatter={formatChartTooltip} contentStyle={chartTooltipStyle} />
             <Bar dataKey="totalValue" name="Valor" radius={[0, 6, 6, 0]}>
               {data.slice(0, 8).map((_, index) => <Cell key={index} fill={COLORS[index % COLORS.length]} />)}
             </Bar>
