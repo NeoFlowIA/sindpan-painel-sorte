@@ -32,6 +32,7 @@ export default function DashboardComercial() {
     startDate: toIso(subDays(new Date(), 30)),
     endDate: toIso(addDays(new Date(), 1), true),
   }));
+  const [revealCustomerData, setRevealCustomerData] = useState(false);
 
   const insightParams = useMemo(() => ({ ticketThreshold: 40, vipValueThreshold: 100, inactivityDays: 7, highTicketPercentile: 75, minOccurrencesForProductInsight: 3, minOccurrencesForComboInsight: 2 }), []);
   const dashboard = useCommercialDashboard(filters, insightParams);
@@ -74,7 +75,14 @@ export default function DashboardComercial() {
       </Alert>
 
       <CommercialScopeSummary filters={filters} padariaNome={selectedBakery?.nome} totalPurchases={dashboard.overview.totalPurchases} totalValue={dashboard.overview.totalValue} />
-      <CommercialDashboardFilters filters={filters} onChange={setFilters} onRefresh={dashboard.refresh} options={dashboard.options} />
+      <CommercialDashboardFilters
+        filters={filters}
+        onChange={setFilters}
+        onRefresh={dashboard.refresh}
+        revealCustomerData={revealCustomerData}
+        onToggleRevealCustomerData={() => setRevealCustomerData((current) => !current)}
+        options={dashboard.options}
+      />
 
       {dashboard.error && (
         <Alert variant="destructive">
@@ -98,10 +106,10 @@ export default function DashboardComercial() {
           <section className="space-y-4">
             <SectionHeader eyebrow="Clientes" title="Segmentação comercial" description="Rankings com nome e WhatsApp sempre mascarados para manter privacidade." />
             <div className="grid gap-6 xl:grid-cols-2">
-              <CustomerRankingTable title="Top clientes por valor" customers={dashboard.tables.topCustomersByValue} />
-              <CustomerRankingTable title="Top clientes por frequência" customers={dashboard.tables.topCustomersByFrequency} />
-              <CustomerRankingTable title="Clientes de alto ticket e VIP" customers={dashboard.tables.vipCustomers} />
-              <CustomerRankingTable title="Clientes em risco" customers={dashboard.tables.customersAtRisk} />
+              <CustomerRankingTable title="Top clientes por valor" customers={dashboard.tables.topCustomersByValue} revealSensitiveData={revealCustomerData} />
+              <CustomerRankingTable title="Top clientes por frequência" customers={dashboard.tables.topCustomersByFrequency} revealSensitiveData={revealCustomerData} />
+              <CustomerRankingTable title="Clientes de alto ticket e VIP" customers={dashboard.tables.vipCustomers} revealSensitiveData={revealCustomerData} />
+              <CustomerRankingTable title="Clientes em risco" customers={dashboard.tables.customersAtRisk} revealSensitiveData={revealCustomerData} />
             </div>
           </section>
 

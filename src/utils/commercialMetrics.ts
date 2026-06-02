@@ -54,6 +54,8 @@ export interface NormalizedPurchase extends RawPurchase {
   clienteKey: string;
   clienteNomeMascarado: string;
   whatsappMascarado: string;
+  clienteNomeCompleto: string;
+  whatsappCompleto: string;
   padariaNome: string;
   padariaCnpj?: string | null;
   parsedOcr: ParsedOcr;
@@ -129,6 +131,14 @@ export function maskWhatsapp(whatsapp?: string | null) {
   const digits = (whatsapp || "").replace(/\D/g, "");
   if (digits.length < 6) return "WhatsApp não informado";
   return `(**) *****-${digits.slice(-4)}`;
+}
+
+export function formatWhatsapp(whatsapp?: string | null) {
+  const digits = (whatsapp || "").replace(/\D/g, "");
+  if (!digits) return "WhatsApp não informado";
+  if (digits.length === 11) return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+  if (digits.length === 10) return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
+  return whatsapp?.trim() || digits;
 }
 
 function extractUsefulText(raw?: string | null): string {
@@ -216,6 +226,8 @@ export function normalizePurchase(rawPurchase: RawPurchase): NormalizedPurchase 
     clienteKey,
     clienteNomeMascarado: maskCustomerName(rawPurchase.cliente?.nome),
     whatsappMascarado: maskWhatsapp(rawPurchase.cliente?.whatsapp),
+    clienteNomeCompleto: rawPurchase.cliente?.nome?.trim() || "Cliente não identificado",
+    whatsappCompleto: formatWhatsapp(rawPurchase.cliente?.whatsapp),
     padariaNome: rawPurchase.padaria?.nome || "Padaria não identificada",
     padariaCnpj: rawPurchase.padaria?.cnpj || rawPurchase.cnpj_extraido || parsedOcr.cnpj,
     parsedOcr,
@@ -262,7 +274,7 @@ export function calculateCustomerMetrics(purchases: NormalizedPurchase[], params
     if (totalValue >= (params.vipValueThreshold ?? 100) || items.length >= 4) status = "VIP";
     if (avg >= highTicketCut && items.length <= 3) status = "Alto ticket";
     if (items.length >= 2 && daysSinceLastPurchase !== null && daysSinceLastPurchase > (params.inactivityDays ?? 7)) status = "Em risco";
-    return { clienteKey: key, nome: items[0].clienteNomeMascarado, whatsapp: items[0].whatsappMascarado, purchases: items.length, totalValue, averageTicket: avg, highestPurchase: Math.max(...items.map((p) => p.valorReais)), firstPurchase: sorted[0]?.dataCompra || null, lastPurchase: last, daysSinceLastPurchase, preferredHour: mostFrequent(items.map((p) => p.dataCompra?.getHours()).filter((x): x is number => x !== undefined)), preferredWeekday: mostFrequent(items.map((p) => p.dataCompra ? WEEKDAYS[p.dataCompra.getDay()] : null).filter(Boolean) as string[]), topCategory: categories[0]?.category || "Não identificado", status };
+    return { clienteKey: key, nome: items[0].clienteNomeMascarado, whatsapp: items[0].whatsappMascarado, nomeCompleto: items[0].clienteNomeCompleto, whatsappCompleto: items[0].whatsappCompleto, purchases: items.length, totalValue, averageTicket: avg, highestPurchase: Math.max(...items.map((p) => p.valorReais)), firstPurchase: sorted[0]?.dataCompra || null, lastPurchase: last, daysSinceLastPurchase, preferredHour: mostFrequent(items.map((p) => p.dataCompra?.getHours()).filter((x): x is number => x !== undefined)), preferredWeekday: mostFrequent(items.map((p) => p.dataCompra ? WEEKDAYS[p.dataCompra.getDay()] : null).filter(Boolean) as string[]), topCategory: categories[0]?.category || "Não identificado", status };
   });
 }
 

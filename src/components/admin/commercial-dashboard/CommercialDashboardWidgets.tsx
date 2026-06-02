@@ -4,6 +4,8 @@ import {
   Building2,
   CalendarDays,
   Clock,
+  Eye,
+  EyeOff,
   Filter,
   Lightbulb,
   LucideIcon,
@@ -62,7 +64,7 @@ interface TicketRangeData { label: string; purchases: number; notesShare: number
 interface CategoryData { category: string; totalValue: number }
 interface ProductData { product: string; category: string; purchases: number; totalValue: number }
 interface ComboData { combo: string; purchases: number; averageTicket: number }
-interface CustomerData { nome: string; whatsapp: string; purchases: number; totalValue: number; averageTicket: number; status: string; lastPurchase: Date | null }
+interface CustomerData { nome: string; whatsapp: string; nomeCompleto?: string; whatsappCompleto?: string; purchases: number; totalValue: number; averageTicket: number; status: string; lastPurchase: Date | null }
 interface OcrQualityData { validRaw: number; rawLiteral: number; withItems: number; withoutItems: number; itemCoverage: number; possibleDuplicates: number }
 interface PaymentMethodData { method: string; purchases: number; totalValue: number; averageTicket: number }
 interface SuspiciousData { id: string; cliente: string; padaria: string; value: number; date: string; reason: string }
@@ -71,6 +73,8 @@ interface FiltersProps {
   filters: CommercialDashboardFilters;
   onChange: (filters: CommercialDashboardFilters) => void;
   onRefresh: () => void;
+  revealCustomerData: boolean;
+  onToggleRevealCustomerData: () => void;
   options: {
     padarias: Array<{ id: string; nome: string }>;
     clientes: Array<{ id: string; nome: string }>;
@@ -127,7 +131,7 @@ export function CommercialScopeSummary({ filters, padariaNome, totalPurchases, t
   );
 }
 
-export function CommercialDashboardFilters({ filters, onChange, onRefresh, options }: FiltersProps) {
+export function CommercialDashboardFilters({ filters, onChange, onRefresh, revealCustomerData, onToggleRevealCustomerData, options }: FiltersProps) {
   const update = (patch: CommercialDashboardFilters) => onChange({ ...filters, ...patch });
   const selectedBakery = options.padarias.find((item) => item.id === filters.padariaId);
   const selectedCampaign = options.campanhas.find((item) => item.id === filters.campaignId);
@@ -256,6 +260,19 @@ export function CommercialDashboardFilters({ filters, onChange, onRefresh, optio
               <RefreshCw className="mr-2 h-4 w-4" /> Atualizar dashboard
             </Button>
             <Button variant="outline" onClick={clear}>Limpar filtros avançados</Button>
+            <Button
+              variant={revealCustomerData ? "secondary" : "outline"}
+              className="border-primary/25"
+              onClick={onToggleRevealCustomerData}
+            >
+              {revealCustomerData ? <EyeOff className="mr-2 h-4 w-4" /> : <Eye className="mr-2 h-4 w-4" />}
+              {revealCustomerData ? "Ocultar dados dos clientes" : "Revelar nomes e WhatsApp"}
+            </Button>
+          </div>
+          <div className="rounded-xl border border-primary/10 bg-muted/40 p-3 text-xs text-muted-foreground">
+            {revealCustomerData
+              ? "Dados completos de clientes visíveis para o Admin com base no consentimento LGPD informado."
+              : "Por padrão, nomes e WhatsApp seguem mascarados. Use a opção acima quando precisar consultar os dados completos autorizados."}
           </div>
         </div>
       </CardContent>
@@ -408,10 +425,26 @@ export function ProductRankingTable({ products, combos }: { products: ProductDat
   );
 }
 
-export function CustomerRankingTable({ title, customers }: { title: string; customers: CustomerData[] }) {
+export function CustomerRankingTable({ title, customers, revealSensitiveData }: { title: string; customers: CustomerData[]; revealSensitiveData: boolean }) {
   return (
-    <DashboardCard title={title} description="Dados pessoais mascarados para proteção de privacidade." icon={Users}>
-      <SimpleTable headers={["Cliente", "WhatsApp", "Notas", "Valor", "Ticket", "Status", "Última compra"]} rows={customers.map((c) => [c.nome, c.whatsapp, c.purchases, brl(c.totalValue), brl(c.averageTicket), c.status, dateLabel(c.lastPurchase)])} empty="Sem clientes nesta segmentação." />
+    <DashboardCard
+      title={title}
+      description={revealSensitiveData ? "Nomes e WhatsApp completos visíveis para Admin com consentimento LGPD." : "Dados pessoais mascarados para proteção de privacidade."}
+      icon={Users}
+    >
+      <SimpleTable
+        headers={["Cliente", "WhatsApp", "Notas", "Valor", "Ticket", "Status", "Última compra"]}
+        rows={customers.map((c) => [
+          revealSensitiveData ? c.nomeCompleto || c.nome : c.nome,
+          revealSensitiveData ? c.whatsappCompleto || c.whatsapp : c.whatsapp,
+          c.purchases,
+          brl(c.totalValue),
+          brl(c.averageTicket),
+          c.status,
+          dateLabel(c.lastPurchase),
+        ])}
+        empty="Sem clientes nesta segmentação."
+      />
     </DashboardCard>
   );
 }
