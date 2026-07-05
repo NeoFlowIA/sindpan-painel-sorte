@@ -964,13 +964,29 @@ export default function Sorteios() {
     });
     
     if (fixedLiveRaffleMode || showLiveRaffle) {
+      if (!numeroDigitado || numeroDigitado.trim() === '') {
+        toast.error('Digite um número para criar suspense antes da revelação');
+        return;
+      }
+
+      if (!serieDigitada || serieDigitada.trim() === '') {
+        toast.error('Digite a série antes da revelação');
+        return;
+      }
+
+      const serieFixa = parseInt(serieDigitada);
+      if (isNaN(serieFixa) || serieFixa < 0 || serieFixa > 9) {
+        toast.error('Série deve ser um número entre 0 e 9');
+        return;
+      }
+
       setFixedLiveRaffleMode(true);
       setResultadosCalculados([]);
       setGanhadoresSorteio([]);
       setWinner(null);
       setCupomSorteadoId(null);
       setFinalNumber("");
-      setCurrentNumber("00000");
+      setCurrentNumber(`${serieDigitada}/${numeroDigitado.padStart(5, '0')}`);
       setIsAnimating(true);
       setShowResult(false);
       setShowConfetti(false);
@@ -1881,7 +1897,7 @@ export default function Sorteios() {
                    )}
 
                   {/* Lista de Ganhadores do Sorteio Atual */}
-                  {ganhadoresSorteio.length > 0 && (
+                  {ganhadoresSorteio.length > 0 && !fixedLiveRaffleMode && (
                     <Card className="mt-8 max-w-2xl w-full">
                        <CardHeader>
                         <CardTitle className="text-lg text-primary flex items-center gap-2">
@@ -2058,7 +2074,7 @@ export default function Sorteios() {
                {/* Main Content */}
               <div className="flex-1 flex flex-col items-center justify-center px-8 py-6 pt-20 pb-24 relative overflow-y-auto overflow-x-hidden">
                 {/* Lista lateral de ganhadores */}
-                {ganhadoresSorteio.length > 0 && (
+                {ganhadoresSorteio.length > 0 && !fixedLiveRaffleMode && (
                   <div className="absolute right-8 top-20 bottom-8 w-80 overflow-y-auto bg-white/10 backdrop-blur-lg rounded-2xl p-4 
  border border-white/20">
                     <h3 className="text-white text-lg font-bold mb-4 flex items-center gap-2">
@@ -2100,30 +2116,59 @@ export default function Sorteios() {
                   </p>
                 </div>
 
-                {/* Revelação fixa dos ganhadores e reservas */}
+                {/* Entrada de suspense para a revelação fixa */}
                 {!isAnimating && !showResult && countdown === 0 && fixedLiveRaffleMode && (
-                   <div className="mb-8 w-full max-w-4xl animate-fade-in flex-shrink-0">
-                    <div className="rounded-3xl border border-amber-200/40 bg-white/10 p-8 text-center shadow-2xl backdrop-blur-xl">
-                      <div className="mb-4 flex items-center justify-center gap-3 text-4xl">
-                        <span>🎏</span>
-                        <span>🔥</span>
-                        <span>🌽</span>
+                   <div className="mb-8 w-full max-w-5xl animate-fade-in flex-shrink-0">
+                    <div className="relative overflow-hidden rounded-[2rem] border-2 border-amber-200/50 bg-red-950/35 p-10 text-center shadow-[0_0_80px_rgba(251,191,36,0.22)] backdrop-blur-xl md:p-12">
+                      <div className="absolute inset-x-0 top-0 h-2 bg-gradient-to-r from-red-600 via-amber-300 to-emerald-500" />
+                      <div className="mb-6 flex items-center justify-center gap-4 text-5xl md:text-6xl">
+                        <span className="animate-bounce">🎏</span>
+                        <span className="animate-pulse">🔥</span>
+                        <span className="animate-bounce" style={{ animationDelay: '0.35s' }}>🌽</span>
                       </div>
-                      <h2 className="text-4xl font-black text-white drop-shadow-lg">Ganhadores fixados para revelação</h2>
-                      <p className="mt-3 text-xl text-amber-100">
-                        Serão revelados 5 ganhadores e, em seguida, 5 reservas — um por vez.
+                      <p className="text-sm font-bold uppercase tracking-[0.45em] text-amber-200">Momento de suspense</p>
+                      <h2 className="mt-3 text-5xl font-black text-white drop-shadow-lg md:text-7xl">Digite o número sorteado</h2>
+                      <p className="mx-auto mt-4 max-w-3xl text-xl text-amber-100 md:text-2xl">
+                        Informe o número e a série para iniciar a contagem e revelar os 5 ganhadores, depois os 5 reservas.
                       </p>
-                      <div className="mt-6 grid grid-cols-2 gap-3 text-left md:grid-cols-5">
-                        {FIXED_LIVE_RAFFLE_WINNERS.map((fixedWinner, index) => (
-                          <div
-                            key={fixedWinner.displayNumber}
-                            className="rounded-2xl border border-white/20 bg-white/10 p-3 text-white/85"
-                          >
-                            <p className="text-xs font-bold uppercase tracking-widest text-amber-200">{fixedWinner.prizeLabel}</p>
-                            <p className="mt-1 font-mono text-lg font-black">{fixedWinner.displayNumber}</p>
-                            <p className="text-xs text-white/60">#{index + 1}</p>
-                          </div>
-                        ))}
+
+                      <div className="mt-10 grid gap-6 md:grid-cols-[2fr_1fr]">
+                        <div className="rounded-3xl border border-white/20 bg-white/10 p-5 shadow-2xl backdrop-blur">
+                          <label className="mb-4 flex items-center justify-center gap-3 text-2xl font-black text-white md:text-3xl">
+                            <span>🎲</span>
+                            Número
+                            <span>🎲</span>
+                          </label>
+                          <Input
+                            type="number"
+                            placeholder="64244"
+                            value={numeroDigitado}
+                            onChange={(e) => setNumeroDigitado(e.target.value)}
+                            className="h-28 border-amber-200/40 bg-white/15 text-center font-mono text-6xl font-black tracking-widest text-white shadow-inner placeholder:text-white/35 focus-visible:ring-amber-300 md:h-36 md:text-8xl"
+                            maxLength={5}
+                          />
+                        </div>
+
+                        <div className="rounded-3xl border border-white/20 bg-white/10 p-5 shadow-2xl backdrop-blur">
+                          <label className="mb-4 flex items-center justify-center gap-3 text-2xl font-black text-white md:text-3xl">
+                            <span>🎯</span>
+                            Série
+                            <span>🎯</span>
+                          </label>
+                          <Input
+                            type="number"
+                            placeholder="4"
+                            value={serieDigitada}
+                            onChange={(e) => setSerieDigitada(e.target.value)}
+                            className="h-28 border-amber-200/40 bg-white/15 text-center font-mono text-6xl font-black text-white shadow-inner placeholder:text-white/35 focus-visible:ring-amber-300 md:h-36 md:text-8xl"
+                            min="0"
+                            max="9"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="mt-8 rounded-2xl border border-amber-200/30 bg-amber-300/10 px-6 py-4 text-lg font-semibold text-amber-100 md:text-xl">
+                        A ordem dos nomes está fixada nos bastidores. Clique em “Começar o Arraiá” para revelar um por vez.
                       </div>
                     </div>
                    </div>
