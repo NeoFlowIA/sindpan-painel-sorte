@@ -1314,7 +1314,7 @@ export default function Sorteios() {
               className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white w-full sm:w-auto"
             >
               <Sparkles className="w-4 h-4 mr-2" />
-              Sorteio Ao Vivo
+              Sorteio Ao Vivo Junino
             </Button>
             <Button
                onClick={() => setShowRaffleModal(true)}
@@ -1647,7 +1647,7 @@ export default function Sorteios() {
         {/* Raffle Animation Modal */}
         <Dialog open={showRaffleModal} onOpenChange={setShowRaffleModal}>
           <DialogContent className="max-w-4xl w-full h-[80vh] p-0 overflow-hidden">
-            <div className="relative h-full bg-gradient-to-br from-primary/10 via-background to-secondary/10 flex flex-col items-center justify-center">
+            <div className="relative h-full bg-gradient-to-br from-amber-100 via-orange-100 to-emerald-100 flex flex-col items-center justify-center">
               {/* Close button */}
               <Button
                  variant="ghost"
@@ -1681,11 +1681,11 @@ export default function Sorteios() {
               {/* Title */}
               <div className="text-center mb-8">
                 <div className="flex items-center justify-center gap-3 mb-4">
-                  <span className="text-4xl animate-bounce">🎄</span>
-                   <h2 className="text-3xl font-bold text-primary">Sorteio Natalino SINDPAN</h2>
-                  <span className="text-4xl animate-bounce" style={{ animationDelay: '0.5s' }}>🎄</span>
+                  <span className="text-4xl animate-bounce">🎏</span>
+                   <h2 className="text-3xl font-bold text-red-800">Sorteio Junino SINDPAN</h2>
+                  <span className="text-4xl animate-bounce" style={{ animationDelay: '0.5s' }}>🔥</span>
                 </div>
-                <p className="text-lg text-muted-foreground">🎅 Feliz Natal e Boa Sorte! 🎅</p>
+                <p className="text-lg text-muted-foreground">🔥 Viva São João e boa sorte! 🌽</p>
               </div>
 
               {/* Input para número e série do sorteio */}
@@ -1824,12 +1824,12 @@ export default function Sorteios() {
                 <Button 
                   onClick={startRaffle}
                    size="lg"
-                  className="text-xl px-12 py-6 bg-gradient-to-r from-red-500 to-green-600 hover:from-red-600 hover:to-green-700 text-white shadow-lg"
+                  className="text-xl px-12 py-6 bg-gradient-to-r from-red-700 via-orange-500 to-amber-400 hover:from-red-800 hover:via-orange-600 hover:to-amber-500 text-white shadow-lg"
                 >
-                  <span className="text-2xl mr-2">🎄</span>
+                  <span className="text-2xl mr-2">🔥</span>
                   <Trophy className="w-6 h-6 mr-2" />
-                   <span className="text-2xl ml-2">🎅</span>
-                  Iniciar Sorteio Natalino
+                   <span className="text-2xl ml-2">🌽</span>
+                  Iniciar Sorteio Junino
                 </Button>
               )}
 
@@ -1894,14 +1894,14 @@ export default function Sorteios() {
 
         {/* Live Raffle Fullscreen Modal */}
         {showLiveRaffle && (
-           <div className="fixed inset-0 z-[100] bg-gradient-to-br from-red-900 via-green-900 to-yellow-900 animate-gradient-shift overflow-hidden h-screen w-screen">
+           <div className="fixed inset-0 z-[100] bg-gradient-to-br from-orange-950 via-red-800 to-emerald-900 animate-gradient-shift overflow-hidden h-screen w-screen">
             {/* Animated Background */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
-              {/* Snowflakes */}
+              {/* Bandeirinhas e elementos juninos */}
               {Array.from({ length: 20 }).map((_, i) => (
                 <div
-                   key={`snowflake-${i}`}
-                  className="absolute text-white/60 text-2xl animate-float"
+                   key={`junino-${i}`}
+                  className="absolute text-amber-200/80 text-2xl animate-float"
                   style={{
                     left: `${Math.random() * 100}%`,
                     top: `${Math.random() * 100}%`,
@@ -1909,15 +1909,15 @@ export default function Sorteios() {
                     animationDuration: `${3 + Math.random() * 4}s`,
                   }}
                 >
-                  ❄️
+                  🎏
                  </div>
               ))}
               
-              {/* Christmas stars */}
+              {/* Brilhos de arraial */}
               {Array.from({ length: 20 }).map((_, i) => (
                 <div
-                   key={`star-${i}`}
-                  className="absolute text-yellow-400/80 text-3xl animate-pulse"
+                   key={`arraial-star-${i}`}
+                  className="absolute text-yellow-300/85 text-3xl animate-pulse"
                   style={{
                     left: `${Math.random() * 100}%`,
                     top: `${Math.random() * 100}%`,
@@ -1925,15 +1925,15 @@ export default function Sorteios() {
                     animationDuration: `${2 + Math.random() * 2}s`,
                   }}
                 >
-                  ⭐
+                  ✨
                  </div>
               ))}
               
-              {/* Christmas gradient orbs */}
-              <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-red-500/20 rounded-full blur-3xl animate-pulse" />
+              {/* Luzes de fogueira */}
+              <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-orange-500/25 rounded-full blur-3xl animate-pulse" />
               <div className="absolute bottom-1/4 right-1/4 w-96 
- h-96 bg-green-500/20 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
-              <div className="absolute top-1/2 left-1/2 w-96 h-96 bg-yellow-500/15 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }} />
+ h-96 bg-emerald-500/20 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
+              <div className="absolute top-1/2 left-1/2 w-96 h-96 bg-yellow-300/20 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }} />
             </div>
 
             {/* Content */}
@@ -1941,9 +1941,9 @@ export default function Sorteios() {
               {/* Header */}
                <div className="flex items-center justify-between p-6 absolute top-0 left-0 right-0 bg-gradient-to-b from-black/30 to-transparent backdrop-blur-sm z-20">
                 <div className="flex items-center gap-4">
-                  <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse" />
+                  <div className="w-3 h-3 bg-amber-300 rounded-full animate-pulse" />
                   <span className="text-white/90 text-lg font-semibold uppercase tracking-wider">
-                     Sorteio Ao Vivo
+                     Sorteio Ao Vivo Junino
                   </span>
                 </div>
                 <Button
@@ -1977,7 +1977,7 @@ export default function Sorteios() {
                             <Badge className="bg-yellow-500 text-black font-mono text-sm">
                               {ganhador.numero_sorte}
                             </Badge>
-                             <Badge className="bg-blue-500 text-white text-sm">
+                             <Badge className="bg-emerald-600 text-white text-sm">
                               Série {ganhador.serie}
                             </Badge>
                            </div>
@@ -1991,14 +1991,14 @@ export default function Sorteios() {
                 {/* Logo/Title */}
                  <div className="mb-8 text-center flex-shrink-0">
                   <div className="flex items-center justify-center gap-4 mb-4">
-                    <span className="text-6xl animate-bounce flex-shrink-0">🎄</span>
+                    <span className="text-6xl animate-bounce flex-shrink-0">🎏</span>
                     <h1 className="text-7xl font-black text-white drop-shadow-2xl animate-fade-in whitespace-nowrap">
-                    Natal de Prêmios - SINDPAN
+                    São João de Prêmios - SINDPAN
                    </h1>
-                    <span className="text-6xl animate-bounce flex-shrink-0" style={{ animationDelay: '0.5s' }}>🎄</span>
+                    <span className="text-6xl animate-bounce flex-shrink-0" style={{ animationDelay: '0.5s' }}>🔥</span>
                   </div>
                   <p className="text-2xl text-white/80 font-light tracking-widest uppercase whitespace-nowrap">
-                    🎅 Sorteio Natalino 🎅
+                    🔥 Sorteio Junino 🌽
                   </p>
                 </div>
 
@@ -2064,14 +2064,14 @@ export default function Sorteios() {
                     {/* Number Container */}
                     <div className={`relative ${isAnimating ? 'animate-shake' : ''}`}>
                       {/* Glow effect */}
-                       <div className="absolute inset-0 bg-gradient-to-r from-purple-500 via-pink-500 to-blue-500 blur-3xl opacity-50 animate-pulse" />
+                       <div className="absolute inset-0 bg-gradient-to-r from-red-600 via-amber-400 to-emerald-500 blur-3xl opacity-50 animate-pulse" />
                       
                       {/* Number Box */}
                       <div className={`relative bg-white/10 
  backdrop-blur-xl rounded-3xl border-4 p-12 transition-all duration-500 ${
                         isAnimating 
                           ? 'border-white/50 shadow-2xl' 
-                          : 'border-yellow-400 shadow-[0_0_100px_rgba(250,204,21,0.8)]'
+                          : 'border-amber-300 shadow-[0_0_100px_rgba(251,191,36,0.85)]'
                        }`}>
                         <div className={`text-[12rem] font-black font-mono text-white leading-none tracking-wider ${
                           !isAnimating && 'animate-bounce'
@@ -2084,12 +2084,12 @@ export default function Sorteios() {
                    {/* Winner Card */}
                     {showResult && winner && (
                       <div className="mt-12 animate-slide-up">
-                        <Card className="bg-gradient-to-br from-yellow-400 to-orange-500 border-4 border-white/50 shadow-2xl max-w-2xl">
+                        <Card className="bg-gradient-to-br from-amber-300 via-orange-400 to-red-600 border-4 border-white/50 shadow-2xl max-w-2xl">
                            <CardHeader className="text-center pb-4">
                             <div className="flex items-center justify-center gap-3 mb-2">
                               <Trophy className="w-12 h-12 text-white drop-shadow-lg" />
                                <CardTitle className="text-5xl font-black text-white drop-shadow-lg">
-                                GANHADOR!
+                                GANHADOR DO ARRAIÁ!
                               </CardTitle>
                               <Trophy className="w-12 h-12 text-white drop-shadow-lg" />
                             </div>
@@ -2102,7 +2102,7 @@ export default function Sorteios() {
                                 <Badge className="text-xl px-6 py-2 bg-yellow-500 text-black">
                                    {winner.numero_sorte}
                                 </Badge>
-                                <Badge className="text-xl px-6 py-2 bg-blue-500 text-white">
+                                <Badge className="text-xl px-6 py-2 bg-emerald-600 text-white">
                                      Série {winner.serie}
                                 </Badge>
                               </div>
@@ -2147,9 +2147,9 @@ export default function Sorteios() {
                         <div
                           className={`w-3 h-3 ${
                             i % 5 === 0 ? 'bg-yellow-400' :
-                            i % 5 === 1 ? 'bg-pink-400' :
-                            i % 5 === 2 ? 'bg-purple-400' :
-                            i % 5 === 3 ? 'bg-blue-400' :
+                            i % 5 === 1 ? 'bg-orange-400' :
+                            i % 5 === 2 ? 'bg-red-500' :
+                            i % 5 === 3 ? 'bg-emerald-500' :
                             'bg-green-400'
                           } rotate-45`}
                         />
@@ -2163,12 +2163,12 @@ export default function Sorteios() {
                    <Button 
                     onClick={startRaffle}
                     size="lg"
-                    className="text-3xl px-16 py-10 bg-gradient-to-r from-red-500 to-green-600 hover:from-red-600 hover:to-green-700 text-white shadow-2xl rounded-2xl animate-pulse-slow"
+                    className="text-3xl px-16 py-10 bg-gradient-to-r from-red-700 via-orange-500 to-amber-400 hover:from-red-800 hover:via-orange-600 hover:to-amber-500 text-white shadow-2xl rounded-2xl animate-pulse-slow"
                    >
-                    <span className="text-4xl mr-4">🎄</span>
+                    <span className="text-4xl mr-4">🔥</span>
                     <Trophy className="w-10 h-10 mr-4" />
-                    <span className="text-4xl ml-4">🎅</span>
-                    INICIAR SORTEIO
+                    <span className="text-4xl ml-4">🌽</span>
+                    COMEÇAR O ARRAIÁ
                    </Button>
                 )}
 
@@ -2186,7 +2186,7 @@ export default function Sorteios() {
                     <Button 
                       onClick={continuarSorteio}
                       size="lg"
-                       className="text-2xl px-12 py-8 bg-gradient-to-r from-blue-500 to-cyan-600 hover:from-blue-600 hover:to-cyan-700 text-white shadow-2xl rounded-2xl"
+                       className="text-2xl px-12 py-8 bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white shadow-2xl rounded-2xl"
                       disabled={ganhadoresSorteio.length >= resultadosCalculados.length && resultadosCalculados.length > 0}
                     >
                       <Trophy className="w-8 h-8 mr-3" />

@@ -27,8 +27,8 @@ function ensureGlobalStyles() {
       100% { transform: translateY(-1000%); }
     }
     @keyframes slot-column-pulse {
-      0%, 100% { transform: scale(1); box-shadow: 0 0 0 rgba(251, 191, 36, 0.45); }
-      50% { transform: scale(1.02); box-shadow: 0 0 48px rgba(220, 38, 38, 0.35), 0 0 72px rgba(251, 191, 36, 0.3); }
+      0%, 100% { transform: scale(1); box-shadow: 0 0 0 hsl(var(--accent) / 0.45); }
+      50% { transform: scale(1.02); box-shadow: 0 0 45px hsl(var(--accent) / 0.35); }
     }
   `;
   document.head.appendChild(style);
@@ -75,11 +75,11 @@ export function SlotColumn({ target, state, delay }: SlotColumnProps) {
   return (
     <div
       className={cn(
-        "relative h-28 w-16 overflow-hidden rounded-[28px] border-2 border-red-700/35 bg-gradient-to-b from-amber-50 via-yellow-100 to-orange-100 text-red-950 shadow-[0_20px_60px_rgba(127,29,29,0.18)] dark:border-amber-300/40 dark:from-red-950 dark:via-orange-950 dark:to-red-900 dark:text-amber-50 transition-all md:h-36 md:w-20",
+        "relative h-28 w-16 overflow-hidden rounded-[28px] border border-accent/40 bg-card text-foreground shadow-[var(--shadow-number)] transition-all md:h-36 md:w-20",
         phase === "settled" && "animate-[slot-column-pulse_1.6s_ease-in-out_1]"
       )}
     >
-      <div className="absolute inset-0 bg-gradient-to-b from-amber-200/60 via-transparent to-red-900/10 dark:from-amber-300/20 dark:to-red-950/60" aria-hidden="true" />
+      <div className="absolute inset-0 bg-gradient-to-b from-background/70 via-transparent to-background/40" aria-hidden="true" />
       <div
         className={cn(
           "relative flex h-full w-full",
@@ -109,7 +109,7 @@ export function SlotColumn({ target, state, delay }: SlotColumnProps) {
           ))}
         </div>
       </div>
-      <div className="pointer-events-none absolute inset-0 rounded-[28px] border border-red-900/10 shadow-inner dark:border-amber-100/10" aria-hidden="true" />
+      <div className="pointer-events-none absolute inset-0 rounded-[28px] border border-foreground/10 shadow-inner" aria-hidden="true" />
     </div>
   );
 }

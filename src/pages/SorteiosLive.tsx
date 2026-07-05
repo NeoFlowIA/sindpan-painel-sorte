@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Flame, Volume2, VolumeX, Maximize, RotateCcw } from "lucide-react";
+import { Trophy, Volume2, VolumeX, Maximize, RotateCcw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import sindpanLogo from "@/assets/sindpan-logo.png";
 
@@ -200,17 +200,17 @@ export default function SorteiosLive() {
   const getBackgroundClasses = () => {
     switch (phase) {
       case 'initial':
-        return 'bg-gradient-to-br from-amber-200 via-orange-100 to-emerald-200';
+        return 'bg-gradient-to-br from-primary/20 via-background to-secondary/20 animate-pulse';
       case 'countdown':
-        return 'bg-gradient-to-br from-orange-950 via-red-900 to-yellow-800';
+        return 'bg-gradient-to-br from-red-900 via-black to-red-900';
       case 'spinning':
-        return 'bg-gradient-to-br from-emerald-700 via-amber-500 to-red-700 animate-gradient-x';
+        return 'bg-gradient-to-br from-primary via-accent to-secondary animate-gradient-x';
       case 'revealing':
-        return 'bg-gradient-to-br from-yellow-100 via-orange-100 to-red-100 animate-pulse';
+        return 'bg-white animate-pulse';
       case 'celebrating':
-        return 'bg-gradient-to-br from-emerald-600 via-amber-400 to-red-600 animate-gradient-x';
+        return 'bg-gradient-to-br from-green-400 via-blue-500 to-purple-600 animate-gradient-x';
       default:
-        return 'bg-gradient-to-br from-amber-100 to-emerald-100';
+        return 'bg-gradient-to-br from-primary/10 to-secondary/10';
     }
   };
 
@@ -222,7 +222,7 @@ export default function SorteiosLive() {
           <img 
             src={sindpanLogo} 
             alt="SINDPAN" 
-            className="h-16 w-auto rounded-2xl bg-white/80 p-2 shadow-xl opacity-95"
+            className="h-16 w-auto opacity-90"
           />
         </div>
       )}
@@ -230,7 +230,7 @@ export default function SorteiosLive() {
       {/* Preview badge */}
       {isPreview && (
         <div className="absolute top-8 right-8">
-          <Badge className="bg-amber-300 text-red-950 text-lg px-4 py-2 shadow-lg">
+          <Badge className="bg-yellow-500 text-black text-lg px-4 py-2">
             MODO PREVIEW
           </Badge>
         </div>
@@ -242,7 +242,7 @@ export default function SorteiosLive() {
           variant="ghost"
           size="icon"
           onClick={() => setIsMuted(!isMuted)}
-          className="bg-red-950/35 text-amber-100 hover:bg-red-950/55 border border-amber-200/40"
+          className="bg-black/20 text-white hover:bg-black/40"
         >
           {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
         </Button>
@@ -250,7 +250,7 @@ export default function SorteiosLive() {
           variant="ghost"
           size="icon"
           onClick={toggleFullscreen}
-          className="bg-red-950/35 text-amber-100 hover:bg-red-950/55 border border-amber-200/40"
+          className="bg-black/20 text-white hover:bg-black/40"
         >
           <Maximize className="w-5 h-5" />
         </Button>
@@ -261,22 +261,22 @@ export default function SorteiosLive() {
         {/* Title */}
         <h1 className={`font-bold transition-all duration-500 ${
           phase === 'initial' 
-            ? 'text-6xl md:text-8xl text-red-800 drop-shadow-[0_4px_0_rgba(251,191,36,0.7)] animate-pulse' 
-            : 'text-4xl md:text-6xl text-amber-100 drop-shadow-[0_4px_0_rgba(127,29,29,0.65)]'
+            ? 'text-6xl md:text-8xl text-primary animate-pulse' 
+            : 'text-4xl md:text-6xl text-white'
         }`}>
-          {phase === 'initial' ? 'ARRAIÁ SINDPAN' : 'SORTEIO JUNINO'}
+          {phase === 'initial' ? 'SINDPAN' : 'SORTEIO DIGITAL'}
         </h1>
 
         {/* Subtitle for initial phase */}
         {phase === 'initial' && (
-          <p className="text-2xl md:text-4xl font-semibold text-red-900 mb-8 drop-shadow-sm">
-            São João de Prêmios
+          <p className="text-2xl md:text-4xl text-muted-foreground mb-8">
+            Natal de Prêmios 2024
           </p>
         )}
 
         {/* Countdown */}
         {phase === 'countdown' && countdown > 0 && (
-          <div className="text-[12rem] md:text-[16rem] font-black text-amber-200 animate-bounce drop-shadow-[0_10px_0_rgba(127,29,29,0.75)]">
+          <div className="text-[12rem] md:text-[16rem] font-bold text-white animate-bounce drop-shadow-2xl">
             {countdown}
           </div>
         )}
@@ -289,10 +289,10 @@ export default function SorteiosLive() {
               font-mono font-bold text-center p-8 rounded-3xl 
               transition-all duration-300 drop-shadow-2xl
               ${phase === 'spinning' 
-                ? 'text-amber-100 bg-red-950/45 border-4 border-amber-200 animate-pulse shadow-[0_0_60px_rgba(251,191,36,0.45)]' 
+                ? 'text-white bg-black/20 border-4 border-white animate-pulse' 
                 : phase === 'revealing'
-                ? 'text-red-950 bg-amber-100/95 border-4 border-red-800 animate-pulse'
-                : 'text-red-950 bg-gradient-to-r from-amber-200 via-yellow-300 to-orange-300 border-4 border-red-700 shadow-amber-300/60 shadow-2xl'
+                ? 'text-black bg-white/90 border-4 border-black animate-pulse'
+                : 'text-white bg-gradient-to-r from-yellow-400 to-orange-500 border-4 border-yellow-300 shadow-yellow-400/50 shadow-2xl'
               }
             `}>
               {currentNumber}
@@ -302,14 +302,14 @@ export default function SorteiosLive() {
             {phase === 'celebrating' && winner && (
               <div className="animate-fade-in space-y-6">
                 <div className="text-4xl md:text-6xl font-bold text-white drop-shadow-lg animate-bounce">
-                  🔥 GANHADOR DO ARRAIÁ! 🌽
+                  🏆 GANHADOR! 🏆
                 </div>
                 
-                <div className="bg-red-950/35 backdrop-blur-sm rounded-3xl p-8 border-2 border-amber-200/60 shadow-2xl">
+                <div className="bg-white/10 backdrop-blur-sm rounded-3xl p-8 border-2 border-white/30">
                   <div className="text-3xl md:text-5xl font-bold text-white mb-4 drop-shadow-lg">
                     {winner.name}
                   </div>
-                  <div className="text-xl md:text-3xl text-amber-200 font-semibold drop-shadow-lg">
+                  <div className="text-xl md:text-3xl text-yellow-200 font-semibold drop-shadow-lg">
                     {winner.bakery}
                   </div>
                 </div>
@@ -318,7 +318,7 @@ export default function SorteiosLive() {
                 <Button
                   onClick={resetRaffle}
                   size="lg"
-                  className="text-xl px-8 py-4 bg-amber-300 text-red-950 border-2 border-red-800/50 hover:bg-amber-200 backdrop-blur-sm shadow-xl"
+                  className="text-xl px-8 py-4 bg-white/20 text-white border-2 border-white/50 hover:bg-white/30 backdrop-blur-sm"
                 >
                   <RotateCcw className="w-6 h-6 mr-2" />
                   Novo Sorteio
@@ -333,10 +333,10 @@ export default function SorteiosLive() {
           <Button 
             onClick={startRaffle}
             size="lg"
-            className="text-2xl md:text-3xl px-12 py-8 bg-gradient-to-r from-red-700 via-orange-500 to-amber-400 text-white hover:from-red-800 hover:via-orange-600 hover:to-amber-500 shadow-2xl shadow-orange-700/30 animate-pulse border-2 border-amber-200"
+            className="text-2xl md:text-3xl px-12 py-8 bg-primary text-primary-foreground hover:bg-primary/90 shadow-2xl animate-pulse"
           >
-            <Flame className="w-8 h-8 mr-4" />
-            ACENDER A FOGUEIRA
+            <Trophy className="w-8 h-8 mr-4" />
+            INICIAR SORTEIO
           </Button>
         )}
       </div>
@@ -357,7 +357,7 @@ export default function SorteiosLive() {
                 fontSize: `${0.8 + Math.random() * 1.2}rem`
               }}
             >
-              {['🔥', '🌽', '🎏', '✨'][Math.floor(Math.random() * 4)]}
+              {['🎉', '🎊', '✨', '🏆'][Math.floor(Math.random() * 4)]}
             </div>
           ))}
           
@@ -374,7 +374,7 @@ export default function SorteiosLive() {
                 fontSize: `${0.8 + Math.random() * 1.2}rem`
               }}
             >
-              {['🔥', '🌽', '🎏', '🪗'][Math.floor(Math.random() * 4)]}
+              {['🥖', '🍞', '✨', '🎊'][Math.floor(Math.random() * 4)]}
             </div>
           ))}
 
@@ -391,7 +391,7 @@ export default function SorteiosLive() {
                 fontSize: `${0.6 + Math.random() * 1}rem`
               }}
             >
-              {['🔥', '🌽', '🎏', '✨', '🪗', '🤠'][Math.random() < 0.7 ? Math.floor(Math.random() * 4) : Math.floor(Math.random() * 6)]}
+              {['🎉', '🎊', '✨', '🏆', '🥖', '🍞'][Math.random() < 0.7 ? Math.floor(Math.random() * 4) : Math.floor(Math.random() * 6)]}
             </div>
           ))}
 
