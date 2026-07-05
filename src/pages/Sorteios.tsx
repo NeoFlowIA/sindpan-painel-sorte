@@ -2072,7 +2072,7 @@ export default function Sorteios() {
               </div>
 
                {/* Main Content */}
-              <div className="flex-1 flex flex-col items-center justify-center px-8 py-6 pt-20 pb-24 relative overflow-y-auto overflow-x-hidden">
+              <div className="flex-1 flex flex-col items-center justify-center px-4 py-6 pt-24 pb-24 relative overflow-y-auto overflow-x-hidden sm:px-6 lg:px-8">
                 {/* Lista lateral de ganhadores */}
                 {ganhadoresSorteio.length > 0 && !fixedLiveRaffleMode && (
                   <div className="absolute right-8 top-20 bottom-8 w-80 overflow-y-auto bg-white/10 backdrop-blur-lg rounded-2xl p-4 
@@ -2103,23 +2103,23 @@ export default function Sorteios() {
                   </div>
                 )}
                 {/* Logo/Title */}
-                 <div className="mb-8 text-center flex-shrink-0">
-                  <div className="flex items-center justify-center gap-4 mb-4">
-                    <span className="text-6xl animate-bounce flex-shrink-0">🎏</span>
-                    <h1 className="text-7xl font-black text-white drop-shadow-2xl animate-fade-in whitespace-nowrap">
+                 <div className="mb-6 text-center flex-shrink-0 md:mb-8">
+                  <div className="flex flex-wrap items-center justify-center gap-2 mb-4 sm:gap-4">
+                    <span className="text-4xl animate-bounce flex-shrink-0 sm:text-5xl md:text-6xl">🎏</span>
+                    <h1 className="text-4xl font-black text-white drop-shadow-2xl animate-fade-in sm:text-5xl md:text-6xl lg:text-7xl">
                     São João de Prêmios - SINDPAN
                    </h1>
-                    <span className="text-6xl animate-bounce flex-shrink-0" style={{ animationDelay: '0.5s' }}>🔥</span>
+                    <span className="text-4xl animate-bounce flex-shrink-0 sm:text-5xl md:text-6xl" style={{ animationDelay: '0.5s' }}>🔥</span>
                   </div>
-                  <p className="text-2xl text-white/80 font-light tracking-widest uppercase whitespace-nowrap">
+                  <p className="text-lg text-white/80 font-light tracking-widest uppercase sm:text-xl md:text-2xl">
                     🔥 Sorteio Junino 🌽
                   </p>
                 </div>
 
                 {/* Entrada de suspense para a revelação fixa */}
                 {!isAnimating && !showResult && countdown === 0 && fixedLiveRaffleMode && (
-                   <div className="mb-8 w-full max-w-5xl animate-fade-in flex-shrink-0">
-                    <div className="relative overflow-hidden rounded-[2rem] border-2 border-amber-200/50 bg-red-950/35 p-10 text-center shadow-[0_0_80px_rgba(251,191,36,0.22)] backdrop-blur-xl md:p-12">
+                   <div className="mb-6 w-full max-w-5xl animate-fade-in flex-shrink-0 md:mb-8">
+                    <div className="relative overflow-hidden rounded-[2rem] border-2 border-amber-200/50 bg-red-950/35 p-5 text-center shadow-[0_0_80px_rgba(251,191,36,0.22)] backdrop-blur-xl sm:p-8 md:p-12">
                       <div className="absolute inset-x-0 top-0 h-2 bg-gradient-to-r from-red-600 via-amber-300 to-emerald-500" />
                       <div className="mb-6 flex items-center justify-center gap-4 text-5xl md:text-6xl">
                         <span className="animate-bounce">🎏</span>
@@ -2127,8 +2127,8 @@ export default function Sorteios() {
                         <span className="animate-bounce" style={{ animationDelay: '0.35s' }}>🌽</span>
                       </div>
                       <p className="text-sm font-bold uppercase tracking-[0.45em] text-amber-200">Momento de suspense</p>
-                      <h2 className="mt-3 text-5xl font-black text-white drop-shadow-lg md:text-7xl">Digite o número sorteado</h2>
-                      <p className="mx-auto mt-4 max-w-3xl text-xl text-amber-100 md:text-2xl">
+                      <h2 className="mt-3 text-3xl font-black text-white drop-shadow-lg sm:text-5xl md:text-7xl">Digite o número sorteado</h2>
+                      <p className="mx-auto mt-4 max-w-3xl text-base text-amber-100 sm:text-xl md:text-2xl">
                         Informe o número e a série para iniciar a contagem e revelar os 5 ganhadores, depois os 5 reservas.
                       </p>
 
@@ -2141,10 +2141,10 @@ export default function Sorteios() {
                           </label>
                           <Input
                             type="number"
-                            placeholder="64244"
+                            placeholder="12345"
                             value={numeroDigitado}
                             onChange={(e) => setNumeroDigitado(e.target.value)}
-                            className="h-28 border-amber-200/40 bg-white/15 text-center font-mono text-6xl font-black tracking-widest text-white shadow-inner placeholder:text-white/35 focus-visible:ring-amber-300 md:h-36 md:text-8xl"
+                            className="h-24 border-amber-200/40 bg-white/15 text-center font-mono text-5xl font-black tracking-widest text-white shadow-inner placeholder:text-white/35 focus-visible:ring-amber-300 sm:h-28 sm:text-6xl md:h-36 md:text-8xl"
                             maxLength={5}
                           />
                         </div>
@@ -2157,18 +2157,14 @@ export default function Sorteios() {
                           </label>
                           <Input
                             type="number"
-                            placeholder="4"
+                            placeholder="7"
                             value={serieDigitada}
                             onChange={(e) => setSerieDigitada(e.target.value)}
-                            className="h-28 border-amber-200/40 bg-white/15 text-center font-mono text-6xl font-black text-white shadow-inner placeholder:text-white/35 focus-visible:ring-amber-300 md:h-36 md:text-8xl"
+                            className="h-24 border-amber-200/40 bg-white/15 text-center font-mono text-5xl font-black text-white shadow-inner placeholder:text-white/35 focus-visible:ring-amber-300 sm:h-28 sm:text-6xl md:h-36 md:text-8xl"
                             min="0"
                             max="9"
                           />
                         </div>
-                      </div>
-
-                      <div className="mt-8 rounded-2xl border border-amber-200/30 bg-amber-300/10 px-6 py-4 text-lg font-semibold text-amber-100 md:text-xl">
-                        A ordem dos nomes está fixada nos bastidores. Clique em “Começar o Arraiá” para revelar um por vez.
                       </div>
                     </div>
                    </div>
@@ -2224,7 +2220,7 @@ export default function Sorteios() {
                 {/* Countdown */}
                 {countdown > 0 && (
                   <div className="mb-12 animate-bounce-in">
-                     <div className="text-[20rem] font-black text-white drop-shadow-2xl animate-pulse leading-none">
+                     <div className="text-[8rem] font-black leading-none text-white drop-shadow-2xl animate-pulse sm:text-[12rem] md:text-[16rem] lg:text-[20rem]">
                       {countdown}
                     </div>
                   </div>
@@ -2232,7 +2228,7 @@ export default function Sorteios() {
 
                  {/* Number Display */}
                 {(isAnimating || showResult) && (
-                  <div className="mb-12 animate-scale-in">
+                  <div className="mb-8 w-full max-w-6xl animate-scale-in md:mb-12">
                     {/* Number Container */}
                     <div className={`relative ${isAnimating ? 'animate-shake' : ''}`}>
                       {/* Glow effect */}
@@ -2240,12 +2236,12 @@ export default function Sorteios() {
                       
                       {/* Number Box */}
                       <div className={`relative bg-white/10 
- backdrop-blur-xl rounded-3xl border-4 p-12 transition-all duration-500 ${
+ backdrop-blur-xl rounded-3xl border-4 p-5 transition-all duration-500 sm:p-8 md:p-12 ${
                         isAnimating 
                           ? 'border-white/50 shadow-2xl' 
                           : 'border-amber-300 shadow-[0_0_100px_rgba(251,191,36,0.85)]'
                        }`}>
-                        <div className={`text-[12rem] font-black font-mono text-white leading-none tracking-wider ${
+                        <div className={`text-[4.5rem] font-black font-mono text-white leading-none tracking-tight sm:text-[7rem] md:text-[9rem] lg:text-[12rem] md:tracking-wider ${
                           !isAnimating && 'animate-bounce'
                         }`}>
                            {currentNumber}
@@ -2255,12 +2251,12 @@ export default function Sorteios() {
 
                    {/* Winner Card */}
                     {showResult && winner && (
-                      <div className="mt-12 animate-slide-up">
-                        <Card className="bg-gradient-to-br from-amber-300 via-orange-400 to-red-600 border-4 border-white/50 shadow-2xl max-w-2xl">
+                      <div className="mt-8 flex w-full justify-center animate-slide-up md:mt-12">
+                        <Card className="mx-auto w-full max-w-3xl border-4 border-white/50 bg-gradient-to-br from-amber-300 via-orange-400 to-red-600 text-center shadow-2xl">
                            <CardHeader className="text-center pb-4">
                             <div className="flex items-center justify-center gap-3 mb-2">
                               <Trophy className="w-12 h-12 text-white drop-shadow-lg" />
-                               <CardTitle className="text-5xl font-black text-white drop-shadow-lg">
+                               <CardTitle className="text-3xl font-black text-white drop-shadow-lg sm:text-4xl md:text-5xl">
                                 GANHADOR DO ARRAIÁ!
                               </CardTitle>
                               <Trophy className="w-12 h-12 text-white drop-shadow-lg" />
@@ -2268,7 +2264,7 @@ export default function Sorteios() {
                           </CardHeader>
                            <CardContent className="text-center space-y-4 px-12 pb-8">
                             <div className="bg-white/20 backdrop-blur-lg rounded-2xl p-6">
-                              <p className="text-4xl font-bold text-white mb-2">{winner.name}</p>
+                              <p className="mb-2 text-2xl font-bold text-white sm:text-3xl md:text-4xl">{winner.name}</p>
                                {winner.cpf && <p className="text-2xl text-white/90 font-mono">CPF: {winner.cpf}</p>}
                               {currentFixedWinnerMeta && (
                                 <div className="mb-4 flex justify-center">
@@ -2287,7 +2283,7 @@ export default function Sorteios() {
                               </div>
                              </div>
                             <div className="bg-white/20 backdrop-blur-lg rounded-2xl p-4">
-                              <p className="text-2xl font-semibold text-white">{winner.bakery}</p>
+                              <p className="text-xl font-semibold text-white sm:text-2xl">{winner.bakery}</p>
                              </div>
                             {winner.answer && (
                               <div className="flex justify-center">
@@ -2342,7 +2338,7 @@ export default function Sorteios() {
                    <Button 
                     onClick={startRaffle}
                     size="lg"
-                    className="text-3xl px-16 py-10 bg-gradient-to-r from-red-700 via-orange-500 to-amber-400 hover:from-red-800 hover:via-orange-600 hover:to-amber-500 text-white shadow-2xl rounded-2xl animate-pulse-slow"
+                    className="w-full max-w-2xl rounded-2xl bg-gradient-to-r from-red-700 via-orange-500 to-amber-400 px-6 py-7 text-xl text-white shadow-2xl animate-pulse-slow hover:from-red-800 hover:via-orange-600 hover:to-amber-500 sm:text-2xl md:px-16 md:py-10 md:text-3xl"
                    >
                     <span className="text-4xl mr-4">🔥</span>
                     <Trophy className="w-10 h-10 mr-4" />
@@ -2352,7 +2348,7 @@ export default function Sorteios() {
                 )}
 
                 {showResult && (
-                  <div className="flex gap-6 mt-8 animate-fade-in">
+                  <div className="mt-8 flex w-full flex-col items-center justify-center gap-4 animate-fade-in sm:flex-row sm:gap-6">
                     {!fixedLiveRaffleMode && (
                       <Button 
                         onClick={saveResult} 
@@ -2367,7 +2363,7 @@ export default function Sorteios() {
                     <Button 
                       onClick={continuarSorteio}
                       size="lg"
-                       className="text-2xl px-12 py-8 bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white shadow-2xl rounded-2xl"
+                       className="w-full max-w-sm rounded-2xl bg-gradient-to-r from-orange-500 to-red-600 px-8 py-6 text-xl text-white shadow-2xl hover:from-orange-600 hover:to-red-700 md:text-2xl md:px-12 md:py-8"
                       disabled={totalRevelacoes > 0 && ganhadoresSorteio.length >= totalRevelacoes}
                     >
                       <Trophy className="w-8 h-8 mr-3" />
@@ -2377,7 +2373,7 @@ export default function Sorteios() {
                       onClick={resetRaffle}
                       size="lg"
                       variant="outline"
-                       className="text-2xl px-12 py-8 bg-white/10 backdrop-blur-lg text-white border-white/30 hover:bg-white/20 shadow-2xl rounded-2xl"
+                       className="w-full max-w-sm rounded-2xl border-white/30 bg-white/10 px-8 py-6 text-xl text-white shadow-2xl backdrop-blur-lg hover:bg-white/20 md:text-2xl md:px-12 md:py-8"
                     >
                       <RotateCcw className="w-8 h-8 mr-3" />
                       REFAZER
@@ -2387,9 +2383,9 @@ export default function Sorteios() {
               </div>
 
               {/* Footer Info */}
-              <div className="absolute bottom-0 left-0 right-0 p-4 text-center bg-gradient-to-t from-black/20 to-transparent backdrop-blur-sm">
-                 <p className="text-white/60 text-lg">
-                  {participants.length} participantes • Sorteio válido e auditado
+              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/20 to-transparent p-4 text-center backdrop-blur-sm">
+                 <p className="text-sm text-white/60 sm:text-lg">
+                  Sorteio válido e auditado
                 </p>
               </div>
             </div>
