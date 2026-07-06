@@ -92,16 +92,16 @@ interface FixedLiveWinner extends Participant {
 }
 
 const FIXED_LIVE_RAFFLE_WINNERS: FixedLiveWinner[] = [
-  { name: 'Alex Henrique Fontenele Da Rocha', displayNumber: '4/64244', numero_sorte: '64244', serie: 4, bakery: 'Donata Parquelandia', prizeLabel: '1º Ganhador', group: 'Ganhador', cpf: '', answer: null, valor_compra: 0, data_compra: '' },
-  { name: 'Izabel Cristina Torres Pinheiro', displayNumber: '4/64264', numero_sorte: '64264', serie: 4, bakery: 'Doce Trigo', prizeLabel: '2º Ganhador', group: 'Ganhador', cpf: '', answer: null, valor_compra: 0, data_compra: '' },
-  { name: 'Marcos Valério Araújo Vieira', displayNumber: '4/64278', numero_sorte: '64278', serie: 4, bakery: 'Padaria Portugália', prizeLabel: '3º Ganhador', group: 'Ganhador', cpf: '', answer: null, valor_compra: 0, data_compra: '' },
-  { name: 'Nathalia dos Anjos Meireles', displayNumber: '4/64286', numero_sorte: '64286', serie: 4, bakery: 'Padaria Costa Mendes Aldeota', prizeLabel: '4º Ganhador', group: 'Ganhador', cpf: '', answer: null, valor_compra: 0, data_compra: '' },
   { name: 'Nailson Fernandes da Cunha', displayNumber: '4/64347', numero_sorte: '64347', serie: 4, bakery: 'Padaria MM', prizeLabel: '5º Ganhador', group: 'Ganhador', cpf: '', answer: null, valor_compra: 0, data_compra: '' },
-  { name: 'João Davi Marinho da Silva', displayNumber: '4/64359', numero_sorte: '64359', serie: 4, bakery: 'Padaria MM', prizeLabel: '1º Reserva', group: 'Reserva', cpf: '', answer: null, valor_compra: 0, data_compra: '' },
-  { name: 'IVONE ROSANA FEDEL', displayNumber: '4/64418', numero_sorte: '64418', serie: 4, bakery: 'Padaria Portugália', prizeLabel: '2º Reserva', group: 'Reserva', cpf: '', answer: null, valor_compra: 0, data_compra: '' },
-  { name: 'Andréa Flávia Barbosa Silva', displayNumber: '4/64476', numero_sorte: '64476', serie: 4, bakery: 'MONTMARTTRE', prizeLabel: '3º Reserva', group: 'Reserva', cpf: '', answer: null, valor_compra: 0, data_compra: '' },
-  { name: 'Sonia Maria Alves Sobreira', displayNumber: '4/64528', numero_sorte: '64528', serie: 4, bakery: 'Empório Mais Paes', prizeLabel: '4º Reserva', group: 'Reserva', cpf: '', answer: null, valor_compra: 0, data_compra: '' },
+  { name: 'Nathalia dos Anjos Meireles', displayNumber: '4/64286', numero_sorte: '64286', serie: 4, bakery: 'Padaria Costa Mendes Aldeota', prizeLabel: '4º Ganhador', group: 'Ganhador', cpf: '', answer: null, valor_compra: 0, data_compra: '' },
+  { name: 'Marcos Valério Araújo Vieira', displayNumber: '4/64278', numero_sorte: '64278', serie: 4, bakery: 'Padaria Portugália', prizeLabel: '3º Ganhador', group: 'Ganhador', cpf: '', answer: null, valor_compra: 0, data_compra: '' },
+  { name: 'Izabel Cristina Torres Pinheiro', displayNumber: '4/64264', numero_sorte: '64264', serie: 4, bakery: 'Doce Trigo', prizeLabel: '2º Ganhador', group: 'Ganhador', cpf: '', answer: null, valor_compra: 0, data_compra: '' },
+  { name: 'Alex Henrique Fontenele Da Rocha', displayNumber: '4/64244', numero_sorte: '64244', serie: 4, bakery: 'Donata Parquelandia', prizeLabel: '1º Ganhador', group: 'Ganhador', cpf: '', answer: null, valor_compra: 0, data_compra: '' },
   { name: 'Francisco José Antonio Ribeiro Neto', displayNumber: '4/64562', numero_sorte: '64562', serie: 4, bakery: 'Empório Mais Paes', prizeLabel: '5º Reserva', group: 'Reserva', cpf: '', answer: null, valor_compra: 0, data_compra: '' },
+  { name: 'Sonia Maria Alves Sobreira', displayNumber: '4/64528', numero_sorte: '64528', serie: 4, bakery: 'Empório Mais Paes', prizeLabel: '4º Reserva', group: 'Reserva', cpf: '', answer: null, valor_compra: 0, data_compra: '' },
+  { name: 'Andréa Flávia Barbosa Silva', displayNumber: '4/64476', numero_sorte: '64476', serie: 4, bakery: 'MONTMARTTRE', prizeLabel: '3º Reserva', group: 'Reserva', cpf: '', answer: null, valor_compra: 0, data_compra: '' },
+  { name: 'IVONE ROSANA FEDEL', displayNumber: '4/64418', numero_sorte: '64418', serie: 4, bakery: 'Padaria Portugália', prizeLabel: '2º Reserva', group: 'Reserva', cpf: '', answer: null, valor_compra: 0, data_compra: '' },
+  { name: 'João Davi Marinho da Silva', displayNumber: '4/64359', numero_sorte: '64359', serie: 4, bakery: 'Padaria MM', prizeLabel: '1º Reserva', group: 'Reserva', cpf: '', answer: null, valor_compra: 0, data_compra: '' },
 ];
 
 const getFixedWinnerMeta = (participant: Participant | null) => {
