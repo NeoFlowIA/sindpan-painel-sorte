@@ -84,6 +84,33 @@ interface Participant {
   data_compra: string;
 }
 
+
+interface FixedLiveWinner extends Participant {
+  displayNumber: string;
+  prizeLabel: string;
+  group: 'Ganhador' | 'Reserva';
+}
+
+const FIXED_LIVE_RAFFLE_WINNERS: FixedLiveWinner[] = [
+  { name: 'Nailson Fernandes da Cunha', displayNumber: '4/64347', numero_sorte: '64347', serie: 4, bakery: 'Padaria MM', prizeLabel: '5º Ganhador', group: 'Ganhador', cpf: '', answer: null, valor_compra: 0, data_compra: '' },
+  { name: 'Nathalia dos Anjos Meireles', displayNumber: '4/64286', numero_sorte: '64286', serie: 4, bakery: 'Padaria Costa Mendes Aldeota', prizeLabel: '4º Ganhador', group: 'Ganhador', cpf: '', answer: null, valor_compra: 0, data_compra: '' },
+  { name: 'Marcos Valério Araújo Vieira', displayNumber: '4/64278', numero_sorte: '64278', serie: 4, bakery: 'Padaria Portugália', prizeLabel: '3º Ganhador', group: 'Ganhador', cpf: '', answer: null, valor_compra: 0, data_compra: '' },
+  { name: 'Izabel Cristina Torres Pinheiro', displayNumber: '4/64264', numero_sorte: '64264', serie: 4, bakery: 'Doce Trigo', prizeLabel: '2º Ganhador', group: 'Ganhador', cpf: '', answer: null, valor_compra: 0, data_compra: '' },
+  { name: 'Alex Henrique Fontenele Da Rocha', displayNumber: '4/64244', numero_sorte: '64244', serie: 4, bakery: 'Donata Parquelandia', prizeLabel: '1º Ganhador', group: 'Ganhador', cpf: '', answer: null, valor_compra: 0, data_compra: '' },
+  { name: 'Francisco José Antonio Ribeiro Neto', displayNumber: '4/64562', numero_sorte: '64562', serie: 4, bakery: 'Empório Mais Paes', prizeLabel: '5º Reserva', group: 'Reserva', cpf: '', answer: null, valor_compra: 0, data_compra: '' },
+  { name: 'Sonia Maria Alves Sobreira', displayNumber: '4/64528', numero_sorte: '64528', serie: 4, bakery: 'Empório Mais Paes', prizeLabel: '4º Reserva', group: 'Reserva', cpf: '', answer: null, valor_compra: 0, data_compra: '' },
+  { name: 'Andréa Flávia Barbosa Silva', displayNumber: '4/64476', numero_sorte: '64476', serie: 4, bakery: 'MONTMARTTRE', prizeLabel: '3º Reserva', group: 'Reserva', cpf: '', answer: null, valor_compra: 0, data_compra: '' },
+  { name: 'IVONE ROSANA FEDEL', displayNumber: '4/64418', numero_sorte: '64418', serie: 4, bakery: 'Padaria Portugália', prizeLabel: '2º Reserva', group: 'Reserva', cpf: '', answer: null, valor_compra: 0, data_compra: '' },
+  { name: 'João Davi Marinho da Silva', displayNumber: '4/64359', numero_sorte: '64359', serie: 4, bakery: 'Padaria MM', prizeLabel: '1º Reserva', group: 'Reserva', cpf: '', answer: null, valor_compra: 0, data_compra: '' },
+];
+
+const getFixedWinnerMeta = (participant: Participant | null) => {
+  if (!participant) return undefined;
+  return FIXED_LIVE_RAFFLE_WINNERS.find(
+    (fixedWinner) => fixedWinner.name === participant.name && fixedWinner.numero_sorte === participant.numero_sorte
+  );
+};
+
 // --- INÍCIO DA LÓGICA DE SORTEIO PURA (REGRAS DE NEGÓCIO) ---
 
 /**
@@ -137,7 +164,7 @@ function buscarPrimeiroGanhador(
 ): Cupom | null {
   
   // 1. Buscar número exato na série inicial
-  let ganhador = cuponsElegiveis.find(
+  const ganhador = cuponsElegiveis.find(
     (c) => c.serie === serieInicialBanco && c.numero === numeroInicial,
   );
   if (ganhador) return ganhador;
@@ -349,6 +376,7 @@ export default function Sorteios() {
   const [numeroDebounced, setNumeroDebounced] = useState<string>("");
   const [serieDebounced, setSerieDebounced] = useState<string>("");
   const [showLiveRaffle, setShowLiveRaffle] = useState(false);
+  const [fixedLiveRaffleMode, setFixedLiveRaffleMode] = useState(false);
   const [campaignDialogOpen, setCampaignDialogOpen] = useState(false);
   const [selectedCampaignId, setSelectedCampaignId] = useState<string | undefined>(urlCampaignId);
   const [selectedScheduleCampaignId, setSelectedScheduleCampaignId] = useState<string | undefined>(urlCampaignId);
@@ -904,8 +932,11 @@ export default function Sorteios() {
 
   // Memoizar números de sorte para melhor performance
   const numerosSorteMemo = useMemo(() => {
+    if (fixedLiveRaffleMode) {
+      return FIXED_LIVE_RAFFLE_WINNERS.map((fixedWinner) => fixedWinner.displayNumber);
+    }
     return participants.map(p => p.numero_sorte);
-  }, [participants]);
+  }, [fixedLiveRaffleMode, participants]);
 
   const generateRandomNumber = () => {
     // Usar números de sorte reais dos cupons (memoizados)
@@ -932,6 +963,48 @@ export default function Sorteios() {
       cuponsAtivos: cuponsParaSorteio.filter(c => c.status === 'ativo').length
     });
     
+    if (fixedLiveRaffleMode || showLiveRaffle) {
+      if (!numeroDigitado || numeroDigitado.trim() === '') {
+        toast.error('Digite um número para criar suspense antes da revelação');
+        return;
+      }
+
+      if (!serieDigitada || serieDigitada.trim() === '') {
+        toast.error('Digite a série antes da revelação');
+        return;
+      }
+
+      const serieFixa = parseInt(serieDigitada);
+      if (isNaN(serieFixa) || serieFixa < 0 || serieFixa > 9) {
+        toast.error('Série deve ser um número entre 0 e 9');
+        return;
+      }
+
+      setFixedLiveRaffleMode(true);
+      setResultadosCalculados([]);
+      setGanhadoresSorteio([]);
+      setWinner(null);
+      setCupomSorteadoId(null);
+      setFinalNumber("");
+      setCurrentNumber(`${serieDigitada}/${numeroDigitado.padStart(5, '0')}`);
+      setIsAnimating(true);
+      setShowResult(false);
+      setShowConfetti(false);
+      setCountdown(3);
+
+      const countdownInterval = setInterval(() => {
+        setCountdown(prev => {
+          if (prev <= 1) {
+            clearInterval(countdownInterval);
+            animateNumbers(0);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      return;
+    }
+
     // Verificar se os dados ainda estão carregando
     if (participantesLoading) {
       toast.error('Aguardando carregamento dos participantes...');
@@ -1068,6 +1141,34 @@ export default function Sorteios() {
       if (iterations >= maxIterations) {
         clearInterval(numberInterval);
         
+        if (fixedLiveRaffleMode) {
+          const fixedWinner = FIXED_LIVE_RAFFLE_WINNERS[indice];
+
+          if (!fixedWinner) {
+            toast.success('Todos os ganhadores e reservas foram revelados!');
+            setIsAnimating(false);
+            return;
+          }
+
+          setFinalNumber(fixedWinner.displayNumber);
+          setCurrentNumber(fixedWinner.displayNumber);
+          setWinner(fixedWinner);
+          setGanhadoresSorteio((prev) => {
+            const jaRevelado = prev.some(
+              (ganhador) => ganhador.name === fixedWinner.name && ganhador.numero_sorte === fixedWinner.numero_sorte
+            );
+            return jaRevelado ? prev : [...prev, fixedWinner];
+          });
+          setCupomSorteadoId(null);
+          setNumeroAtual(fixedWinner.numero_sorte);
+          setSerieAtual(fixedWinner.serie.toString());
+          setIsAnimating(false);
+          setShowResult(true);
+          setShowConfetti(true);
+          setTimeout(() => setShowConfetti(false), 3500);
+          return;
+        }
+
         // === NOVA LÓGICA ===
         // 1. Pega o próximo ganhador da lista PRÉ-CALCULADA usando o índice correto
         const proximoResultado = resultadosCalculados[indice];
@@ -1233,6 +1334,7 @@ export default function Sorteios() {
     setGanhadoresSorteio([]);
     // Limpa a lista calculada
     setResultadosCalculados([]);
+    setFixedLiveRaffleMode(false);
   };
 
   /**
@@ -1241,6 +1343,21 @@ export default function Sorteios() {
    * Esta função não é mais necessária, mas mantida caso seja chamada manualmente.
    */
   const continuarSorteio = () => {
+    if (fixedLiveRaffleMode) {
+      const proximoIndice = ganhadoresSorteio.length;
+
+      if (proximoIndice < FIXED_LIVE_RAFFLE_WINNERS.length) {
+        iniciarProximoSorteio(proximoIndice);
+        return;
+      }
+
+      setShowResult(true);
+      setShowConfetti(true);
+      toast.success('Todos os 5 ganhadores e 5 reservas foram revelados!');
+      setTimeout(() => setShowConfetti(false), 3500);
+      return;
+    }
+
     // Verifica se há mais ganhadores para sortear
     if (ganhadoresSorteio.length < resultadosCalculados.length) {
       iniciarProximoSorteio();
@@ -1250,7 +1367,6 @@ export default function Sorteios() {
       toast.success(`Todos os ${ganhadoresSorteio.length} ganhadores foram sorteados!`);
     }
   };
-
 
   const reativarCupomGanhador = (clienteId: string) => {
     reativarTodosCuponsCliente({ cliente_id: clienteId });
@@ -1264,6 +1380,9 @@ export default function Sorteios() {
     setSelectedWinner(winner);
     setShowWinnerDetails(true);
   };
+
+  const totalRevelacoes = fixedLiveRaffleMode ? FIXED_LIVE_RAFFLE_WINNERS.length : resultadosCalculados.length;
+  const currentFixedWinnerMeta = getFixedWinnerMeta(winner);
   
   return (
       <div className="space-y-6">
@@ -1299,22 +1418,14 @@ export default function Sorteios() {
             </Button>
             <Button
               onClick={() => {
-                if (participantesLoading) {
-                  toast.error('Aguardando carregamento dos participantes...');
-                  return;
-                }
-                if (participants.length === 0) {
-                  toast.error('Não há participantes para o sorteio');
-                  return;
-                }
+                setFixedLiveRaffleMode(true);
                 setShowLiveRaffle(true);
                 setTimeout(() => enterFullscreen(), 100);
               }}
-              disabled={participantesLoading}
-              className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white w-full sm:w-auto"
+              className="bg-gradient-to-r from-red-700 via-orange-500 to-amber-400 hover:from-red-800 hover:via-orange-600 hover:to-amber-500 text-white w-full sm:w-auto"
             >
               <Sparkles className="w-4 h-4 mr-2" />
-              Sorteio Ao Vivo
+              Sorteio Ao Vivo Junino
             </Button>
             <Button
                onClick={() => setShowRaffleModal(true)}
@@ -1647,7 +1758,7 @@ export default function Sorteios() {
         {/* Raffle Animation Modal */}
         <Dialog open={showRaffleModal} onOpenChange={setShowRaffleModal}>
           <DialogContent className="max-w-4xl w-full h-[80vh] p-0 overflow-hidden">
-            <div className="relative h-full bg-gradient-to-br from-primary/10 via-background to-secondary/10 flex flex-col items-center justify-center">
+            <div className="relative h-full bg-gradient-to-br from-amber-100 via-orange-100 to-emerald-100 flex flex-col items-center justify-center">
               {/* Close button */}
               <Button
                  variant="ghost"
@@ -1681,11 +1792,11 @@ export default function Sorteios() {
               {/* Title */}
               <div className="text-center mb-8">
                 <div className="flex items-center justify-center gap-3 mb-4">
-                  <span className="text-4xl animate-bounce">🎄</span>
-                   <h2 className="text-3xl font-bold text-primary">Sorteio Natalino SINDPAN</h2>
-                  <span className="text-4xl animate-bounce" style={{ animationDelay: '0.5s' }}>🎄</span>
+                  <span className="text-4xl animate-bounce">🎏</span>
+                   <h2 className="text-3xl font-bold text-red-800">Sorteio Junino SINDPAN</h2>
+                  <span className="text-4xl animate-bounce" style={{ animationDelay: '0.5s' }}>🔥</span>
                 </div>
-                <p className="text-lg text-muted-foreground">🎅 Feliz Natal e Boa Sorte! 🎅</p>
+                <p className="text-lg text-muted-foreground">🔥 Viva São João e boa sorte! 🌽</p>
               </div>
 
               {/* Input para número e série do sorteio */}
@@ -1786,7 +1897,7 @@ export default function Sorteios() {
                    )}
 
                   {/* Lista de Ganhadores do Sorteio Atual */}
-                  {ganhadoresSorteio.length > 0 && (
+                  {ganhadoresSorteio.length > 0 && !fixedLiveRaffleMode && (
                     <Card className="mt-8 max-w-2xl w-full">
                        <CardHeader>
                         <CardTitle className="text-lg text-primary flex items-center gap-2">
@@ -1824,12 +1935,12 @@ export default function Sorteios() {
                 <Button 
                   onClick={startRaffle}
                    size="lg"
-                  className="text-xl px-12 py-6 bg-gradient-to-r from-red-500 to-green-600 hover:from-red-600 hover:to-green-700 text-white shadow-lg"
+                  className="text-xl px-12 py-6 bg-gradient-to-r from-red-700 via-orange-500 to-amber-400 hover:from-red-800 hover:via-orange-600 hover:to-amber-500 text-white shadow-lg"
                 >
-                  <span className="text-2xl mr-2">🎄</span>
+                  <span className="text-2xl mr-2">🔥</span>
                   <Trophy className="w-6 h-6 mr-2" />
-                   <span className="text-2xl ml-2">🎅</span>
-                  Iniciar Sorteio Natalino
+                   <span className="text-2xl ml-2">🌽</span>
+                  Iniciar Sorteio Junino
                 </Button>
               )}
 
@@ -1894,14 +2005,14 @@ export default function Sorteios() {
 
         {/* Live Raffle Fullscreen Modal */}
         {showLiveRaffle && (
-           <div className="fixed inset-0 z-[100] bg-gradient-to-br from-red-900 via-green-900 to-yellow-900 animate-gradient-shift overflow-hidden h-screen w-screen">
+           <div className="fixed inset-0 z-[100] bg-gradient-to-br from-orange-950 via-red-800 to-emerald-900 animate-gradient-shift overflow-hidden h-screen w-screen">
             {/* Animated Background */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
-              {/* Snowflakes */}
+              {/* Bandeirinhas e elementos juninos */}
               {Array.from({ length: 20 }).map((_, i) => (
                 <div
-                   key={`snowflake-${i}`}
-                  className="absolute text-white/60 text-2xl animate-float"
+                   key={`junino-${i}`}
+                  className="absolute text-amber-200/80 text-2xl animate-float"
                   style={{
                     left: `${Math.random() * 100}%`,
                     top: `${Math.random() * 100}%`,
@@ -1909,15 +2020,15 @@ export default function Sorteios() {
                     animationDuration: `${3 + Math.random() * 4}s`,
                   }}
                 >
-                  ❄️
+                  🎏
                  </div>
               ))}
               
-              {/* Christmas stars */}
+              {/* Brilhos de arraial */}
               {Array.from({ length: 20 }).map((_, i) => (
                 <div
-                   key={`star-${i}`}
-                  className="absolute text-yellow-400/80 text-3xl animate-pulse"
+                   key={`arraial-star-${i}`}
+                  className="absolute text-yellow-300/85 text-3xl animate-pulse"
                   style={{
                     left: `${Math.random() * 100}%`,
                     top: `${Math.random() * 100}%`,
@@ -1925,15 +2036,15 @@ export default function Sorteios() {
                     animationDuration: `${2 + Math.random() * 2}s`,
                   }}
                 >
-                  ⭐
+                  ✨
                  </div>
               ))}
               
-              {/* Christmas gradient orbs */}
-              <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-red-500/20 rounded-full blur-3xl animate-pulse" />
+              {/* Luzes de fogueira */}
+              <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-orange-500/25 rounded-full blur-3xl animate-pulse" />
               <div className="absolute bottom-1/4 right-1/4 w-96 
- h-96 bg-green-500/20 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
-              <div className="absolute top-1/2 left-1/2 w-96 h-96 bg-yellow-500/15 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }} />
+ h-96 bg-emerald-500/20 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
+              <div className="absolute top-1/2 left-1/2 w-96 h-96 bg-yellow-300/20 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }} />
             </div>
 
             {/* Content */}
@@ -1941,9 +2052,9 @@ export default function Sorteios() {
               {/* Header */}
                <div className="flex items-center justify-between p-6 absolute top-0 left-0 right-0 bg-gradient-to-b from-black/30 to-transparent backdrop-blur-sm z-20">
                 <div className="flex items-center gap-4">
-                  <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse" />
+                  <div className="w-3 h-3 bg-amber-300 rounded-full animate-pulse" />
                   <span className="text-white/90 text-lg font-semibold uppercase tracking-wider">
-                     Sorteio Ao Vivo
+                     Sorteio Ao Vivo Junino
                   </span>
                 </div>
                 <Button
@@ -1961,49 +2072,106 @@ export default function Sorteios() {
               </div>
 
                {/* Main Content */}
-              <div className="flex-1 flex flex-col items-center justify-center px-8 py-6 pt-20 pb-24 relative overflow-y-auto overflow-x-hidden">
+              <div className="flex-1 flex flex-col items-center justify-center px-4 py-6 pt-24 pb-24 relative overflow-y-auto overflow-x-hidden sm:px-6 lg:px-8">
                 {/* Lista lateral de ganhadores */}
-                {ganhadoresSorteio.length > 0 && (
+                {ganhadoresSorteio.length > 0 && !fixedLiveRaffleMode && (
                   <div className="absolute right-8 top-20 bottom-8 w-80 overflow-y-auto bg-white/10 backdrop-blur-lg rounded-2xl p-4 
  border border-white/20">
                     <h3 className="text-white text-lg font-bold mb-4 flex items-center gap-2">
                       <Trophy className="w-5 h-5 text-yellow-400" />
-                      Ganhadores ({ganhadoresSorteio.length}/{resultadosCalculados.length})
+                      Revelados ({ganhadoresSorteio.length}/{totalRevelacoes})
                     </h3>
                      <div className="space-y-3">
-                      {ganhadoresSorteio.map((ganhador, index) => (
-                        <div key={index} className="bg-white/20 backdrop-blur-sm rounded-lg p-3 border border-white/30">
-                           <div className="flex items-center gap-2 mb-2">
-                            <Badge className="bg-yellow-500 text-black font-mono text-sm">
-                              {ganhador.numero_sorte}
-                            </Badge>
-                             <Badge className="bg-blue-500 text-white text-sm">
-                              Série {ganhador.serie}
-                            </Badge>
-                           </div>
-                          <p className="text-white font-semibold text-sm">{ganhador.name}</p>
-                          <p className="text-white/80 text-xs">{ganhador.bakery}</p>
-                        </div>
-                       ))}
+                      {ganhadoresSorteio.map((ganhador, index) => {
+                        const fixedMeta = getFixedWinnerMeta(ganhador);
+                        return (
+                          <div key={index} className="bg-white/20 backdrop-blur-sm rounded-lg p-3 border border-white/30">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Badge className="bg-yellow-500 text-black font-mono text-sm">
+                                {fixedMeta?.displayNumber ?? ganhador.numero_sorte}
+                              </Badge>
+                              <Badge className="bg-emerald-600 text-white text-sm">
+                                {fixedMeta?.prizeLabel ?? `Série ${ganhador.serie}`}
+                              </Badge>
+                            </div>
+                            <p className="text-white font-semibold text-sm">{ganhador.name}</p>
+                            <p className="text-white/80 text-xs">{ganhador.bakery}</p>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
                 {/* Logo/Title */}
-                 <div className="mb-8 text-center flex-shrink-0">
-                  <div className="flex items-center justify-center gap-4 mb-4">
-                    <span className="text-6xl animate-bounce flex-shrink-0">🎄</span>
-                    <h1 className="text-7xl font-black text-white drop-shadow-2xl animate-fade-in whitespace-nowrap">
-                    Natal de Prêmios - SINDPAN
+                 <div className="mb-6 text-center flex-shrink-0 md:mb-8">
+                  <div className="flex flex-wrap items-center justify-center gap-2 mb-4 sm:gap-4">
+                    <span className="text-4xl animate-bounce flex-shrink-0 sm:text-5xl md:text-6xl">🎏</span>
+                    <h1 className="text-4xl font-black text-white drop-shadow-2xl animate-fade-in sm:text-5xl md:text-6xl lg:text-7xl">
+                    São João de Prêmios - SINDPAN
                    </h1>
-                    <span className="text-6xl animate-bounce flex-shrink-0" style={{ animationDelay: '0.5s' }}>🎄</span>
+                    <span className="text-4xl animate-bounce flex-shrink-0 sm:text-5xl md:text-6xl" style={{ animationDelay: '0.5s' }}>🔥</span>
                   </div>
-                  <p className="text-2xl text-white/80 font-light tracking-widest uppercase whitespace-nowrap">
-                    🎅 Sorteio Natalino 🎅
+                  <p className="text-lg text-white/80 font-light tracking-widest uppercase sm:text-xl md:text-2xl">
+                    🔥 Sorteio Junino 🌽
                   </p>
                 </div>
 
+                {/* Entrada de suspense para a revelação fixa */}
+                {!isAnimating && !showResult && countdown === 0 && fixedLiveRaffleMode && (
+                   <div className="mb-6 w-full max-w-5xl animate-fade-in flex-shrink-0 md:mb-8">
+                    <div className="relative overflow-hidden rounded-[2rem] border-2 border-amber-200/50 bg-red-950/35 p-5 text-center shadow-[0_0_80px_rgba(251,191,36,0.22)] backdrop-blur-xl sm:p-8 md:p-12">
+                      <div className="absolute inset-x-0 top-0 h-2 bg-gradient-to-r from-red-600 via-amber-300 to-emerald-500" />
+                      <div className="mb-6 flex items-center justify-center gap-4 text-5xl md:text-6xl">
+                        <span className="animate-bounce">🎏</span>
+                        <span className="animate-pulse">🔥</span>
+                        <span className="animate-bounce" style={{ animationDelay: '0.35s' }}>🌽</span>
+                      </div>
+                      <p className="text-sm font-bold uppercase tracking-[0.45em] text-amber-200">Momento de suspense</p>
+                      <h2 className="mt-3 text-3xl font-black text-white drop-shadow-lg sm:text-5xl md:text-7xl">Digite o número sorteado</h2>
+                      <p className="mx-auto mt-4 max-w-3xl text-base text-amber-100 sm:text-xl md:text-2xl">
+                        Informe o número e a série para iniciar a contagem e revelar os 5 ganhadores, depois os 5 reservas.
+                      </p>
+
+                      <div className="mt-10 grid gap-6 md:grid-cols-[2fr_1fr]">
+                        <div className="rounded-3xl border border-white/20 bg-white/10 p-5 shadow-2xl backdrop-blur">
+                          <label className="mb-4 flex items-center justify-center gap-3 text-2xl font-black text-white md:text-3xl">
+                            <span>🎲</span>
+                            Número
+                            <span>🎲</span>
+                          </label>
+                          <Input
+                            type="number"
+                            placeholder="12345"
+                            value={numeroDigitado}
+                            onChange={(e) => setNumeroDigitado(e.target.value)}
+                            className="h-24 border-amber-200/40 bg-white/15 text-center font-mono text-5xl font-black tracking-widest text-white shadow-inner placeholder:text-white/35 focus-visible:ring-amber-300 sm:h-28 sm:text-6xl md:h-36 md:text-8xl"
+                            maxLength={5}
+                          />
+                        </div>
+
+                        <div className="rounded-3xl border border-white/20 bg-white/10 p-5 shadow-2xl backdrop-blur">
+                          <label className="mb-4 flex items-center justify-center gap-3 text-2xl font-black text-white md:text-3xl">
+                            <span>🎯</span>
+                            Série
+                            <span>🎯</span>
+                          </label>
+                          <Input
+                            type="number"
+                            placeholder="7"
+                            value={serieDigitada}
+                            onChange={(e) => setSerieDigitada(e.target.value)}
+                            className="h-24 border-amber-200/40 bg-white/15 text-center font-mono text-5xl font-black text-white shadow-inner placeholder:text-white/35 focus-visible:ring-amber-300 sm:h-28 sm:text-6xl md:h-36 md:text-8xl"
+                            min="0"
+                            max="9"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                   </div>
+                )}
+
                 {/* Input para número e série (antes do sorteio) */}
-                {!isAnimating && !showResult && countdown === 0 && (
+                {!isAnimating && !showResult && countdown === 0 && !fixedLiveRaffleMode && (
                    <div className="mb-8 w-full max-w-2xl animate-fade-in space-y-8 flex-shrink-0">
                     <div>
                       <div className="flex items-center justify-center gap-2 mb-6">
@@ -2052,7 +2220,7 @@ export default function Sorteios() {
                 {/* Countdown */}
                 {countdown > 0 && (
                   <div className="mb-12 animate-bounce-in">
-                     <div className="text-[20rem] font-black text-white drop-shadow-2xl animate-pulse leading-none">
+                     <div className="text-[8rem] font-black leading-none text-white drop-shadow-2xl animate-pulse sm:text-[12rem] md:text-[16rem] lg:text-[20rem]">
                       {countdown}
                     </div>
                   </div>
@@ -2060,20 +2228,20 @@ export default function Sorteios() {
 
                  {/* Number Display */}
                 {(isAnimating || showResult) && (
-                  <div className="mb-12 animate-scale-in">
+                  <div className="mb-8 w-full max-w-6xl animate-scale-in md:mb-12">
                     {/* Number Container */}
                     <div className={`relative ${isAnimating ? 'animate-shake' : ''}`}>
                       {/* Glow effect */}
-                       <div className="absolute inset-0 bg-gradient-to-r from-purple-500 via-pink-500 to-blue-500 blur-3xl opacity-50 animate-pulse" />
+                       <div className="absolute inset-0 bg-gradient-to-r from-red-600 via-amber-400 to-emerald-500 blur-3xl opacity-50 animate-pulse" />
                       
                       {/* Number Box */}
                       <div className={`relative bg-white/10 
- backdrop-blur-xl rounded-3xl border-4 p-12 transition-all duration-500 ${
+ backdrop-blur-xl rounded-3xl border-4 p-5 transition-all duration-500 sm:p-8 md:p-12 ${
                         isAnimating 
                           ? 'border-white/50 shadow-2xl' 
-                          : 'border-yellow-400 shadow-[0_0_100px_rgba(250,204,21,0.8)]'
+                          : 'border-amber-300 shadow-[0_0_100px_rgba(251,191,36,0.85)]'
                        }`}>
-                        <div className={`text-[12rem] font-black font-mono text-white leading-none tracking-wider ${
+                        <div className={`text-[4.5rem] font-black font-mono text-white leading-none tracking-tight sm:text-[7rem] md:text-[9rem] lg:text-[12rem] md:tracking-wider ${
                           !isAnimating && 'animate-bounce'
                         }`}>
                            {currentNumber}
@@ -2083,32 +2251,39 @@ export default function Sorteios() {
 
                    {/* Winner Card */}
                     {showResult && winner && (
-                      <div className="mt-12 animate-slide-up">
-                        <Card className="bg-gradient-to-br from-yellow-400 to-orange-500 border-4 border-white/50 shadow-2xl max-w-2xl">
+                      <div className="mt-8 flex w-full justify-center animate-slide-up md:mt-12">
+                        <Card className="mx-auto w-full max-w-3xl border-4 border-white/50 bg-gradient-to-br from-amber-300 via-orange-400 to-red-600 text-center shadow-2xl">
                            <CardHeader className="text-center pb-4">
                             <div className="flex items-center justify-center gap-3 mb-2">
                               <Trophy className="w-12 h-12 text-white drop-shadow-lg" />
-                               <CardTitle className="text-5xl font-black text-white drop-shadow-lg">
-                                GANHADOR!
+                               <CardTitle className="text-3xl font-black text-white drop-shadow-lg sm:text-4xl md:text-5xl">
+                                GANHADOR DO ARRAIÁ!
                               </CardTitle>
                               <Trophy className="w-12 h-12 text-white drop-shadow-lg" />
                             </div>
                           </CardHeader>
                            <CardContent className="text-center space-y-4 px-12 pb-8">
                             <div className="bg-white/20 backdrop-blur-lg rounded-2xl p-6">
-                              <p className="text-4xl font-bold text-white mb-2">{winner.name}</p>
-                               <p className="text-2xl text-white/90 font-mono">CPF: {winner.cpf}</p>
+                              <p className="mb-2 text-2xl font-bold text-white sm:text-3xl md:text-4xl">{winner.name}</p>
+                               {winner.cpf && <p className="text-2xl text-white/90 font-mono">CPF: {winner.cpf}</p>}
+                              {currentFixedWinnerMeta && (
+                                <div className="mb-4 flex justify-center">
+                                  <Badge className="bg-red-800 px-6 py-2 text-lg text-amber-100 shadow-lg">
+                                    {currentFixedWinnerMeta.prizeLabel} • {currentFixedWinnerMeta.group}
+                                  </Badge>
+                                </div>
+                              )}
                               <div className="flex items-center justify-center gap-4 mt-4">
                                 <Badge className="text-xl px-6 py-2 bg-yellow-500 text-black">
-                                   {winner.numero_sorte}
+                                   {currentFixedWinnerMeta?.displayNumber ?? winner.numero_sorte}
                                 </Badge>
-                                <Badge className="text-xl px-6 py-2 bg-blue-500 text-white">
+                                <Badge className="text-xl px-6 py-2 bg-emerald-600 text-white">
                                      Série {winner.serie}
                                 </Badge>
                               </div>
                              </div>
                             <div className="bg-white/20 backdrop-blur-lg rounded-2xl p-4">
-                              <p className="text-2xl font-semibold text-white">{winner.bakery}</p>
+                              <p className="text-xl font-semibold text-white sm:text-2xl">{winner.bakery}</p>
                              </div>
                             {winner.answer && (
                               <div className="flex justify-center">
@@ -2147,9 +2322,9 @@ export default function Sorteios() {
                         <div
                           className={`w-3 h-3 ${
                             i % 5 === 0 ? 'bg-yellow-400' :
-                            i % 5 === 1 ? 'bg-pink-400' :
-                            i % 5 === 2 ? 'bg-purple-400' :
-                            i % 5 === 3 ? 'bg-blue-400' :
+                            i % 5 === 1 ? 'bg-orange-400' :
+                            i % 5 === 2 ? 'bg-red-500' :
+                            i % 5 === 3 ? 'bg-emerald-500' :
                             'bg-green-400'
                           } rotate-45`}
                         />
@@ -2163,40 +2338,42 @@ export default function Sorteios() {
                    <Button 
                     onClick={startRaffle}
                     size="lg"
-                    className="text-3xl px-16 py-10 bg-gradient-to-r from-red-500 to-green-600 hover:from-red-600 hover:to-green-700 text-white shadow-2xl rounded-2xl animate-pulse-slow"
+                    className="w-full max-w-2xl rounded-2xl bg-gradient-to-r from-red-700 via-orange-500 to-amber-400 px-6 py-7 text-xl text-white shadow-2xl animate-pulse-slow hover:from-red-800 hover:via-orange-600 hover:to-amber-500 sm:text-2xl md:px-16 md:py-10 md:text-3xl"
                    >
-                    <span className="text-4xl mr-4">🎄</span>
+                    <span className="text-4xl mr-4">🔥</span>
                     <Trophy className="w-10 h-10 mr-4" />
-                    <span className="text-4xl ml-4">🎅</span>
-                    INICIAR SORTEIO
+                    <span className="text-4xl ml-4">🌽</span>
+                    COMEÇAR O ARRAIÁ
                    </Button>
                 )}
 
                 {showResult && (
-                  <div className="flex gap-6 mt-8 animate-fade-in">
-                    <Button 
-                       onClick={saveResult} 
-                      size="lg"
-                      className="text-2xl px-12 py-8 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-2xl rounded-2xl"
-                      disabled={isMarcandoSorteado}
-                     >
-                      <Save className="w-8 h-8 mr-3" />
-                      {isMarcandoSorteado ? "SALVANDO..." : "SALVAR RESULTADO"}
-                    </Button>
+                  <div className="mt-8 flex w-full flex-col items-center justify-center gap-4 animate-fade-in sm:flex-row sm:gap-6">
+                    {!fixedLiveRaffleMode && (
+                      <Button 
+                        onClick={saveResult} 
+                        size="lg"
+                        className="text-2xl px-12 py-8 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-2xl rounded-2xl"
+                        disabled={isMarcandoSorteado}
+                      >
+                        <Save className="w-8 h-8 mr-3" />
+                        {isMarcandoSorteado ? "SALVANDO..." : "SALVAR RESULTADO"}
+                      </Button>
+                    )}
                     <Button 
                       onClick={continuarSorteio}
                       size="lg"
-                       className="text-2xl px-12 py-8 bg-gradient-to-r from-blue-500 to-cyan-600 hover:from-blue-600 hover:to-cyan-700 text-white shadow-2xl rounded-2xl"
-                      disabled={ganhadoresSorteio.length >= resultadosCalculados.length && resultadosCalculados.length > 0}
+                       className="w-full max-w-sm rounded-2xl bg-gradient-to-r from-orange-500 to-red-600 px-8 py-6 text-xl text-white shadow-2xl hover:from-orange-600 hover:to-red-700 md:text-2xl md:px-12 md:py-8"
+                      disabled={totalRevelacoes > 0 && ganhadoresSorteio.length >= totalRevelacoes}
                     >
                       <Trophy className="w-8 h-8 mr-3" />
-                      {ganhadoresSorteio.length >= resultadosCalculados.length && resultadosCalculados.length > 0 ? "FINALIZADO" : "PRÓXIMO"}
+                      {fixedLiveRaffleMode ? (ganhadoresSorteio.length >= totalRevelacoes ? "FINALIZADO" : "CONTINUAR") : (ganhadoresSorteio.length >= resultadosCalculados.length && resultadosCalculados.length > 0 ? "FINALIZADO" : "PRÓXIMO")}
                      </Button>
                     <Button 
                       onClick={resetRaffle}
                       size="lg"
                       variant="outline"
-                       className="text-2xl px-12 py-8 bg-white/10 backdrop-blur-lg text-white border-white/30 hover:bg-white/20 shadow-2xl rounded-2xl"
+                       className="w-full max-w-sm rounded-2xl border-white/30 bg-white/10 px-8 py-6 text-xl text-white shadow-2xl backdrop-blur-lg hover:bg-white/20 md:text-2xl md:px-12 md:py-8"
                     >
                       <RotateCcw className="w-8 h-8 mr-3" />
                       REFAZER
@@ -2206,9 +2383,9 @@ export default function Sorteios() {
               </div>
 
               {/* Footer Info */}
-              <div className="absolute bottom-0 left-0 right-0 p-4 text-center bg-gradient-to-t from-black/20 to-transparent backdrop-blur-sm">
-                 <p className="text-white/60 text-lg">
-                  {participants.length} participantes • Sorteio válido e auditado
+              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/20 to-transparent p-4 text-center backdrop-blur-sm">
+                 <p className="text-sm text-white/60 sm:text-lg">
+                  Sorteio válido e auditado
                 </p>
               </div>
             </div>
