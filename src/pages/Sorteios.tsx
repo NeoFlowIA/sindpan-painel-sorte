@@ -14,7 +14,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { Trophy, Calendar as CalendarIcon, X, Save, RotateCcw, Sparkles, Clock, Pencil, PlusCircle } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { CampaignSelect } from "@/components/CampaignSelect";
 import { CampaignFormDialog, type CampaignFormValues } from "@/components/CampaignFormDialog";
 import { getCampaignStatus } from "@/components/CampaignStatusBadge";
@@ -108,6 +108,49 @@ interface ResultadoSorteio {
 }
 
 const SERIES_VALIDAS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+
+const MOCK_RAFFLE_SHOWCASE = [
+  {
+    prize: "🥇",
+    luckyNumber: "0/91415",
+    name: "Elisângela da Silva Nascimento",
+    bakery: "Padaria e Confeitaria São José",
+    purchaseDate: "12/11/2025",
+    contact: "CPF 002.***.***-30 · +55 (85) *****-2110",
+  },
+  {
+    prize: "🥈",
+    luckyNumber: "0/91449",
+    name: "Gilberto Brasil Sobrinho",
+    bakery: "Panificadora Viana",
+    purchaseDate: "30/12/2025",
+    contact: "CPF 600.***.***-12 · +55 (85) *****-0691",
+  },
+  {
+    prize: "🥉",
+    luckyNumber: "0/91466",
+    name: "Vânia Maria Lima Nogueira",
+    bakery: "Empório de Fátima Delicatessen",
+    purchaseDate: "12/11/2025",
+    contact: "CPF 272.***.***-87 · +55 (85) *****-1324",
+  },
+  {
+    prize: "📺 4",
+    luckyNumber: "0/91474",
+    name: "Ângela de Alencar Araripe Pinheiro",
+    bakery: "Pão Na Massa",
+    purchaseDate: "04/12/2025",
+    contact: "CPF 081.***.***-00 · +55 (85) *****-7223",
+  },
+  {
+    prize: "📺 5",
+    luckyNumber: "0/91486",
+    name: "Delano Oliveira Candido",
+    bakery: "Vila Alves",
+    purchaseDate: "12/12/2025",
+    contact: "CPF 629.***.***-34 · +55 (85) *****-3004",
+  },
+];
 
 /**
  * Converte a série da loteria (0-9) para a série do banco (1-10).
@@ -349,9 +392,17 @@ export default function Sorteios() {
   const [numeroDebounced, setNumeroDebounced] = useState<string>("");
   const [serieDebounced, setSerieDebounced] = useState<string>("");
   const [showLiveRaffle, setShowLiveRaffle] = useState(false);
+  const [showShowcaseScreen, setShowShowcaseScreen] = useState(false);
   const [campaignDialogOpen, setCampaignDialogOpen] = useState(false);
   const [selectedCampaignId, setSelectedCampaignId] = useState<string | undefined>(urlCampaignId);
   const [selectedScheduleCampaignId, setSelectedScheduleCampaignId] = useState<string | undefined>(urlCampaignId);
+  const [showcaseIndex, setShowcaseIndex] = useState(0);
+  const [showcasePage, setShowcasePage] = useState(0);
+  const [showcaseSuspense, setShowcaseSuspense] = useState(false);
+  const showcaseTimeoutRef = useRef<number | null>(null);
+  const [showcaseCelebrationKey, setShowcaseCelebrationKey] = useState(0);
+  const [showcaseNumero, setShowcaseNumero] = useState("");
+  const [showcaseSerie, setShowcaseSerie] = useState("");
   
   // Estados para controle do sorteio automático
   const [sorteioAutomatico, setSorteioAutomatico] = useState(false);
@@ -378,6 +429,35 @@ export default function Sorteios() {
     }, 300);
     return () => clearTimeout(timer);
   }, [serieDigitada]);
+
+  useEffect(() => {
+    return () => {
+      if (showcaseTimeoutRef.current) {
+        clearTimeout(showcaseTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const handleRevealShowcase = () => {
+    if (showcaseSuspense || showcaseIndex >= MOCK_RAFFLE_SHOWCASE.length) {
+      return;
+    }
+
+    setShowcaseSuspense(true);
+    if (showcaseTimeoutRef.current) {
+      clearTimeout(showcaseTimeoutRef.current);
+    }
+
+    showcaseTimeoutRef.current = window.setTimeout(() => {
+      setShowcaseIndex((prev) => {
+        const nextIndex = Math.min(prev + 1, MOCK_RAFFLE_SHOWCASE.length);
+        setShowcasePage(Math.max(0, nextIndex - 1));
+        return nextIndex;
+      });
+      setShowcaseCelebrationKey((prev) => prev + 1);
+      setShowcaseSuspense(false);
+    }, 1200);
+  };
 
   const parseCampaignId = (value?: string) => {
     if (!value) {
@@ -519,6 +599,16 @@ export default function Sorteios() {
     selectedCampaignIdNumber !== undefined
       ? campaigns.find((c) => Number(c.id) === selectedCampaignIdNumber)
       : undefined;
+  const orderedShowcase = useMemo(
+    () => [...MOCK_RAFFLE_SHOWCASE].reverse(),
+    []
+  );
+  const revealedShowcaseWinners = orderedShowcase.slice(0, showcaseIndex);
+  const showcaseComplete = showcaseIndex >= orderedShowcase.length;
+  const nextShowcaseWinner = orderedShowcase[showcaseIndex];
+  const currentShowcaseWinner = revealedShowcaseWinners[showcasePage];
+  const canGoPrevShowcase = showcasePage > 0;
+  const canGoNextShowcase = showcasePage < revealedShowcaseWinners.length - 1;
   const selectedCampaignStatus = selectedCampaign
     ? getCampaignStatus(selectedCampaign.data_inicio, selectedCampaign.data_fim)
     : undefined;
@@ -1299,22 +1389,13 @@ export default function Sorteios() {
             </Button>
             <Button
               onClick={() => {
-                if (participantesLoading) {
-                  toast.error('Aguardando carregamento dos participantes...');
-                  return;
-                }
-                if (participants.length === 0) {
-                  toast.error('Não há participantes para o sorteio');
-                  return;
-                }
-                setShowLiveRaffle(true);
+                setShowShowcaseScreen(true);
                 setTimeout(() => enterFullscreen(), 100);
               }}
-              disabled={participantesLoading}
-              className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white w-full sm:w-auto"
+              className="bg-gradient-to-r from-purple-600 via-pink-600 to-orange-500 hover:from-purple-700 hover:via-pink-700 hover:to-orange-600 text-white w-full sm:w-auto"
             >
               <Sparkles className="w-4 h-4 mr-2" />
-              Sorteio Ao Vivo
+              Sorteio ao vivo
             </Button>
             <Button
                onClick={() => setShowRaffleModal(true)}
@@ -2280,6 +2361,280 @@ export default function Sorteios() {
               }
               .animate-pulse-slow {
                 animation: pulse-slow 2s ease-in-out infinite;
+              }
+            `}</style>
+          </div>
+        )}
+
+        {showShowcaseScreen && (
+          <div className="fixed inset-0 z-[100] bg-gradient-to-br from-red-900 via-green-900 to-yellow-900 animate-gradient-shift overflow-hidden h-screen w-screen">
+            <div className="absolute inset-0 overflow-hidden pointer-events-none">
+              {Array.from({ length: 18 }).map((_, i) => (
+                <div
+                  key={`spotlight-${i}`}
+                  className="absolute text-white/60 text-3xl animate-float"
+                  style={{
+                    left: `${Math.random() * 100}%`,
+                    top: `${Math.random() * 100}%`,
+                    animationDelay: `${Math.random() * 4}s`,
+                    animationDuration: `${3 + Math.random() * 4}s`,
+                  }}
+                >
+                  ✨
+                </div>
+              ))}
+              <div className="absolute top-1/4 left-1/4 h-72 w-72 rounded-full bg-red-500/20 blur-3xl animate-pulse" />
+              <div className="absolute bottom-1/4 right-1/4 h-72 w-72 rounded-full bg-yellow-400/20 blur-3xl animate-pulse" />
+              <div className="absolute top-1/2 left-1/2 h-80 w-80 rounded-full bg-green-500/20 blur-3xl animate-pulse" />
+            </div>
+
+            <div className="relative z-10 h-screen w-screen flex flex-col">
+              <div className="flex items-center justify-between p-6 absolute top-0 left-0 right-0 bg-gradient-to-b from-black/30 to-transparent backdrop-blur-sm z-20">
+                <div className="flex items-center gap-4">
+                  <div className="w-3 h-3 bg-yellow-400 rounded-full animate-pulse" />
+                  <span className="text-white/90 text-lg font-semibold uppercase tracking-wider">
+                    Subtela de revelação teatral
+                  </span>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => {
+                    exitFullscreen();
+                    setShowShowcaseScreen(false);
+                  }}
+                  className="text-white hover:bg-white/20 rounded-full"
+                >
+                  <X className="w-6 h-6" />
+                </Button>
+              </div>
+
+              <div className="flex-1 flex flex-col items-center justify-center px-4 sm:px-8 py-6 pt-20 sm:pt-24 pb-20 sm:pb-24 relative overflow-y-auto overflow-x-hidden">
+                <div className="mb-6 text-center flex-shrink-0">
+                  <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4 mb-3 sm:mb-4">
+                    <span className="text-5xl sm:text-6xl animate-bounce flex-shrink-0">🎤</span>
+                    <h1 className="text-5xl sm:text-7xl font-black text-white drop-shadow-2xl animate-fade-in">
+                      Palco dos Ganhadores
+                    </h1>
+                    <span className="text-5xl sm:text-6xl animate-bounce flex-shrink-0" style={{ animationDelay: '0.5s' }}>🎬</span>
+                  </div>
+                  <p className="text-lg sm:text-2xl text-white/80 font-light tracking-[0.4em] uppercase">
+                    🎁 Revelação um a um 🎁
+                  </p>
+                </div>
+
+                <div className="w-full max-w-5xl flex flex-col gap-6 min-h-0">
+                  <div className="sticky top-0 z-10 flex flex-col gap-4 rounded-3xl border border-white/20 bg-black/40 p-4 sm:p-6 backdrop-blur-lg sm:flex-row sm:items-center sm:justify-between">
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 text-sm uppercase tracking-[0.3em] text-white/70">
+                        <Clock className="h-4 w-4" />
+                        Ritmo da revelação
+                      </div>
+                      <div className="text-3xl sm:text-4xl font-semibold text-white">
+                        {showcaseIndex} de {orderedShowcase.length} nomes revelados
+                      </div>
+                    </div>
+                    <div className="flex flex-col sm:flex-row flex-wrap gap-3 w-full sm:w-auto">
+                      <Button
+                        variant="outline"
+                        onClick={() => setShowcasePage((prev) => Math.max(0, prev - 1))}
+                        disabled={!canGoPrevShowcase}
+                        className="text-lg sm:text-xl px-6 sm:px-8 py-4 sm:py-6 bg-white/10 backdrop-blur-lg text-white border-white/30 hover:bg-white/20 shadow-2xl rounded-2xl w-full sm:w-auto"
+                      >
+                        Anterior
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() =>
+                          setShowcasePage((prev) => {
+                            if (revealedShowcaseWinners.length === 0) {
+                              return 0;
+                            }
+                            return Math.min(revealedShowcaseWinners.length - 1, prev + 1);
+                          })
+                        }
+                        disabled={!canGoNextShowcase}
+                        className="text-lg sm:text-xl px-6 sm:px-8 py-4 sm:py-6 bg-white/10 backdrop-blur-lg text-white border-white/30 hover:bg-white/20 shadow-2xl rounded-2xl w-full sm:w-auto"
+                      >
+                        Próximo
+                      </Button>
+                      <Button
+                        onClick={handleRevealShowcase}
+                        disabled={showcaseSuspense || showcaseComplete}
+                        className="text-lg sm:text-2xl px-6 sm:px-10 py-4 sm:py-6 bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 text-black shadow-2xl rounded-2xl w-full sm:w-auto animate-pulse-slow"
+                      >
+                        {showcaseComplete ? "Revelação concluída" : showcaseSuspense ? "Suspense..." : "Revelar próximo"}
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="rounded-3xl border border-white/20 bg-white/10 p-4 sm:p-6 backdrop-blur-lg">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                      <div>
+                        <p className="text-3xl sm:text-4xl font-semibold text-white">
+                          Informe o número da sorte e a série
+                        </p>
+                      </div>
+                      <Badge className="bg-white/10 text-white border border-white/20 w-fit">Visual</Badge>
+                    </div>
+                    <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium text-white/70">Número da sorte</Label>
+                        <Input
+                          value={showcaseNumero}
+                          onChange={(event) => setShowcaseNumero(event.target.value)}
+                          placeholder="00000"
+                          className="text-center text-3xl font-mono h-16 bg-white/10 border-white/30 text-white placeholder:text-white/40"
+                          inputMode="numeric"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium text-white/70">Série</Label>
+                        <Input
+                          value={showcaseSerie}
+                          onChange={(event) => setShowcaseSerie(event.target.value)}
+                          placeholder="0"
+                          className="text-center text-3xl font-mono h-16 bg-white/10 border-white/30 text-white placeholder:text-white/40"
+                          inputMode="numeric"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="relative grid gap-5 overflow-y-auto pr-1 sm:pr-2 max-h-[calc(100vh-420px)] sm:max-h-[calc(100vh-460px)]">
+                    {currentShowcaseWinner ? (
+                      <div className="relative rounded-3xl border border-white/20 bg-white/10 p-4 sm:p-6 backdrop-blur-lg animate-showcase-in">
+                        <div className="absolute inset-0 rounded-3xl bg-gradient-to-r from-purple-500/20 via-pink-500/20 to-orange-500/20 blur-2xl opacity-80" />
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative">
+                          <div className="flex items-center gap-4 flex-1 min-w-0">
+                            <span className="text-4xl sm:text-5xl">{currentShowcaseWinner.prize}</span>
+                            <div className="min-w-0">
+                              <p className="text-2xl sm:text-3xl font-semibold text-white leading-tight break-words">
+                                {currentShowcaseWinner.name}
+                              </p>
+                            </div>
+                          </div>
+                          <Badge className="bg-yellow-400 text-black border border-yellow-300 font-mono text-lg sm:text-xl px-4 sm:px-5 py-2 w-fit">
+                            Nº {currentShowcaseWinner.luckyNumber}
+                          </Badge>
+                        </div>
+                        <div className="mt-4 sm:mt-5 grid gap-4 text-base text-white/70 sm:grid-cols-3 relative">
+                          <div>
+                            <p className="text-xs uppercase tracking-[0.2em] text-white/50">Data compra</p>
+                            <p className="text-lg sm:text-xl text-white">{currentShowcaseWinner.purchaseDate}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs uppercase tracking-[0.2em] text-white/50">Padaria</p>
+                            <p className="text-lg sm:text-xl font-semibold text-white break-words">
+                              {currentShowcaseWinner.bakery}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs uppercase tracking-[0.2em] text-white/50">Status</p>
+                            <p className="text-lg sm:text-xl text-white">Revelado no palco</p>
+                          </div>
+                        </div>
+                        <div className="mt-6 flex flex-wrap items-center justify-between gap-3 text-white/70 relative">
+                          <span className="text-sm uppercase tracking-[0.3em]">Página</span>
+                          <span className="text-base font-semibold">
+                            {showcasePage + 1} de {revealedShowcaseWinners.length}
+                          </span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="rounded-3xl border border-dashed border-white/30 bg-white/10 p-6 sm:p-8 text-center backdrop-blur-lg">
+                        <p className="text-sm uppercase tracking-[0.3em] text-white/70">Aguardando revelação</p>
+                        <p className="mt-2 text-2xl sm:text-3xl font-semibold text-white">
+                          Clique em &quot;Revelar próximo&quot; para iniciar
+                        </p>
+                      </div>
+                    )}
+
+                    {currentShowcaseWinner && (
+                      <div
+                        key={`celebration-${showcaseCelebrationKey}`}
+                        className="pointer-events-none absolute inset-0 overflow-hidden"
+                      >
+                        {Array.from({ length: 16 }).map((_, i) => (
+                          <div
+                            key={`fall-${showcaseCelebrationKey}-${i}`}
+                            className="absolute animate-showcase-fall text-2xl sm:text-3xl"
+                            style={{
+                              left: `${Math.random() * 100}%`,
+                              top: `-${Math.random() * 20}%`,
+                              animationDelay: `${Math.random() * 0.6}s`,
+                              animationDuration: `${2.6 + Math.random() * 1.4}s`,
+                            }}
+                          >
+                            {i % 2 === 0 ? "⭐" : "🎄"}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="rounded-3xl border border-dashed border-white/30 bg-white/10 p-6 sm:p-8 text-center backdrop-blur-lg flex-shrink-0">
+                    {showcaseComplete ? (
+                      <>
+                        <p className="text-sm uppercase tracking-[0.3em] text-white/70">Cortinas fechadas</p>
+                        <p className="mt-2 text-2xl sm:text-3xl font-semibold text-white">Todos os nomes foram revelados!</p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="mt-2 text-2xl sm:text-3xl font-semibold text-white">
+                          {showcaseSuspense ? "🎬 Suspense no ar..." : "Próximo prêmio aguardando o clique"}
+                        </p>
+                        <div className={`mt-6 grid gap-4 sm:grid-cols-3 ${showcaseSuspense ? "animate-pulse" : ""}`}>
+                          <div className="rounded-2xl border border-white/20 bg-white/10 p-5">
+                            <p className="text-xs uppercase tracking-[0.2em] text-white/60">Prêmio</p>
+                            <p className="mt-3 text-2xl sm:text-3xl">{nextShowcaseWinner?.prize ?? "🎁"}</p>
+                          </div>
+                          <div className="rounded-2xl border border-white/20 bg-white/10 p-5">
+                            <p className="text-xs uppercase tracking-[0.2em] text-white/60">Número da sorte</p>
+                            <p className="mt-3 text-xl sm:text-2xl font-mono text-white">??/?????</p>
+                          </div>
+                          <div className="rounded-2xl border border-white/20 bg-white/10 p-5">
+                            <p className="text-xs uppercase tracking-[0.2em] text-white/60">Contemplado</p>
+                            <p className="mt-3 text-xl sm:text-2xl font-semibold text-white">???</p>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+            <style>{`
+              @keyframes showcase-fall {
+                0% {
+                  transform: translateY(-20vh) rotate(0deg);
+                  opacity: 0;
+                }
+                10% {
+                  opacity: 1;
+                }
+                100% {
+                  transform: translateY(110vh) rotate(360deg);
+                  opacity: 0;
+                }
+              }
+              .animate-showcase-fall {
+                animation: showcase-fall ease-in forwards;
+              }
+              @keyframes showcase-in {
+                0% {
+                  opacity: 0;
+                  transform: scale(0.9) translateY(20px);
+                }
+                100% {
+                  opacity: 1;
+                  transform: scale(1) translateY(0);
+                }
+              }
+              .animate-showcase-in {
+                animation: showcase-in 0.8s ease-out forwards;
               }
             `}</style>
           </div>
