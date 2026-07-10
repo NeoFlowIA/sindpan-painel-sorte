@@ -284,6 +284,49 @@ function mostFrequent<T>(values: T[]): T | null {
   return [...map.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
 }
 
+
+export function calculateCustomerConsumptionProfile(customerKey: string, purchases: NormalizedPurchase[]) {
+  const customerPurchases = purchases
+    .filter((purchase) => purchase.clienteKey === customerKey)
+    .sort((a, b) => Number(b.dataCompra || 0) - Number(a.dataCompra || 0));
+  const customers = calculateCustomerMetrics(customerPurchases);
+  const summary = customers[0] || null;
+  const categories = calculateCategoryMetrics(customerPurchases).slice(0, 6);
+  const products = calculateProductMetricsFromOCR(customerPurchases).slice(0, 8);
+  const paymentMethods = calculatePaymentMethodMetrics(customerPurchases);
+  const hourlyPattern = calculateHourlyPerformance(customerPurchases).filter((hour) => hour.purchases > 0);
+  const weekdayPattern = calculateWeekdayPerformance(customerPurchases).filter((day) => day.purchases > 0);
+  const combos = detectCombos(customerPurchases, 1).slice(0, 5);
+  const preferredPayment = paymentMethods.sort((a, b) => b.purchases - a.purchases)[0]?.method || "Não identificado";
+  const insights = [
+    summary?.preferredHour !== null && summary?.preferredHour !== undefined ? `Compra com mais frequência por volta de ${summary.preferredHour}h.` : "Ainda não há horário preferido suficiente.",
+    summary?.preferredWeekday ? `Dia com maior recorrência: ${summary.preferredWeekday}.` : "Ainda não há dia da semana preferido suficiente.",
+    categories[0] ? `Categoria mais presente: ${categories[0].category}.` : "OCR ainda não identificou categorias confiáveis para este cliente.",
+    preferredPayment !== "Não identificado" ? `Forma de pagamento mais comum: ${preferredPayment}.` : "Forma de pagamento ainda não identificada nas notas.",
+  ];
+
+  return {
+    customerKey,
+    summary,
+    purchases: customerPurchases,
+    recentPurchases: customerPurchases.slice(0, 8).map((purchase) => ({
+      id: purchase.id,
+      date: purchase.dataCompra ? format(purchase.dataCompra, "dd/MM/yyyy HH:mm") : "Sem data",
+      value: purchase.valorReais,
+      items: purchase.parsedOcr.itens.slice(0, 4).map((item) => item.descricaoNormalizada).join(", ") || "Itens não identificados",
+      paymentMethod: purchase.parsedOcr.formaPagamento,
+      ocrConfidence: purchase.parsedOcr.parserConfidence,
+    })),
+    categories,
+    products,
+    paymentMethods,
+    hourlyPattern,
+    weekdayPattern,
+    combos,
+    insights,
+  };
+}
+
 export function calculateRepurchaseMetrics(purchases: NormalizedPurchase[]) {
   const customers = calculateCustomerMetrics(purchases);
   const recurringCustomers = customers.filter((c) => c.purchases >= 2).length;

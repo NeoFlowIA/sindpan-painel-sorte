@@ -151,7 +151,7 @@ const App = () => (
             element={
               <AdminRoute>
                 <DashboardLayout>
-                  <DashboardComercial />
+                  <DashboardComercial scopeMode="admin" />
                 </DashboardLayout>
               </AdminRoute>
             }
@@ -176,6 +176,16 @@ const App = () => (
               <BakeryRoute>
                 <PadariaLayout>
                   <PadariaSorteio />
+                </PadariaLayout>
+              </BakeryRoute>
+            }
+          />
+          <Route
+            path="/padaria/dashboard-comercial"
+            element={
+              <BakeryRoute>
+                <PadariaLayout>
+                  <DashboardComercial scopeMode="bakery" />
                 </PadariaLayout>
               </BakeryRoute>
             }

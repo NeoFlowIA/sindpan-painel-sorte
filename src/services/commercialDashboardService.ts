@@ -16,6 +16,11 @@ export interface CommercialDashboardFilters {
   groupBy?: string;
 }
 
+export interface CommercialDashboardScope {
+  mode?: "admin" | "bakery";
+  forcedPadariaId?: string;
+}
+
 export interface CommercialDashboardOptions {
   padarias: Array<{ id: string; nome: string; cnpj?: string | null }>;
   clientes: Array<{ id: string; nome: string }>;
@@ -116,43 +121,60 @@ function applyClientFilters(purchases: RawPurchase[], filters: CommercialDashboa
   });
 }
 
-export async function fetchCommercialPurchases(filters: CommercialDashboardFilters): Promise<{ purchases: NormalizedPurchase[]; source: "api" | "mock" }> {
+export async function fetchCommercialPurchases(filters: CommercialDashboardFilters, scope: CommercialDashboardScope = {}): Promise<{ purchases: NormalizedPurchase[]; source: "api" | "mock" }> {
+  const scopedFilters = scope.forcedPadariaId ? { ...filters, padariaId: scope.forcedPadariaId } : filters;
   const variables = {
-    startDate: filters.startDate || null,
-    endDate: filters.endDate || null,
-    padariaId: filters.padariaId || null,
-    clienteId: filters.clienteId || null,
-    atendenteId: filters.atendenteId || null,
+    startDate: scopedFilters.startDate || null,
+    endDate: scopedFilters.endDate || null,
+    padariaId: scopedFilters.padariaId || null,
+    clienteId: scopedFilters.clienteId || null,
+    atendenteId: scopedFilters.atendenteId || null,
     limit: 5000,
   };
 
   try {
     let rawPurchases: RawPurchase[] = [];
-    try {
-      const loose = await graphqlClient.query<{ compras: RawPurchase[] }>(GET_COMMERCIAL_PURCHASES_LOOSE, { startDate: variables.startDate, endDate: variables.endDate, limit: 5000 });
-      rawPurchases = loose.compras || [];
-    } catch (error) {
-      console.warn("Consulta comercial ampla falhou; tentando consulta parametrizada compatível.", error);
+    if (scope.forcedPadariaId) {
       const data = await graphqlClient.query<{ compras: RawPurchase[] }>(GET_COMMERCIAL_PURCHASES, variables);
       rawPurchases = data.compras || [];
+    } else {
+      try {
+        const loose = await graphqlClient.query<{ compras: RawPurchase[] }>(GET_COMMERCIAL_PURCHASES_LOOSE, { startDate: variables.startDate, endDate: variables.endDate, limit: 5000 });
+        rawPurchases = loose.compras || [];
+      } catch (error) {
+        console.warn("Consulta comercial ampla falhou; tentando consulta parametrizada compatível.", error);
+        const data = await graphqlClient.query<{ compras: RawPurchase[] }>(GET_COMMERCIAL_PURCHASES, variables);
+        rawPurchases = data.compras || [];
+      }
     }
-    return { purchases: applyClientFilters(rawPurchases, filters).map(normalizePurchase), source: "api" };
+    return { purchases: applyClientFilters(rawPurchases, scopedFilters).map(normalizePurchase), source: "api" };
   } catch (error) {
     console.warn("Dashboard Comercial usando dados mockados de fallback.", error);
-    return { purchases: applyClientFilters(mockPurchases, filters).map(normalizePurchase), source: "mock" };
+    return { purchases: applyClientFilters(mockPurchases, scopedFilters).map(normalizePurchase), source: "mock" };
   }
 }
 
-export async function fetchCommercialDashboardOptions(): Promise<CommercialDashboardOptions> {
+function scopeOptions(options: CommercialDashboardOptions, scope: CommercialDashboardScope): CommercialDashboardOptions {
+  if (!scope.forcedPadariaId) return options;
+  const scopedRaw = mockPurchases.filter((purchase) => String(purchase.padaria_id) === scope.forcedPadariaId);
+  return {
+    padarias: options.padarias.filter((padaria) => padaria.id === scope.forcedPadariaId),
+    clientes: options.clientes.filter((cliente) => scopedRaw.some((purchase) => String(purchase.cliente_id) === cliente.id)),
+    atendentes: options.atendentes.filter((atendente) => scopedRaw.some((purchase) => String(purchase.atendente_id) === atendente.id)),
+    campanhas: options.campanhas,
+  };
+}
+
+export async function fetchCommercialDashboardOptions(scope: CommercialDashboardScope = {}): Promise<CommercialDashboardOptions> {
   try {
     const data = await graphqlClient.query<CommercialDashboardOptions>(GET_COMMERCIAL_OPTIONS);
-    return { padarias: data.padarias || [], clientes: data.clientes || [], atendentes: data.atendentes || [], campanhas: ((data as unknown as { campanha?: Array<{ id: string; Nome?: string; nome?: string; data_inicio?: string | null; data_fim?: string | null }> }).campanha || []).map((c) => ({ id: String(c.id), nome: c.Nome || c.nome || `Campanha ${c.id}`, data_inicio: c.data_inicio, data_fim: c.data_fim })) };
+    return scopeOptions({ padarias: data.padarias || [], clientes: data.clientes || [], atendentes: data.atendentes || [], campanhas: ((data as unknown as { campanha?: Array<{ id: string; Nome?: string; nome?: string; data_inicio?: string | null; data_fim?: string | null }> }).campanha || []).map((c) => ({ id: String(c.id), nome: c.Nome || c.nome || `Campanha ${c.id}`, data_inicio: c.data_inicio, data_fim: c.data_fim })) }, scope);
   } catch {
-    return {
+    return scopeOptions({
       padarias: Array.from(new Map(mockPurchases.map((p) => [String(p.padaria_id), { id: String(p.padaria_id), nome: p.padaria?.nome || "Padaria", cnpj: p.padaria?.cnpj }])).values()),
       clientes: Array.from(new Map(mockPurchases.map((p) => [String(p.cliente_id), { id: String(p.cliente_id), nome: p.cliente?.nome || "Cliente" }])).values()),
       atendentes: Array.from(new Map(mockPurchases.map((p) => [String(p.atendente_id), { id: String(p.atendente_id), nome: p.atendente?.nome || "Atendente" }])).values()),
       campanhas: [{ id: "mock-campanha", nome: "Campanha experimental", data_inicio: "2026-05-01T00:00:00.000Z", data_fim: "2026-06-30T23:59:59.999Z" }],
-    };
+    }, scope);
   }
 }

@@ -6,6 +6,7 @@ import {
   Clock,
   Eye,
   EyeOff,
+  FileSpreadsheet,
   Filter,
   Lightbulb,
   LucideIcon,
@@ -13,6 +14,7 @@ import {
   RefreshCw,
   Search,
   ShieldCheck,
+  ShoppingBasket,
   Sparkles,
   TrendingUp,
   Users,
@@ -37,6 +39,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { CommercialDashboardFilters } from "@/services/commercialDashboardService";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const BRAND_RED = "#880808";
 const BRAND_ORANGE = "#F89818";
@@ -82,7 +85,7 @@ interface TicketRangeData { label: string; purchases: number; notesShare: number
 interface CategoryData { category: string; totalValue: number }
 interface ProductData { product: string; category: string; purchases: number; totalValue: number }
 interface ComboData { combo: string; purchases: number; averageTicket: number }
-interface CustomerData { nome: string; whatsapp: string; nomeCompleto?: string; whatsappCompleto?: string; purchases: number; totalValue: number; averageTicket: number; status: string; lastPurchase: Date | null }
+export interface CustomerData { clienteKey: string; nome: string; whatsapp: string; nomeCompleto?: string; whatsappCompleto?: string; purchases: number; totalValue: number; averageTicket: number; highestPurchase?: number; firstPurchase?: Date | null; lastPurchase: Date | null; daysSinceLastPurchase?: number | null; preferredHour?: number | null; preferredWeekday?: string | null; topCategory?: string; status: string }
 interface OcrQualityData { validRaw: number; rawLiteral: number; withItems: number; withoutItems: number; itemCoverage: number; possibleDuplicates: number }
 interface PaymentMethodData { method: string; purchases: number; totalValue: number; averageTicket: number }
 interface SuspiciousData { id: string; cliente: string; padaria: string; value: number; date: string; reason: string }
@@ -93,6 +96,8 @@ interface FiltersProps {
   onRefresh: () => void;
   revealCustomerData: boolean;
   onToggleRevealCustomerData: () => void;
+  scopeMode?: "admin" | "bakery";
+  forcedPadariaName?: string;
   options: {
     padarias: Array<{ id: string; nome: string }>;
     clientes: Array<{ id: string; nome: string }>;
@@ -106,9 +111,10 @@ interface ScopeSummaryProps {
   padariaNome?: string;
   totalPurchases: number;
   totalValue: number;
+  scopeMode?: "admin" | "bakery";
 }
 
-export function CommercialScopeSummary({ filters, padariaNome, totalPurchases, totalValue }: ScopeSummaryProps) {
+export function CommercialScopeSummary({ filters, padariaNome, totalPurchases, totalValue, scopeMode = "admin" }: ScopeSummaryProps) {
   const scoped = Boolean(filters.padariaId);
 
   return (
@@ -122,14 +128,16 @@ export function CommercialScopeSummary({ filters, padariaNome, totalPurchases, t
               <Building2 className="h-7 w-7" />
             </div>
             <div>
-              <p className="text-sm font-medium uppercase tracking-[0.28em] text-white/75">Escopo administrativo</p>
+              <p className="text-sm font-medium uppercase tracking-[0.28em] text-white/75">{scopeMode === "bakery" ? "Escopo da padaria" : "Escopo administrativo"}</p>
               <h2 className="mt-1 text-2xl font-bold md:text-3xl">
                 {scoped ? padariaNome || "Padaria selecionada" : "Todas as padarias"}
               </h2>
               <p className="mt-2 max-w-2xl text-sm text-white/80">
-                {scoped
-                  ? "Você está analisando uma padaria específica. Limpe o filtro para voltar à visão consolidada do Admin."
-                  : "Visão consolidada do Admin com dados comerciais de todas as padarias participantes."}
+                {scopeMode === "bakery"
+                  ? "Dados restritos automaticamente à padaria vinculada ao seu login."
+                  : scoped
+                    ? "Você está analisando uma padaria específica. Limpe o filtro para voltar à visão consolidada do Admin."
+                    : "Visão consolidada do Admin com dados comerciais de todas as padarias participantes."}
               </p>
             </div>
           </div>
@@ -149,7 +157,7 @@ export function CommercialScopeSummary({ filters, padariaNome, totalPurchases, t
   );
 }
 
-export function CommercialDashboardFilters({ filters, onChange, onRefresh, revealCustomerData, onToggleRevealCustomerData, options }: FiltersProps) {
+export function CommercialDashboardFilters({ filters, onChange, onRefresh, revealCustomerData, onToggleRevealCustomerData, options, scopeMode = "admin", forcedPadariaName }: FiltersProps) {
   const update = (patch: CommercialDashboardFilters) => onChange({ ...filters, ...patch });
   const selectedBakery = options.padarias.find((item) => item.id === filters.padariaId);
   const selectedCampaign = options.campanhas.find((item) => item.id === filters.campaignId);
@@ -168,7 +176,8 @@ export function CommercialDashboardFilters({ filters, onChange, onRefresh, revea
     });
   };
 
-  const clear = () => onChange({ startDate: filters.startDate, endDate: filters.endDate });
+  const isBakeryScope = scopeMode === "bakery";
+  const clear = () => onChange({ startDate: filters.startDate, endDate: filters.endDate, padariaId: isBakeryScope ? filters.padariaId : undefined });
 
   return (
     <Card className="overflow-hidden border-primary/10 bg-card shadow-card">
@@ -179,12 +188,12 @@ export function CommercialDashboardFilters({ filters, onChange, onRefresh, revea
               <Filter className="h-5 w-5 text-primary" /> Filtros do Dashboard Comercial
             </CardTitle>
             <CardDescription>
-              Primeiro escolha se deseja analisar todas as padarias ou uma padaria específica. Depois refine período, campanha e cliente.
+              {isBakeryScope ? "Dados restritos automaticamente à sua padaria. Refine período, campanha e cliente." : "Primeiro escolha se deseja analisar todas as padarias ou uma padaria específica. Depois refine período, campanha e cliente."}
             </CardDescription>
           </div>
           <div className="flex flex-wrap gap-2">
             <Badge className="bg-primary text-primary-foreground">
-              {selectedBakery ? selectedBakery.nome : "Todas as padarias"}
+              {isBakeryScope ? forcedPadariaName || selectedBakery?.nome || "Minha padaria" : selectedBakery ? selectedBakery.nome : "Todas as padarias"}
             </Badge>
             {selectedCampaign && <Badge variant="secondary">{selectedCampaign.nome}</Badge>}
           </div>
@@ -196,25 +205,33 @@ export function CommercialDashboardFilters({ filters, onChange, onRefresh, revea
             <Building2 className="h-4 w-4 text-primary" />
             <div>
               <h3 className="font-semibold">Escopo por padaria</h3>
-              <p className="text-xs text-muted-foreground">Separado para o Admin alternar entre visão geral e análise individual.</p>
+              <p className="text-xs text-muted-foreground">{isBakeryScope ? "Sua visualização está fixada na padaria vinculada ao login." : "Separado para o Admin alternar entre visão geral e análise individual."}</p>
             </div>
           </div>
           <div className="grid gap-3 lg:grid-cols-[1fr_auto] lg:items-end">
             <div className="space-y-2">
               <Label>Padaria analisada</Label>
-              <Select value={filters.padariaId || "all"} onValueChange={(value) => update({ padariaId: value === "all" ? undefined : value })}>
+              <Select value={filters.padariaId || "all"} disabled={isBakeryScope} onValueChange={(value) => update({ padariaId: value === "all" ? undefined : value })}>
                 <SelectTrigger className="h-12 bg-background text-base font-medium">
-                  <SelectValue placeholder="Todas as padarias" />
+                  <SelectValue placeholder={isBakeryScope ? "Minha padaria" : "Todas as padarias"} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Todas as padarias</SelectItem>
-                  {options.padarias.map((item) => <SelectItem key={item.id} value={item.id}>{item.nome}</SelectItem>)}
+                  {isBakeryScope ? (
+                    <SelectItem value={filters.padariaId || "minha-padaria"}>{forcedPadariaName || selectedBakery?.nome || "Minha padaria"}</SelectItem>
+                  ) : (
+                    <>
+                      <SelectItem value="all">Todas as padarias</SelectItem>
+                      {options.padarias.map((item) => <SelectItem key={item.id} value={item.id}>{item.nome}</SelectItem>)}
+                    </>
+                  )}
                 </SelectContent>
               </Select>
             </div>
-            <Button variant="outline" className="h-12 border-primary/25" onClick={() => update({ padariaId: undefined })}>
-              Ver todas as padarias
-            </Button>
+            {!isBakeryScope && (
+              <Button variant="outline" className="h-12 border-primary/25" onClick={() => update({ padariaId: undefined })}>
+                Ver todas as padarias
+              </Button>
+            )}
           </div>
         </div>
 
@@ -453,27 +470,144 @@ export function ProductRankingTable({ products, combos }: { products: ProductDat
   );
 }
 
-export function CustomerRankingTable({ title, customers, revealSensitiveData }: { title: string; customers: CustomerData[]; revealSensitiveData: boolean }) {
+export function CustomerRankingTable({
+  title,
+  customers,
+  revealSensitiveData,
+  onExport,
+  onViewProfile,
+}: {
+  title: string;
+  customers: CustomerData[];
+  revealSensitiveData: boolean;
+  onExport?: () => void;
+  onViewProfile?: (customer: CustomerData) => void;
+}) {
   return (
     <DashboardCard
       title={title}
-      description={revealSensitiveData ? "Nomes e WhatsApp completos visíveis para Admin com consentimento LGPD." : "Dados pessoais mascarados para proteção de privacidade."}
+      description={revealSensitiveData ? "Nomes e WhatsApp completos visíveis com consentimento LGPD." : "Dados pessoais mascarados para proteção de privacidade."}
       icon={Users}
+      action={onExport ? (
+        <Button size="sm" variant="outline" className="border-primary/20 bg-background/70" onClick={onExport}>
+          <FileSpreadsheet className="mr-2 h-4 w-4" /> Exportar
+        </Button>
+      ) : undefined}
     >
-      <SimpleTable
-        headers={["Cliente", "WhatsApp", "Notas", "Valor", "Ticket", "Status", "Última compra"]}
-        rows={customers.map((c) => [
-          revealSensitiveData ? c.nomeCompleto || c.nome : c.nome,
-          revealSensitiveData ? c.whatsappCompleto || c.whatsapp : c.whatsapp,
-          c.purchases,
-          brl(c.totalValue),
-          brl(c.averageTicket),
-          c.status,
-          dateLabel(c.lastPurchase),
-        ])}
-        empty="Sem clientes nesta segmentação."
-      />
+      <div className="overflow-x-auto rounded-xl border border-primary/10 bg-background/70">
+        <Table>
+          <TableHeader className="bg-muted/70">
+            <TableRow>
+              {['Cliente', 'WhatsApp', 'Notas', 'Valor', 'Ticket', 'Status', 'Última compra', 'Ações'].map((h) => <TableHead key={h} className="font-semibold text-foreground">{h}</TableHead>)}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {customers.length ? customers.map((c) => (
+              <TableRow key={c.clienteKey} className="hover:bg-primary/5">
+                <TableCell className="min-w-[180px] font-medium">{revealSensitiveData ? c.nomeCompleto || c.nome : c.nome}</TableCell>
+                <TableCell className="whitespace-nowrap">{revealSensitiveData ? c.whatsappCompleto || c.whatsapp : c.whatsapp}</TableCell>
+                <TableCell className="whitespace-nowrap">{c.purchases}</TableCell>
+                <TableCell className="whitespace-nowrap font-semibold text-primary">{brl(c.totalValue)}</TableCell>
+                <TableCell className="whitespace-nowrap">{brl(c.averageTicket)}</TableCell>
+                <TableCell><Badge variant={c.status === 'VIP' ? 'default' : c.status === 'Em risco' ? 'destructive' : 'secondary'}>{c.status}</Badge></TableCell>
+                <TableCell className="whitespace-nowrap">{dateLabel(c.lastPurchase)}</TableCell>
+                <TableCell className="whitespace-nowrap">
+                  <Button size="sm" variant="ghost" className="text-primary hover:text-primary" onClick={() => onViewProfile?.(c)}>
+                    <ShoppingBasket className="mr-2 h-4 w-4" /> Ver padrão
+                  </Button>
+                </TableCell>
+              </TableRow>
+            )) : (
+              <TableRow><TableCell colSpan={8} className="text-muted-foreground">Sem clientes nesta segmentação.</TableCell></TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
     </DashboardCard>
+  );
+}
+
+interface CustomerProfileData {
+  summary: CustomerData | null;
+  recentPurchases: Array<{ id: string; date: string; value: number; items: string; paymentMethod: string; ocrConfidence: number }>;
+  categories: Array<{ category: string; purchases: number; totalValue: number }>;
+  products: Array<{ product: string; category: string; purchases: number; totalValue: number }>;
+  paymentMethods: PaymentMethodData[];
+  hourlyPattern: HourlyData[];
+  weekdayPattern: WeekdayData[];
+  combos: ComboData[];
+  insights: string[];
+}
+
+export function CustomerConsumptionModal({ open, onOpenChange, profile, revealSensitiveData }: { open: boolean; onOpenChange: (open: boolean) => void; profile: CustomerProfileData | null; revealSensitiveData: boolean }) {
+  const customer = profile?.summary;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[90vh] max-w-5xl overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-2xl">
+            <ShoppingBasket className="h-6 w-6 text-primary" /> Padrão de consumo do cliente
+          </DialogTitle>
+          <DialogDescription>
+            Visão comercial detalhada com dados do cliente {revealSensitiveData ? 'revelados conforme consentimento LGPD' : 'mascarados'}.
+          </DialogDescription>
+        </DialogHeader>
+
+        {customer && profile ? (
+          <div className="space-y-6">
+            <div className="rounded-2xl border border-primary/10 bg-gradient-to-r from-primary/5 via-background to-secondary/5 p-4">
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-secondary">Cliente analisado</p>
+                  <h3 className="text-2xl font-bold">{revealSensitiveData ? customer.nomeCompleto || customer.nome : customer.nome}</h3>
+                  <p className="text-sm text-muted-foreground">WhatsApp: {revealSensitiveData ? customer.whatsappCompleto || customer.whatsapp : customer.whatsapp}</p>
+                </div>
+                <Badge className="w-fit px-3 py-1 text-sm">{customer.status}</Badge>
+              </div>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <Metric label="Valor total" value={brl(customer.totalValue)} />
+              <Metric label="Compras" value={customer.purchases} />
+              <Metric label="Ticket médio" value={brl(customer.averageTicket)} />
+              <Metric label="Maior compra" value={brl(customer.highestPurchase || 0)} />
+              <Metric label="Primeira compra" value={dateLabel(customer.firstPurchase)} />
+              <Metric label="Última compra" value={dateLabel(customer.lastPurchase)} />
+              <Metric label="Horário preferido" value={customer.preferredHour !== null && customer.preferredHour !== undefined ? `${customer.preferredHour}h` : '-'} />
+              <Metric label="Categoria principal" value={customer.topCategory || 'Não identificada'} />
+            </div>
+
+            <div className="grid gap-4 lg:grid-cols-2">
+              <DashboardCard title="Preferências detectadas" description="Categorias, pagamentos e combos mais fortes para este cliente." icon={Sparkles}>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <SimpleTable headers={["Categoria", "Notas", "Valor"]} rows={profile.categories.map((c) => [c.category, c.purchases, brl(c.totalValue)])} empty="Sem categorias." />
+                  <SimpleTable headers={["Pagamento", "Notas", "Ticket"]} rows={profile.paymentMethods.map((p) => [p.method, p.purchases, brl(p.averageTicket)])} empty="Sem pagamento identificado." />
+                </div>
+                <SimpleTable headers={["Combo", "Notas", "Ticket médio"]} rows={profile.combos.map((c) => [c.combo, c.purchases, brl(c.averageTicket)])} empty="Sem combos identificados." />
+              </DashboardCard>
+
+              <DashboardCard title="Histórico recente" description="Últimas notas cadastradas no período filtrado." icon={Receipt}>
+                <SimpleTable headers={["Data", "Valor", "Pagamento", "Itens"]} rows={profile.recentPurchases.map((p) => [p.date, brl(p.value), p.paymentMethod, p.items])} empty="Sem histórico recente." />
+              </DashboardCard>
+            </div>
+
+            <div className="grid gap-4 lg:grid-cols-2">
+              <DashboardCard title="Produtos mais comuns" description="Produtos reconhecidos por OCR nas compras deste cliente." icon={Receipt}>
+                <SimpleTable headers={["Produto", "Categoria", "Notas", "Valor"]} rows={profile.products.map((p) => [p.product, p.category, p.purchases, brl(p.totalValue)])} empty="Sem produtos extraídos." />
+              </DashboardCard>
+              <DashboardCard title="Sugestões comerciais" description="Leituras rápidas para relacionamento e campanha." icon={Lightbulb}>
+                <div className="grid gap-2">
+                  {profile.insights.map((insight) => <div key={insight} className="rounded-xl border border-primary/10 bg-primary/5 p-3 text-sm text-muted-foreground">{insight}</div>)}
+                </div>
+              </DashboardCard>
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">Selecione um cliente para visualizar o padrão de consumo.</p>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -523,7 +657,7 @@ export function SuspiciousPurchasesTable({ rows }: { rows: SuspiciousData[] }) {
   );
 }
 
-function DashboardCard({ title, description, icon: Icon, children, accent = "brand" }: { title: string; description: string; icon: LucideIcon; children: React.ReactNode; accent?: "brand" | "orange" }) {
+function DashboardCard({ title, description, icon: Icon, children, accent = "brand", action }: { title: string; description: string; icon: LucideIcon; children: React.ReactNode; accent?: "brand" | "orange"; action?: React.ReactNode }) {
   const iconClass = accent === "orange" ? "bg-orange-100 text-orange-700" : "bg-primary/10 text-primary";
   return (
     <Card className="overflow-hidden border-primary/10 bg-card shadow-card">
@@ -531,6 +665,7 @@ function DashboardCard({ title, description, icon: Icon, children, accent = "bra
         <CardTitle className="flex items-center gap-3 text-lg">
           <span className={`flex h-10 w-10 items-center justify-center rounded-2xl ${iconClass}`}><Icon className="h-5 w-5" /></span>
           <span>{title}</span>
+          {action && <span className="ml-auto">{action}</span>}
         </CardTitle>
         <CardDescription>{description}</CardDescription>
       </CardHeader>
