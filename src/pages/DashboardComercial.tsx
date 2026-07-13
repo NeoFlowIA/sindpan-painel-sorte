@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { Component, ReactNode, useMemo, useState } from "react";
 import { addDays, subDays } from "date-fns";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -32,8 +32,31 @@ const toIso = (date: Date, end = false) => {
   return next.toISOString();
 };
 
-export default function DashboardComercial({ scopeMode = "admin" }: { scopeMode?: "admin" | "bakery" }) {
+interface DashboardComercialProps { scopeMode?: "admin" | "bakery" }
+
+export default function DashboardComercial({ scopeMode = "admin" }: DashboardComercialProps) {
   const { user } = useAuth();
+  const forcedPadariaId = scopeMode === "bakery" ? user?.padarias_id : undefined;
+  const padariaNome = user?.padarias?.nome || user?.bakery_name || "Minha padaria";
+
+  if (scopeMode === "bakery" && !forcedPadariaId) {
+    return (
+      <Alert variant="destructive">
+        <AlertTriangle className="h-4 w-4" />
+        <AlertTitle>Padaria não vinculada</AlertTitle>
+        <AlertDescription>Não encontramos uma padaria vinculada ao seu usuário. Peça ao suporte para revisar o cadastro antes de acessar o Dashboard Comercial.</AlertDescription>
+      </Alert>
+    );
+  }
+
+  return (
+    <DashboardComercialErrorBoundary>
+      <DashboardComercialContent scopeMode={scopeMode} forcedPadariaId={forcedPadariaId} padariaNome={padariaNome} />
+    </DashboardComercialErrorBoundary>
+  );
+}
+
+function DashboardComercialContent({ scopeMode, forcedPadariaId, padariaNome }: { scopeMode: "admin" | "bakery"; forcedPadariaId?: string; padariaNome: string }) {
   const [filters, setFilters] = useState<FilterType>(() => ({
     startDate: toIso(subDays(new Date(), 30)),
     endDate: toIso(addDays(new Date(), 1), true),
@@ -42,11 +65,10 @@ export default function DashboardComercial({ scopeMode = "admin" }: { scopeMode?
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerData | null>(null);
 
   const insightParams = useMemo(() => ({ ticketThreshold: 40, vipValueThreshold: 100, inactivityDays: 7, highTicketPercentile: 75, minOccurrencesForProductInsight: 3, minOccurrencesForComboInsight: 2 }), []);
-  const forcedPadariaId = scopeMode === "bakery" ? user?.padarias_id : undefined;
   const effectiveFilters = useMemo(() => forcedPadariaId ? { ...filters, padariaId: forcedPadariaId } : filters, [filters, forcedPadariaId]);
   const scope = useMemo(() => ({ mode: scopeMode, forcedPadariaId }), [scopeMode, forcedPadariaId]);
   const dashboard = useCommercialDashboard(effectiveFilters, insightParams, scope);
-  const selectedBakery = dashboard.options.padarias.find((padaria) => padaria.id === effectiveFilters.padariaId) || (forcedPadariaId ? { id: forcedPadariaId, nome: user?.padarias?.nome || "Minha padaria" } : undefined);
+  const selectedBakery = dashboard.options.padarias.find((padaria) => padaria.id === effectiveFilters.padariaId) || (forcedPadariaId ? { id: forcedPadariaId, nome: padariaNome } : undefined);
   const selectedCustomerProfile = useMemo(() => selectedCustomer ? calculateCustomerConsumptionProfile(selectedCustomer.clienteKey, dashboard.purchases) : null, [dashboard.purchases, selectedCustomer]);
 
   const visibleName = (customer: CustomerData) => revealCustomerData ? customer.nomeCompleto || customer.nome : customer.nome;
@@ -89,15 +111,6 @@ export default function DashboardComercial({ scopeMode = "admin" }: { scopeMode?
     exportToXLSX(`dashboard-comercial-segmentos-${slug(selectedBakery?.nome || "todas-padarias")}.xlsx`, "Segmentos", rows);
   };
 
-  if (scopeMode === "bakery" && !forcedPadariaId) {
-    return (
-      <Alert variant="destructive">
-        <AlertTriangle className="h-4 w-4" />
-        <AlertTitle>Padaria não vinculada</AlertTitle>
-        <AlertDescription>Não encontramos uma padaria vinculada ao seu usuário. Peça ao suporte para revisar o cadastro antes de acessar o Dashboard Comercial.</AlertDescription>
-      </Alert>
-    );
-  }
 
   return (
     <div className="min-h-screen space-y-7 pb-10">
@@ -205,6 +218,30 @@ export default function DashboardComercial({ scopeMode = "admin" }: { scopeMode?
       )}
     </div>
   );
+}
+
+class DashboardComercialErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+  state = { error: null as Error | null };
+
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+
+  componentDidCatch(error: Error) {
+    console.error("Erro ao renderizar Dashboard Comercial", error);
+  }
+
+  render() {
+    if (!this.state.error) return this.props.children;
+
+    return (
+      <Alert variant="destructive">
+        <AlertTriangle className="h-4 w-4" />
+        <AlertTitle>Não foi possível abrir o Dashboard Comercial</AlertTitle>
+        <AlertDescription>Recarregue a página. Se o problema persistir, acione o suporte com a mensagem: {this.state.error.message}</AlertDescription>
+      </Alert>
+    );
+  }
 }
 
 function SectionHeader({ eyebrow, title, description, icon }: { eyebrow: string; title: string; description: string; icon?: "sparkles" }) {

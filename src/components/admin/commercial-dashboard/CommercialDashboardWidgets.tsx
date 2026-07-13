@@ -159,8 +159,12 @@ export function CommercialScopeSummary({ filters, padariaNome, totalPurchases, t
 
 export function CommercialDashboardFilters({ filters, onChange, onRefresh, revealCustomerData, onToggleRevealCustomerData, options, scopeMode = "admin", forcedPadariaName }: FiltersProps) {
   const update = (patch: CommercialDashboardFilters) => onChange({ ...filters, ...patch });
-  const selectedBakery = options.padarias.find((item) => item.id === filters.padariaId);
-  const selectedCampaign = options.campanhas.find((item) => item.id === filters.campaignId);
+  const padariaOptions = options.padarias.filter((item) => item.id);
+  const clienteOptions = options.clientes.filter((item) => item.id);
+  const atendenteOptions = options.atendentes.filter((item) => item.id);
+  const campanhaOptions = options.campanhas.filter((item) => item.id);
+  const selectedBakery = padariaOptions.find((item) => item.id === filters.padariaId);
+  const selectedCampaign = campanhaOptions.find((item) => item.id === filters.campaignId);
 
   const selectCampaign = (value: string) => {
     if (value === "all") {
@@ -168,7 +172,7 @@ export function CommercialDashboardFilters({ filters, onChange, onRefresh, revea
       return;
     }
 
-    const campaign = options.campanhas.find((item) => item.id === value);
+    const campaign = campanhaOptions.find((item) => item.id === value);
     update({
       campaignId: value,
       startDate: campaign?.data_inicio || filters.startDate,
@@ -221,7 +225,7 @@ export function CommercialDashboardFilters({ filters, onChange, onRefresh, revea
                   ) : (
                     <>
                       <SelectItem value="all">Todas as padarias</SelectItem>
-                      {options.padarias.map((item) => <SelectItem key={item.id} value={item.id}>{item.nome}</SelectItem>)}
+                      {padariaOptions.map((item) => <SelectItem key={item.id} value={item.id}>{item.nome}</SelectItem>)}
                     </>
                   )}
                 </SelectContent>
@@ -255,7 +259,7 @@ export function CommercialDashboardFilters({ filters, onChange, onRefresh, revea
                 <SelectTrigger><SelectValue placeholder="Todas" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todas as campanhas</SelectItem>
-                  {options.campanhas.map((item) => <SelectItem key={item.id} value={item.id}>{item.nome}</SelectItem>)}
+                  {campanhaOptions.map((item) => <SelectItem key={item.id} value={item.id}>{item.nome}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -265,7 +269,7 @@ export function CommercialDashboardFilters({ filters, onChange, onRefresh, revea
                 <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos os clientes</SelectItem>
-                  {options.clientes.map((item) => <SelectItem key={item.id} value={item.id}>{item.nome}</SelectItem>)}
+                  {clienteOptions.map((item) => <SelectItem key={item.id} value={item.id}>{item.nome}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -275,7 +279,7 @@ export function CommercialDashboardFilters({ filters, onChange, onRefresh, revea
                 <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos atendentes</SelectItem>
-                  {options.atendentes.map((item) => <SelectItem key={item.id} value={item.id}>{item.nome}</SelectItem>)}
+                  {atendenteOptions.map((item) => <SelectItem key={item.id} value={item.id}>{item.nome}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
