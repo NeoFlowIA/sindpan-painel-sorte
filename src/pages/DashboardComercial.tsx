@@ -2,6 +2,7 @@ import { Component, ReactNode, useMemo, useState } from "react";
 import { addDays, subDays } from "date-fns";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCommercialDashboard } from "@/hooks/useCommercialDashboard";
 import { useAuth } from "@/contexts/AuthContext";
