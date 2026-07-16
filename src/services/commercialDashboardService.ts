@@ -32,18 +32,18 @@ const GET_COMMERCIAL_PURCHASES = `
   query GetCommercialPurchases($startDate: timestamptz, $endDate: timestamptz, $padariaId: uuid, $clienteId: uuid, $atendenteId: uuid, $limit: Int = 5000) {
     compras(
       where: {
-        data_compra: {_gte: $startDate, _lte: $endDate}
+        created_at: {_gte: $startDate, _lte: $endDate}
         padaria_id: {_eq: $padariaId}
         cliente_id: {_eq: $clienteId}
         atendente_id: {_eq: $atendenteId}
       }
       limit: $limit
-      order_by: {data_compra: desc}
+      order_by: {created_at: desc}
     ) {
       id
       valor_centavos
       data_compra
-      create_at
+      create_at: created_at
       cnpj_extraido
       ocr_confidence
       ocr_raw
@@ -62,11 +62,11 @@ const GET_COMMERCIAL_PURCHASES = `
 
 const GET_COMMERCIAL_PURCHASES_LOOSE = `
   query GetCommercialPurchasesLoose($startDate: timestamptz, $endDate: timestamptz, $limit: Int = 5000) {
-    compras(where: {data_compra: {_gte: $startDate, _lte: $endDate}}, limit: $limit, order_by: {data_compra: desc}) {
+    compras(where: {created_at: {_gte: $startDate, _lte: $endDate}}, limit: $limit, order_by: {created_at: desc}) {
       id
       valor_centavos
       data_compra
-      create_at
+      create_at: created_at
       cnpj_extraido
       ocr_confidence
       ocr_raw
@@ -105,6 +105,7 @@ const mockPurchases: RawPurchase[] = [
   { id: "mock-6", valor_centavos: 13690, data_compra: "2026-05-29T19:31:00", create_at: "2026-05-30T08:02:00", ocr_raw: "Aprovado manualmente via painel de auditoria", cliente_id: "c2", padaria_id: "p1", atendente_id: "a2", hash_idempotencia: "h5", cliente: { id: "c2", nome: "João Pereira", whatsapp: "85988887777" }, padaria: { id: "p1", nome: "Panificadora MM", cnpj: "01755085000180" }, atendente: { id: "a2", nome: "Bia" } },
 ];
 
+// A consulta do Hasura busca pelo cadastro (created_at), mas os filtros comerciais continuam usando data_compra.
 function applyClientFilters(purchases: RawPurchase[], filters: CommercialDashboardFilters) {
   return purchases.filter((purchase) => {
     const value = Number(purchase.valor_centavos || 0) / 100;
