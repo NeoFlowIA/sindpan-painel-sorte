@@ -181,7 +181,8 @@ export function CommercialDashboardFilters({ filters, onChange, onRefresh, revea
   };
 
   const isBakeryScope = scopeMode === "bakery";
-  const clear = () => onChange({ startDate: filters.startDate, endDate: filters.endDate, padariaId: isBakeryScope ? filters.padariaId : undefined });
+  const canIgnoreDatePeriod = !isBakeryScope && Boolean(filters.padariaId);
+  const clear = () => onChange({ startDate: filters.startDate, endDate: filters.endDate, padariaId: isBakeryScope ? filters.padariaId : undefined, ignoreDatePeriod: false });
 
   return (
     <Card className="overflow-hidden border-primary/10 bg-card shadow-card">
@@ -200,6 +201,7 @@ export function CommercialDashboardFilters({ filters, onChange, onRefresh, revea
               {isBakeryScope ? forcedPadariaName || selectedBakery?.nome || "Minha padaria" : selectedBakery ? selectedBakery.nome : "Todas as padarias"}
             </Badge>
             {selectedCampaign && <Badge variant="secondary">{selectedCampaign.nome}</Badge>}
+            {filters.ignoreDatePeriod && <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-900">Histórico completo</Badge>}
           </div>
         </div>
       </CardHeader>
@@ -215,7 +217,7 @@ export function CommercialDashboardFilters({ filters, onChange, onRefresh, revea
           <div className="grid gap-3 lg:grid-cols-[1fr_auto] lg:items-end">
             <div className="space-y-2">
               <Label>Padaria analisada</Label>
-              <Select value={filters.padariaId || "all"} disabled={isBakeryScope} onValueChange={(value) => update({ padariaId: value === "all" ? undefined : value })}>
+              <Select value={filters.padariaId || "all"} disabled={isBakeryScope} onValueChange={(value) => update({ padariaId: value === "all" ? undefined : value, ignoreDatePeriod: value === "all" ? false : filters.ignoreDatePeriod })}>
                 <SelectTrigger className="h-12 bg-background text-base font-medium">
                   <SelectValue placeholder={isBakeryScope ? "Minha padaria" : "Todas as padarias"} />
                 </SelectTrigger>
@@ -232,7 +234,7 @@ export function CommercialDashboardFilters({ filters, onChange, onRefresh, revea
               </Select>
             </div>
             {!isBakeryScope && (
-              <Button variant="outline" className="h-12 border-primary/25" onClick={() => update({ padariaId: undefined })}>
+              <Button variant="outline" className="h-12 border-primary/25" onClick={() => update({ padariaId: undefined, ignoreDatePeriod: false })}>
                 Ver todas as padarias
               </Button>
             )}
@@ -244,6 +246,28 @@ export function CommercialDashboardFilters({ filters, onChange, onRefresh, revea
             <Search className="h-4 w-4 text-secondary" />
             <h3 className="font-semibold">Filtros avançados</h3>
           </div>
+          {!isBakeryScope && (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4 text-sm text-amber-950">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <p className="font-semibold">Histórico completo da padaria</p>
+                  <p className="text-xs text-amber-900/80">Ative para puxar e analisar todas as compras da padaria selecionada, ignorando o período. Os gráficos de horários de pico continuam usando data_compra.</p>
+                </div>
+                <Button
+                  type="button"
+                  variant={filters.ignoreDatePeriod ? "secondary" : "outline"}
+                  disabled={!canIgnoreDatePeriod}
+                  aria-pressed={Boolean(filters.ignoreDatePeriod)}
+                  className="w-fit border-amber-300"
+                  onClick={() => update({ ignoreDatePeriod: canIgnoreDatePeriod ? !filters.ignoreDatePeriod : false })}
+                >
+                  {filters.ignoreDatePeriod ? "Histórico completo ativo" : "Analisar histórico completo"}
+                </Button>
+              </div>
+              {!canIgnoreDatePeriod && <p className="mt-2 text-xs text-amber-900/80">Selecione uma padaria específica para liberar este filtro.</p>}
+            </div>
+          )}
+
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
             <div className="space-y-2">
               <Label>Início</Label>

@@ -14,6 +14,7 @@ export interface CommercialDashboardFilters {
   includeAuditados?: boolean;
   includeOcrRaw?: boolean;
   groupBy?: string;
+  ignoreDatePeriod?: boolean;
 }
 
 export interface CommercialDashboardScope {
@@ -33,6 +34,37 @@ const GET_COMMERCIAL_PURCHASES = `
     compras(
       where: {
         create_at: {_gte: $startDate, _lte: $endDate}
+        padaria_id: {_eq: $padariaId}
+        cliente_id: {_eq: $clienteId}
+        atendente_id: {_eq: $atendenteId}
+      }
+      limit: $limit
+      order_by: {create_at: desc}
+    ) {
+      id
+      valor_centavos
+      data_compra
+      create_at
+      cnpj_extraido
+      ocr_confidence
+      ocr_raw
+      image_url
+      chave_acesso
+      hash_idempotencia
+      cliente_id
+      padaria_id
+      atendente_id
+      cliente { id nome whatsapp }
+      padaria { id nome cnpj }
+      atendente { id nome }
+    }
+  }
+`;
+
+const GET_COMMERCIAL_PURCHASES_BY_PADARIA_ALL_TIME = `
+  query GetCommercialPurchasesByPadariaAllTime($padariaId: uuid!, $clienteId: uuid, $atendenteId: uuid, $limit: Int = 5000) {
+    compras(
+      where: {
         padaria_id: {_eq: $padariaId}
         cliente_id: {_eq: $clienteId}
         atendente_id: {_eq: $atendenteId}
@@ -106,6 +138,7 @@ const mockPurchases: RawPurchase[] = [
 ];
 
 // A consulta do Hasura busca pelo cadastro (create_at), mas os filtros comerciais continuam usando data_compra.
+// Quando ignoreDatePeriod estiver ativo, o Admin analisa todas as compras da padaria escolhida sem recorte de período.
 function applyClientFilters(purchases: RawPurchase[], filters: CommercialDashboardFilters) {
   return purchases.filter((purchase) => {
     const value = Number(purchase.valor_centavos || 0) / 100;
@@ -114,8 +147,8 @@ function applyClientFilters(purchases: RawPurchase[], filters: CommercialDashboa
     if (filters.padariaCnpj && (purchase.padaria?.cnpj || purchase.cnpj_extraido || "").replace(/\D/g, "") !== filters.padariaCnpj.replace(/\D/g, "")) return false;
     if (filters.clienteId && String(purchase.cliente_id) !== filters.clienteId) return false;
     if (filters.atendenteId && String(purchase.atendente_id) !== filters.atendenteId) return false;
-    if (filters.startDate && date && date < new Date(filters.startDate)) return false;
-    if (filters.endDate && date && date > new Date(filters.endDate)) return false;
+    if (!filters.ignoreDatePeriod && filters.startDate && date && date < new Date(filters.startDate)) return false;
+    if (!filters.ignoreDatePeriod && filters.endDate && date && date > new Date(filters.endDate)) return false;
     if (filters.minTicket !== undefined && value < filters.minTicket) return false;
     if (filters.maxTicket !== undefined && value > filters.maxTicket) return false;
     return true;
@@ -135,7 +168,10 @@ export async function fetchCommercialPurchases(filters: CommercialDashboardFilte
 
   try {
     let rawPurchases: RawPurchase[] = [];
-    if (scope.forcedPadariaId) {
+    if (scopedFilters.ignoreDatePeriod && scopedFilters.padariaId) {
+      const data = await graphqlClient.query<{ compras: RawPurchase[] }>(GET_COMMERCIAL_PURCHASES_BY_PADARIA_ALL_TIME, { padariaId: variables.padariaId, clienteId: variables.clienteId, atendenteId: variables.atendenteId, limit: variables.limit });
+      rawPurchases = data.compras || [];
+    } else if (scope.forcedPadariaId) {
       const data = await graphqlClient.query<{ compras: RawPurchase[] }>(GET_COMMERCIAL_PURCHASES, variables);
       rawPurchases = data.compras || [];
     } else {
