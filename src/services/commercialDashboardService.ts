@@ -62,12 +62,10 @@ const GET_COMMERCIAL_PURCHASES = `
 `;
 
 const GET_COMMERCIAL_PURCHASES_BY_PADARIA_ALL_TIME = `
-  query GetCommercialPurchasesByPadariaAllTime($padariaId: uuid!, $clienteId: uuid, $atendenteId: uuid, $limit: Int = 5000) {
+  query GetCommercialPurchasesByPadariaAllTime($padariaId: uuid!, $limit: Int = 5000) {
     compras(
       where: {
         padaria_id: {_eq: $padariaId}
-        cliente_id: {_eq: $clienteId}
-        atendente_id: {_eq: $atendenteId}
       }
       limit: $limit
       order_by: {create_at: desc}
@@ -169,7 +167,7 @@ export async function fetchCommercialPurchases(filters: CommercialDashboardFilte
   try {
     let rawPurchases: RawPurchase[] = [];
     if (scopedFilters.ignoreDatePeriod && scopedFilters.padariaId) {
-      const data = await graphqlClient.query<{ compras: RawPurchase[] }>(GET_COMMERCIAL_PURCHASES_BY_PADARIA_ALL_TIME, { padariaId: variables.padariaId, clienteId: variables.clienteId, atendenteId: variables.atendenteId, limit: variables.limit });
+      const data = await graphqlClient.query<{ compras: RawPurchase[] }>(GET_COMMERCIAL_PURCHASES_BY_PADARIA_ALL_TIME, { padariaId: variables.padariaId, limit: variables.limit });
       rawPurchases = data.compras || [];
     } else if (scope.forcedPadariaId) {
       const data = await graphqlClient.query<{ compras: RawPurchase[] }>(GET_COMMERCIAL_PURCHASES, variables);
