@@ -91,6 +91,7 @@ const CATEGORY_KEYWORDS: Record<string, string[]> = {
 };
 
 const WEEKDAYS = ["domingo", "segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado"];
+const PEAK_HOURS = Array.from({ length: 17 }, (_, index) => index + 6);
 
 const stripAccents = (text: string) => text.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 const normalizeToken = (text: string) => stripAccents(text).toUpperCase().replace(/\s+/g, " ").trim();
@@ -235,13 +236,17 @@ export function normalizePurchase(rawPurchase: RawPurchase): NormalizedPurchase 
 }
 
 export function calculateHourlyPerformance(purchases: NormalizedPurchase[]) {
-  const totalValue = purchases.reduce((sum, p) => sum + p.valorReais, 0);
-  return Array.from({ length: 24 }, (_, hour) => {
-    const items = purchases.filter((p) => p.dataCompra?.getHours() === hour);
+  const eligiblePurchases = purchases.filter((p) => {
+    const hour = p.dataCompra?.getHours();
+    return hour !== undefined && hour >= 6 && hour <= 22;
+  });
+  const totalValue = eligiblePurchases.reduce((sum, p) => sum + p.valorReais, 0);
+  return PEAK_HOURS.map((hour) => {
+    const items = eligiblePurchases.filter((p) => p.dataCompra?.getHours() === hour);
     const customerCounts = new Map<string, number>();
     items.forEach((p) => customerCounts.set(p.clienteKey, (customerCounts.get(p.clienteKey) || 0) + 1));
     const value = items.reduce((sum, p) => sum + p.valorReais, 0);
-    return { hour, label: `${hour}h`, purchases: items.length, totalValue: value, averageTicket: average(items.map((p) => p.valorReais)), uniqueCustomers: customerCounts.size, recurringCustomers: [...customerCounts.values()].filter((count) => count >= 2).length, valueShare: percent(value, totalValue), volumeShare: percent(items.length, purchases.length) };
+    return { hour, label: `${hour}h`, purchases: items.length, totalValue: value, averageTicket: average(items.map((p) => p.valorReais)), uniqueCustomers: customerCounts.size, recurringCustomers: [...customerCounts.values()].filter((count) => count >= 2).length, valueShare: percent(value, totalValue), volumeShare: percent(items.length, eligiblePurchases.length) };
   });
 }
 

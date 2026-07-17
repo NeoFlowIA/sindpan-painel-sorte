@@ -378,7 +378,7 @@ export function HourlyPerformanceChart({ data }: { data: HourlyData[] }) {
   const bestVolume = [...data].sort((a, b) => b.purchases - a.purchases)[0];
 
   return (
-    <DashboardCard title="Comportamento por horário" description="Usa a data/hora da compra extraída da nota fiscal." icon={Clock}>
+    <DashboardCard title="Comportamento por horário" description="Usa data_compra e desconsidera notas entre 23h e 5h." icon={Clock}>
       <div className="h-72">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
