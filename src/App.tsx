@@ -19,6 +19,7 @@ import RelatorioSorteios from "./pages/RelatorioSorteios";
 import SorteiosLive from "./pages/SorteiosLive";
 import Campanhas from "./pages/Campanhas";
 import AuditoriaNotas from "./pages/AuditoriaNotas";
+import DashboardComercial from "./pages/DashboardComercial";
 import { LoginPadaria } from "./pages/padaria/Login";
 import { RegisterPadaria } from "./pages/padaria/Register";
 import { PadariaDashboard } from "./pages/padaria/Dashboard";
@@ -145,6 +146,17 @@ const App = () => (
             }
           />
 
+          <Route
+            path="/admin/dashboard-comercial"
+            element={
+              <AdminRoute>
+                <DashboardLayout>
+                  <DashboardComercial scopeMode="admin" />
+                </DashboardLayout>
+              </AdminRoute>
+            }
+          />
+
           {/* Padaria Routes - Protected */}
           <Route path="/padaria/login" element={<LoginPadaria />} />
           <Route path="/padaria/cadastro" element={<RegisterPadaria />} />
@@ -164,6 +176,16 @@ const App = () => (
               <BakeryRoute>
                 <PadariaLayout>
                   <PadariaSorteio />
+                </PadariaLayout>
+              </BakeryRoute>
+            }
+          />
+          <Route
+            path="/padaria/dashboard-comercial"
+            element={
+              <BakeryRoute>
+                <PadariaLayout>
+                  <DashboardComercial scopeMode="bakery" />
                 </PadariaLayout>
               </BakeryRoute>
             }

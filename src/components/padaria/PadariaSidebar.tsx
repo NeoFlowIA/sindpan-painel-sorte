@@ -1,4 +1,4 @@
-import { Home, Trophy, Store, UserRound } from "lucide-react";
+import { BarChart3, Home, Trophy, Store, UserRound } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
   Sidebar,
@@ -16,6 +16,7 @@ import {
 const navigation = [
   { title: "Dashboard", url: "/padaria/dashboard", icon: Home },
   { title: "Sorteio", url: "/padaria/sorteio", icon: Trophy },
+  { title: "Dashboard Comercial", url: "/padaria/dashboard-comercial", icon: BarChart3 },
   { title: "Atendentes", url: "/padaria/atendentes", icon: UserRound },
 ];
 
