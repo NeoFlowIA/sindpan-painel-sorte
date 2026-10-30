@@ -4,7 +4,8 @@ import { sindpanAuthApi, User as SindpanUser } from '@/services/sindpanAuthApi';
 import { useUser } from '@/hooks/useUsers';
 import { graphqlClient } from '@/lib/graphql-client';
 import { toast } from 'sonner';
-import { GET_PADARIA_BY_CNPJ, UPSERT_PADARIA_USER } from '@/graphql/queries';
+import { GET_PADARIA_BY_CNPJ } from '@/graphql/queries';
+import { initializeBakeryAccess } from '@/services/bakeryFirstAccess';
 
 interface User {
   id: string;
@@ -318,6 +319,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
         throw new Error('Informe um CNPJ válido com 14 dígitos');
       }
 
+      if (password.length < 8) {
+        throw new Error('A senha deve ter pelo menos 8 caracteres.');
+      }
+
       const padariaResponse = await (graphqlClient as any).query(GET_PADARIA_BY_CNPJ, { cnpj: sanitizedCnpj });
 
       const padaria = padariaResponse.padarias?.[0];
@@ -330,16 +335,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
         throw new Error('Padaria ainda não está ativa. Entre em contato com o SINDPAN.');
       }
 
-      const passwordHash = await bcrypt.hash(password, 10);
-
-      const upsertResponse = await (graphqlClient as any).mutate(UPSERT_PADARIA_USER, {
+      const upsertedUser = await initializeBakeryAccess(graphqlClient, {
         cnpj: sanitizedCnpj,
         padarias_id: padaria.id,
-        password_hash: passwordHash,
         bakery_name: padaria.nome,
-      });
-
-      const upsertedUser = upsertResponse.insert_users_one;
+      }, () => bcrypt.hash(password, 10));
 
       if (!upsertedUser) {
         throw new Error('Não foi possível atualizar o usuário da padaria.');

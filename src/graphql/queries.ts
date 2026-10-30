@@ -280,37 +280,6 @@ export const GET_PADARIA_BY_CNPJ = `
   }
 `;
 
-export const UPSERT_PADARIA_USER = `
-  mutation UpsertPadariaUser(
-    $cnpj: String!
-    $padarias_id: uuid!
-    $password_hash: String!
-    $bakery_name: String!
-  ) {
-    insert_users_one(
-      object: {
-        cnpj: $cnpj
-        padarias_id: $padarias_id
-        role: "bakery"
-        password_hash: $password_hash
-        bakery_name: $bakery_name
-      }
-      on_conflict: {
-        constraint: users_cnpj_key
-        update_columns: [padarias_id, password_hash, role, bakery_name]
-      }
-    ) {
-      id
-      email
-      cnpj
-      bakery_name
-      role
-      padarias_id
-      password_hash
-    }
-  }
-`;
-
 // Query para listar participantes
 export const GET_PARTICIPANTES = `
   query GetParticipantes($limit: Int, $offset: Int) {
