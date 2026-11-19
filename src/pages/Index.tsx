@@ -242,10 +242,8 @@ const Index = () => {
             <KPICard
               title="Padarias Ativas"
               value={padariasAtivas.toString()}
-              subtitle="Total cadastradas"
               icon={Store}
               variant="primary"
-              trend={{ value: 12, isPositive: true }}
             />
             <KPICard
               title="Cupons Validados"
