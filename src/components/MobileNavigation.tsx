@@ -6,7 +6,9 @@ import {
   FileText,
   Settings,
   Home,
-  CalendarRange
+  CalendarRange,
+  LineChart,
+  ShieldCheck
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -20,7 +22,9 @@ const navigation = [
   { title: "Campanhas", url: "/campanhas", icon: CalendarRange },
   { title: "Sorteios", url: "/sorteios", icon: Trophy },
   { title: "Relatórios", url: "/relatorios", icon: FileText },
+  { title: "Dashboard Comercial", url: "/admin/dashboard-comercial", icon: LineChart },
   { title: "Configurações", url: "/configuracoes", icon: Settings },
+  { title: "Auditoria", url: "/auditoria", icon: ShieldCheck },
 ];
 
 export function MobileNavigation() {

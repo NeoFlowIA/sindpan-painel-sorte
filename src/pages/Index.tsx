@@ -28,7 +28,7 @@ type DashboardMetrics = {
   clientes_aggregate: { aggregate: { count: number } };
   cupons_aggregate: { aggregate: { count: number } };
   cupons: Array<{ id: string; data_compra: string; valor_compra: string }>;
-  padarias_aggregate: { aggregate: { count: number } };
+  padarias_ativas: { aggregate: { count: number } };
   sorteios_aggregate: { aggregate: { count: number } };
   proximo_sorteio: Array<{
     id: string;
@@ -85,7 +85,7 @@ const Index = () => {
   );
 
   // Calcular estatísticas
-  const totalPadarias = metricsData?.padarias_aggregate?.aggregate?.count || 0;
+  const padariasAtivas = metricsData?.padarias_ativas?.aggregate?.count ?? 0;
   const totalCupons = metricsData?.cupons_aggregate?.aggregate?.count || 0;
   const totalClientes = metricsData?.clientes_aggregate?.aggregate?.count || 0;
   const totalSorteios = metricsData?.sorteios_aggregate?.aggregate?.count || 0;
@@ -240,12 +240,10 @@ const Index = () => {
         ) : (
           <>
             <KPICard
-              title="Padarias Participantes"
-              value={totalPadarias.toString()}
-              subtitle="Total cadastradas"
+              title="Padarias Ativas"
+              value={padariasAtivas.toString()}
               icon={Store}
               variant="primary"
-              trend={{ value: 12, isPositive: true }}
             />
             <KPICard
               title="Cupons Validados"

@@ -63,10 +63,7 @@ export function DashboardCharts({ dateRange }: DashboardChartsProps) {
             data_compra
             valor_compra
           }
-          padarias(
-            order_by: {cupons_aggregate: {count: desc}}
-            limit: 6
-          ) {
+          padarias(where: {status: {_eq: "ativa"}}) {
             nome
             cupons_aggregate(
               where: {
@@ -86,7 +83,11 @@ export function DashboardCharts({ dateRange }: DashboardChartsProps) {
   });
 
   // Processar dados para gráfico de barras
-  const bakeryData = (metricsData?.padarias || []).map(p => ({
+  const padariasOrdenadas = [...(metricsData?.padarias ?? [])].sort((a, b) =>
+    b.cupons_aggregate.aggregate.count - a.cupons_aggregate.aggregate.count ||
+    a.nome.localeCompare(b.nome, 'pt-BR')
+  );
+  const bakeryData = padariasOrdenadas.slice(0, 6).map(p => ({
     name: p.nome,
     coupons: p.cupons_aggregate.aggregate.count
   }));
@@ -117,11 +118,11 @@ export function DashboardCharts({ dateRange }: DashboardChartsProps) {
 
   // Calcular distribuição (Top 5 padarias individualizadas) - Melhorado
   const participationData = (() => {
-    if (!metricsData?.padarias || metricsData.padarias.length === 0) {
+    if (padariasOrdenadas.length === 0) {
       return [{ name: "Sem dados", value: 100, color: "hsl(var(--muted))" }];
     }
 
-    const todasTotal = metricsData.padarias.reduce((acc, p) => acc + p.cupons_aggregate.aggregate.count, 0);
+    const todasTotal = padariasOrdenadas.reduce((acc, p) => acc + p.cupons_aggregate.aggregate.count, 0);
     
     if (todasTotal === 0) {
       return [{ name: "Sem cupons", value: 100, color: "hsl(var(--muted))" }];
@@ -138,11 +139,6 @@ export function DashboardCharts({ dateRange }: DashboardChartsProps) {
       "#84cc16", // Lima
       "#f97316", // Laranja escuro
     ];
-
-    // Ordenar padarias por número de cupons (maior para menor)
-    const padariasOrdenadas = [...metricsData.padarias].sort((a, b) =>
-      b.cupons_aggregate.aggregate.count - a.cupons_aggregate.aggregate.count
-    );
 
     // Top 5 padarias com percentuais
     const top5 = padariasOrdenadas.slice(0, 5).map((p, index) => {

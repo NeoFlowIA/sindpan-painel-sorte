@@ -113,6 +113,7 @@ export const GET_PADARIAS = `
 export const GET_PADARIAS_RANKING = `
   query GetPadariasRanking($limit: Int, $startDate: timestamptz, $endDate: timestamptz) {
     padarias(
+      where: {status: {_eq: "ativa"}}
       limit: $limit,
       order_by: {cupons_aggregate: {count: desc}}
     ) {
@@ -1439,7 +1440,7 @@ export const GET_ADMIN_DASHBOARD_METRICS = `
       valor_compra
       status
     }
-    padarias_aggregate {
+    padarias_ativas: padarias_aggregate(where: {status: {_eq: "ativa"}}) {
       aggregate {
         count
       }
@@ -1459,7 +1460,10 @@ export const GET_ADMIN_DASHBOARD_METRICS = `
       numero_sorteado
     }
     compras(
-      where: {data_compra: {_gte: $startDate, _lte: $endDate}}
+      where: {
+        data_compra: {_gte: $startDate, _lte: $endDate}
+        padaria: {status: {_eq: "ativa"}}
+      }
       order_by: {data_compra: desc}
       limit: 5000
     ) {
